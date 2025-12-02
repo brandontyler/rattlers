@@ -100,21 +100,23 @@ class LocationsTable:
     def list_all(
         self,
         status: Optional[str] = None,
-        limit: int = 50,
     ) -> List[Dict]:
         """List all locations with optional status filter."""
-        # TODO: Implement pagination and GSI queries
-        # For MVP, we'll do a table scan (not ideal for production)
-
+        items = []
+        scan_kwargs = {}
+        
         if status:
-            response = self.table.scan(
-                FilterExpression=Attr("status").eq(status),
-                Limit=limit,
-            )
-        else:
-            response = self.table.scan(Limit=limit)
+            scan_kwargs["FilterExpression"] = Attr("status").eq(status)
+        
+        # Paginate through all results
+        while True:
+            response = self.table.scan(**scan_kwargs)
+            items.extend(response.get("Items", []))
+            
+            if "LastEvaluatedKey" not in response:
+                break
+            scan_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
 
-        items = response.get("Items", [])
         return [decimal_to_float(item) for item in items]
 
     def increment_feedback_count(self, location_id: str) -> None:

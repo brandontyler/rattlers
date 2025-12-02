@@ -23,7 +23,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         status = params.get("status", "active")
         min_rating = float(params.get("minRating", 0))
         page = int(params.get("page", 1))
-        page_size = min(int(params.get("pageSize", 50)), 100)
+        page_size = min(int(params.get("pageSize", 50)), 500)  # Allow up to 500 for map view
 
         # Get locations from database
         locations_table = LocationsTable()
