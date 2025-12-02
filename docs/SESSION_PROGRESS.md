@@ -99,6 +99,11 @@ frontend/
 - ✅ Responsive layout with Tailwind
 - ✅ TypeScript types for all data models
 - ✅ React Query setup for server state
+- ✅ Leaflet map integration with custom markers
+- ✅ Location popups with details
+- ✅ "Near me" geolocation button
+- ✅ Loading states and error handling
+- ✅ Real API data fetching
 
 ### 3. Backend Functions (`/backend/`)
 
@@ -319,51 +324,73 @@ Fields:
 - ✅ All code committed to branch
 - ✅ Project structure created
 - ✅ Documentation written
-- ✅ CDK stack defined
-- ✅ Example Lambda functions implemented
-- ✅ Frontend application scaffolded
+- ✅ CDK stack defined and deployed
+- ✅ Lambda functions implemented
+- ✅ Frontend application with Leaflet map
 - ✅ Deployment scripts ready
+- ✅ AWS infrastructure deployed (CDK)
+- ✅ Frontend deployed to S3/CloudFront
+- ✅ DynamoDB tables created with GSIs
+- ✅ Cognito User Pool configured
+- ✅ API Gateway endpoints live
+- ✅ 146 locations imported and geocoded
+- ✅ Map integration complete (Leaflet)
+- ✅ Real API data connected to frontend
 
-### Not Yet Deployed
-- ⏳ AWS infrastructure (CDK deploy)
-- ⏳ Frontend to S3/CloudFront
-- ⏳ DynamoDB tables created
-- ⏳ Cognito User Pool configured
-- ⏳ API Gateway endpoints live
+### In Progress
+- ⏳ CORS restriction (currently allows all origins)
+- ⏳ Rate limiting configuration
+- ⏳ Feedback/likes system
+- ⏳ Location suggestions workflow
 
 ---
 
 ## 📝 Next Steps (When You Return)
 
-### Immediate (MVP):
+### ✅ Completed (MVP):
 
-1. **Deploy Infrastructure**
+1. **Deploy Infrastructure** ✅
    ```bash
    cd infrastructure
    cdk bootstrap  # First time only
    cdk deploy
    ```
 
-2. **Import Your 148 Locations**
-   - Export from Google Maps (KML or CSV)
-   - Create import script
-   - Geocode addresses to lat/lng
-   - Bulk insert to DynamoDB
+2. **Import Your 146 Locations** ✅
+   - Exported from Google Maps (CSV)
+   - Geocoded addresses to lat/lng
+   - Bulk inserted to DynamoDB
 
-3. **Implement Map Interface**
-   - Add Leaflet to HomePage
-   - Display location markers
-   - Click marker → location details
-   - "Near me" geolocation
+3. **Implement Map Interface** ✅
+   - Added Leaflet to HomePage
+   - Display location markers with custom icons
+   - Click marker → location popup
+   - "Near me" geolocation button
 
-4. **Complete Lambda Functions**
+4. **Connect Frontend to API** ✅
+   - HomePage fetches real data
+   - Loading states implemented
+   - Dynamic location count
+
+5. **DynamoDB GSIs** ✅
+   - status-createdAt-index
+   - status-averageRating-index
+   - Efficient queries (no table scans)
+
+### ⏳ In Progress (This Week):
+
+6. **Security Hardening**
+   - Restrict CORS to your domain
+   - Add API Gateway rate limiting
+
+7. **Complete Lambda Functions**
    - Submit feedback
    - Report inactive
    - Submit suggestion
    - Approve/reject suggestions
    - Photo upload (presigned URLs)
 
-5. **Admin Dashboard**
+8. **Admin Dashboard**
    - List pending suggestions
    - Approve/reject interface
    - Flagged locations review
@@ -467,19 +494,21 @@ Fields:
 - Documentation
 - **Status:** Done!
 
-### ⏳ Phase 1: MVP (Weeks 1-4)
+### ✅ Phase 1: MVP (COMPLETE)
 - Deploy infrastructure
-- Import 148 locations
-- Map interface
+- Import 146 locations
+- Map interface with Leaflet
 - Basic CRUD operations
 - Authentication
 - Manual location management
+- **Status:** Done! 🎉
 
-### 🔮 Phase 1.5: Admin Tools (Weeks 5-6)
+### ⏳ Phase 1.5: Admin Tools (In Progress)
 - Admin dashboard
 - Suggestion review
 - Inactive reports management
 - Easy location add/edit
+- **Status:** Next up
 
 ### 🔮 Phase 2: Route Planning (Weeks 7-10)
 - Route optimization algorithm
@@ -541,9 +570,9 @@ Fields:
 
 ## 🐛 Known Limitations (To Address)
 
-1. **No geocoding service yet** - Need to add address → lat/lng conversion
-2. **Table scans instead of queries** - Should add GSIs for performance
-3. **No proximity search** - Need geohashing for "near me" searches
+1. ~~**No geocoding service yet**~~ ✅ Fixed - Locations geocoded via import script
+2. ~~**Table scans instead of queries**~~ ✅ Fixed - GSIs added for efficient queries
+3. **No proximity search** - Need geohashing for "near me" filtering (map shows all)
 4. **CORS allows all origins** - Should restrict to actual domain in prod
 5. **No rate limiting** - Should add per-user throttling
 6. **No image optimization** - Should add Lambda for photo processing

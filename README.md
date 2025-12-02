@@ -132,15 +132,16 @@ AWS Free Tier covers most MVP costs initially.
 ## Roadmap
 
 - [x] Project planning and architecture
-- [ ] MVP development (Weeks 1-4)
-  - [ ] Infrastructure setup
-  - [ ] Frontend shell with map integration
-  - [ ] Backend API endpoints
-  - [ ] Authentication
-  - [ ] Basic CRUD operations
-- [ ] Admin dashboard (Weeks 5-6)
-- [ ] Route optimization (Weeks 7-10)
-- [ ] Community features (Weeks 11-14)
+- [x] MVP development
+  - [x] Infrastructure setup (CDK deployed)
+  - [x] Frontend shell with map integration (Leaflet working)
+  - [x] Backend API endpoints (Lambda functions)
+  - [x] Authentication (Cognito)
+  - [x] Basic CRUD operations
+  - [x] 146 locations imported and geocoded
+- [ ] Admin dashboard (In Progress)
+- [ ] Community features (likes, ratings, suggestions)
+- [ ] Route optimization (Future)
 - [ ] Mobile apps (Future)
 
 ## Contributing
