@@ -16,14 +16,60 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Parse query parameters
         params = event.get("queryStringParameters") or {}
 
-        lat = params.get("lat")
-        lng = params.get("lng")
-        radius = float(params.get("radius", 10))
-        search = params.get("search", "").lower()
-        status = params.get("status", "active")
-        min_rating = float(params.get("minRating", 0))
-        page = int(params.get("page", 1))
-        page_size = min(int(params.get("pageSize", 50)), 500)  # Allow up to 500 for map view
+        # Validate and parse parameters
+        try:
+            lat = float(params.get("lat")) if params.get("lat") else None
+            lng = float(params.get("lng")) if params.get("lng") else None
+            radius = float(params.get("radius", 10))
+            search = params.get("search", "").strip().lower()
+            status = params.get("status", "active")
+            min_rating = float(params.get("minRating", 0))
+            page = int(params.get("page", 1))
+            page_size = int(params.get("pageSize", 50))
+
+            # Validate bounds
+            if radius < 0 or radius > 100:
+                return error_response(
+                    code="VALIDATION_ERROR",
+                    message="Radius must be between 0 and 100 miles",
+                    status_code=400,
+                )
+
+            if min_rating < 0 or min_rating > 5:
+                return error_response(
+                    code="VALIDATION_ERROR",
+                    message="Rating must be between 0 and 5",
+                    status_code=400,
+                )
+
+            if page < 1:
+                page = 1
+
+            if page_size < 1:
+                page_size = 50
+            elif page_size > 500:  # Allow up to 500 for map view
+                page_size = 500
+
+            if lat is not None and (lat < -90 or lat > 90):
+                return error_response(
+                    code="VALIDATION_ERROR",
+                    message="Latitude must be between -90 and 90",
+                    status_code=400,
+                )
+
+            if lng is not None and (lng < -180 or lng > 180):
+                return error_response(
+                    code="VALIDATION_ERROR",
+                    message="Longitude must be between -180 and 180",
+                    status_code=400,
+                )
+
+        except (ValueError, TypeError) as e:
+            return error_response(
+                code="VALIDATION_ERROR",
+                message=f"Invalid parameter format: {str(e)}",
+                status_code=400,
+            )
 
         # Get locations from database
         locations_table = LocationsTable()

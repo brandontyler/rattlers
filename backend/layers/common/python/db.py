@@ -99,24 +99,45 @@ class LocationsTable:
 
     def list_all(
         self,
-        status: Optional[str] = None,
+        status: Optional[str] = "active",
+        limit: int = 500,  # Increase default to support map view
+        sort_by_rating: bool = False,
     ) -> List[Dict]:
-        """List all locations with optional status filter."""
-        items = []
-        scan_kwargs = {}
-        
-        if status:
-            scan_kwargs["FilterExpression"] = Attr("status").eq(status)
-        
-        # Paginate through all results
-        while True:
-            response = self.table.scan(**scan_kwargs)
-            items.extend(response.get("Items", []))
-            
-            if "LastEvaluatedKey" not in response:
-                break
-            scan_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
+        """
+        List all locations using GSI query (optimized).
 
+        Args:
+            status: Status to filter by (default: active)
+            limit: Maximum number of items to return (default: 500)
+            sort_by_rating: If True, sort by rating (descending), else by createdAt
+
+        Returns:
+            List of location dictionaries
+        """
+        if not status:
+            status = "active"
+
+        # Choose GSI based on sort preference
+        if sort_by_rating:
+            # Use rating index to get top-rated displays
+            index_name = "status-averageRating-index"
+            response = self.table.query(
+                IndexName=index_name,
+                KeyConditionExpression=Key("status").eq(status),
+                Limit=limit,
+                ScanIndexForward=False,  # Descending order (highest rating first)
+            )
+        else:
+            # Use createdAt index for newest first
+            index_name = "status-createdAt-index"
+            response = self.table.query(
+                IndexName=index_name,
+                KeyConditionExpression=Key("status").eq(status),
+                Limit=limit,
+                ScanIndexForward=False,  # Descending order (newest first)
+            )
+
+        items = response.get("Items", [])
         return [decimal_to_float(item) for item in items]
 
     def increment_feedback_count(self, location_id: str) -> None:
