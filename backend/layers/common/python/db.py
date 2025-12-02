@@ -100,7 +100,7 @@ class LocationsTable:
     def list_all(
         self,
         status: Optional[str] = "active",
-        limit: int = 50,
+        limit: int = 500,  # Increase default to support map view
         sort_by_rating: bool = False,
     ) -> List[Dict]:
         """
@@ -108,7 +108,7 @@ class LocationsTable:
 
         Args:
             status: Status to filter by (default: active)
-            limit: Maximum number of items to return
+            limit: Maximum number of items to return (default: 500)
             sort_by_rating: If True, sort by rating (descending), else by createdAt
 
         Returns:

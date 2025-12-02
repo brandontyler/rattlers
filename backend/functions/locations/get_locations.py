@@ -47,8 +47,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
             if page_size < 1:
                 page_size = 50
-            elif page_size > 100:
-                page_size = 100
+            elif page_size > 500:  # Allow up to 500 for map view
+                page_size = 500
 
             if lat is not None and (lat < -90 or lat > 90):
                 return error_response(

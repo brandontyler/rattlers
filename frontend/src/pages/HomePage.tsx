@@ -1,62 +1,32 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MapView } from '@/components/map';
 import { Button, Card, Input, Select, Badge } from '@/components/ui';
 import type { Location } from '@/types';
-
-// Mock data for demonstration (will be replaced with API calls)
-const mockLocations: Location[] = [
-  {
-    id: '1',
-    address: '123 Christmas Lane, Dallas, TX',
-    lat: 32.7767,
-    lng: -96.7970,
-    description: 'Amazing synchronized light display with music',
-    photos: [],
-    status: 'active',
-    feedbackCount: 12,
-    averageRating: 4.8,
-    likeCount: 45,
-    reportCount: 0,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    address: '456 Holiday Way, Fort Worth, TX',
-    lat: 32.7555,
-    lng: -97.3308,
-    description: 'Traditional nativity scene with beautiful lights',
-    photos: [],
-    status: 'active',
-    feedbackCount: 8,
-    averageRating: 4.5,
-    likeCount: 32,
-    reportCount: 0,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    address: '789 Winter Street, Plano, TX',
-    lat: 33.0198,
-    lng: -96.6989,
-    description: 'Massive inflatable display with Santa and reindeer',
-    photos: [],
-    status: 'active',
-    feedbackCount: 15,
-    averageRating: 4.9,
-    likeCount: 67,
-    reportCount: 0,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+import { apiService } from '@/services/api';
 
 export default function HomePage() {
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [ratingFilter, setRatingFilter] = useState('');
   const [radiusFilter, setRadiusFilter] = useState('10');
+
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const response = await apiService.getLocations({ pageSize: 500 });
+        if (response.success) {
+          setLocations(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch locations:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLocations();
+  }, []);
 
   return (
     <div className="animate-fade-in">
@@ -82,7 +52,7 @@ export default function HomePage() {
             </h1>
 
             <p className="text-xl md:text-2xl text-cream-100 mb-8 leading-relaxed animate-slide-up" style={{ animationDelay: '0.2s' }}>
-              Explore over <span className="font-bold text-gold-300">148 spectacular displays</span> across the Dallas-Fort Worth area.
+              Explore over <span className="font-bold text-gold-300">{locations.length || 146} spectacular displays</span> across the Dallas-Fort Worth area.
               Plan your perfect tour and create magical memories this holiday season.
             </p>
 
@@ -112,7 +82,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             <Card className="text-center card-glow">
               <div className="text-5xl md:text-6xl font-display font-bold text-burgundy-600 mb-2">
-                148
+                {locations.length || '...'}
               </div>
               <p className="text-forest-700 font-medium">Light Displays</p>
               <p className="text-sm text-forest-500 mt-1">And growing every day!</p>
@@ -120,18 +90,18 @@ export default function HomePage() {
 
             <Card className="text-center card-glow">
               <div className="text-5xl md:text-6xl font-display font-bold text-forest-600 mb-2">
-                2.5K
+                0
               </div>
               <p className="text-forest-700 font-medium">Community Reviews</p>
-              <p className="text-sm text-forest-500 mt-1">Real families, real experiences</p>
+              <p className="text-sm text-forest-500 mt-1">Be the first to review!</p>
             </Card>
 
             <Card className="text-center card-glow">
               <div className="text-5xl md:text-6xl font-display font-bold text-gold-600 mb-2">
-                856
+                0
               </div>
               <p className="text-forest-700 font-medium">Routes Planned</p>
-              <p className="text-sm text-forest-500 mt-1">Making memories together</p>
+              <p className="text-sm text-forest-500 mt-1">Coming soon!</p>
             </Card>
           </div>
         </div>
@@ -182,13 +152,22 @@ export default function HomePage() {
 
           {/* Interactive Map */}
           <div className="max-w-7xl mx-auto">
-            <MapView
-              locations={mockLocations}
-              height="650px"
-              onLocationClick={(location) => {
-                console.log('Location clicked:', location);
-              }}
-            />
+            {loading ? (
+              <div className="h-[650px] bg-cream-100 rounded-xl flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-burgundy-600 mx-auto mb-4"></div>
+                  <p className="text-forest-600">Loading locations...</p>
+                </div>
+              </div>
+            ) : (
+              <MapView
+                locations={locations}
+                height="650px"
+                onLocationClick={(location) => {
+                  console.log('Location clicked:', location);
+                }}
+              />
+            )}
           </div>
         </div>
       </section>

@@ -54,6 +54,11 @@ class LocationImporter:
                 raise ValueError("Google API key required for Google geocoding")
             self.geocoder = GoogleV3(api_key=google_api_key)
             self.rate_limit = 0.1  # Google allows higher rate
+        elif geocode_service == "aws":
+            self.geocoder = None  # Will use boto3 directly
+            self.location_client = boto3.client('location')
+            self.place_index = "christmas-lights-geocoder"
+            self.rate_limit = 0.1  # AWS allows high rate
         else:
             raise ValueError(f"Unknown geocoding service: {geocode_service}")
 
@@ -129,33 +134,46 @@ class LocationImporter:
         Returns:
             Tuple of (latitude, longitude) or None if geocoding fails
         """
+        # Add DFW area context to improve accuracy
+        search_address = address
+        if 'TX' not in address.upper() and 'TEXAS' not in address.upper():
+            search_address = f"{address}, Dallas-Fort Worth, TX"
+
         for attempt in range(retry):
             try:
-                # Add "Texas" if not present to improve accuracy
-                search_address = address
-                if 'TX' not in address.upper() and 'TEXAS' not in address.upper():
-                    search_address = f"{address}, Texas"
-
-                location = self.geocoder.geocode(search_address)
-
-                if location:
-                    # Rate limiting
-                    time.sleep(self.rate_limit)
-                    return (location.latitude, location.longitude)
+                if self.geocode_service == "aws":
+                    # Use Amazon Location Service
+                    response = self.location_client.search_place_index_for_text(
+                        IndexName=self.place_index,
+                        Text=search_address,
+                        MaxResults=1,
+                        BiasPosition=[-96.7970, 32.7767],  # DFW center,
+                    )
+                    if response.get('Results'):
+                        point = response['Results'][0]['Place']['Geometry']['Point']
+                        # AWS returns [lng, lat], we need (lat, lng)
+                        time.sleep(self.rate_limit)
+                        return (point[1], point[0])
+                    else:
+                        print(f"  ⚠ Could not geocode: {address}")
+                        return None
                 else:
-                    print(f"  ⚠ Could not geocode: {address}")
-                    return None
+                    # Use geopy geocoder (Nominatim or Google)
+                    location = self.geocoder.geocode(search_address)
+                    if location:
+                        time.sleep(self.rate_limit)
+                        return (location.latitude, location.longitude)
+                    else:
+                        print(f"  ⚠ Could not geocode: {address}")
+                        return None
 
-            except (GeocoderTimedOut, GeocoderServiceError) as e:
+            except Exception as e:
                 if attempt < retry - 1:
                     print(f"  ⚠ Geocoding error, retrying... ({attempt + 1}/{retry})")
                     time.sleep(2)
                 else:
                     print(f"  ✗ Failed to geocode after {retry} attempts: {address}")
                     return None
-            except Exception as e:
-                print(f"  ✗ Unexpected error geocoding {address}: {str(e)}")
-                return None
 
         return None
 
@@ -312,7 +330,7 @@ def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description='Import Google Maps locations')
     parser.add_argument('input_csv', help='Path to Google Maps export CSV')
-    parser.add_argument('--geocode', choices=['nominatim', 'google'], default='nominatim',
+    parser.add_argument('--geocode', choices=['nominatim', 'google', 'aws'], default='nominatim',
                         help='Geocoding service to use (default: nominatim)')
     parser.add_argument('--google-api-key', help='Google Geocoding API key (required for --geocode google)')
     parser.add_argument('--output-csv', help='Output CSV file path (optional)')

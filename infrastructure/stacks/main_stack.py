@@ -352,23 +352,13 @@ class ChristmasLightsStack(Stack):
     def create_cloudfront_distribution(self):
         """Create CloudFront distribution for frontend."""
 
-        # Origin Access Identity for S3
-        oai = cloudfront.OriginAccessIdentity(
-            self,
-            "OAI",
-            comment=f"OAI for Christmas Lights frontend {self.env_name}",
-        )
-
-        self.frontend_bucket.grant_read(oai)
-
-        # CloudFront distribution
+        # CloudFront distribution with S3 origin using OAC
         self.distribution = cloudfront.Distribution(
             self,
             "Distribution",
             default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.S3Origin(
+                origin=origins.S3BucketOrigin.with_origin_access_control(
                     self.frontend_bucket,
-                    origin_access_identity=oai,
                 ),
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
