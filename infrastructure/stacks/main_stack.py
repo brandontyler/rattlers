@@ -67,6 +67,30 @@ class ChristmasLightsStack(Stack):
             removal_policy=RemovalPolicy.DESTROY if self.env_name == "dev" else RemovalPolicy.RETAIN,
         )
 
+        # Add GSI for querying by status and creation date
+        self.locations_table.add_global_secondary_index(
+            index_name="status-createdAt-index",
+            partition_key=dynamodb.Attribute(
+                name="status", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="createdAt", type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
+        # Add GSI for querying by status and rating (for top-rated displays)
+        self.locations_table.add_global_secondary_index(
+            index_name="status-averageRating-index",
+            partition_key=dynamodb.Attribute(
+                name="status", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="averageRating", type=dynamodb.AttributeType.NUMBER
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
         # Feedback table
         self.feedback_table = dynamodb.Table(
             self,
@@ -109,6 +133,12 @@ class ChristmasLightsStack(Stack):
             auto_delete_objects=self.env_name == "dev",
         )
 
+        # Determine allowed origins for S3 CORS
+        if self.env_name == "prod":
+            s3_allowed_origins = ["https://christmaslights.example.com"]
+        else:
+            s3_allowed_origins = ["http://localhost:5173", "http://localhost:3000"]
+
         # Photos bucket
         self.photos_bucket = s3.Bucket(
             self,
@@ -117,8 +147,9 @@ class ChristmasLightsStack(Stack):
             cors=[
                 s3.CorsRule(
                     allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST],
-                    allowed_origins=["*"],  # TODO: Restrict to actual domain
-                    allowed_headers=["*"],
+                    allowed_origins=s3_allowed_origins,
+                    allowed_headers=["Content-Type", "Content-Length"],
+                    max_age=3000,
                 )
             ],
             lifecycle_rules=[
@@ -186,30 +217,33 @@ class ChristmasLightsStack(Stack):
     def create_lambda_functions(self):
         """Create Lambda functions."""
 
+        # Determine allowed origin for CORS
+        if self.env_name == "prod":
+            allowed_origin = "https://christmaslights.example.com"
+        else:
+            allowed_origin = "http://localhost:5173"
+
         # Common environment variables
         common_env = {
             "LOCATIONS_TABLE_NAME": self.locations_table.table_name,
             "FEEDBACK_TABLE_NAME": self.feedback_table.table_name,
             "SUGGESTIONS_TABLE_NAME": self.suggestions_table.table_name,
             "PHOTOS_BUCKET_NAME": self.photos_bucket.bucket_name,
+            "ALLOWED_ORIGIN": allowed_origin,
+            "ENV_NAME": self.env_name,
         }
 
-        # Common Lambda configuration
-        lambda_config = {
-            "runtime": lambda_.Runtime.PYTHON_3_12,
-            "timeout": Duration.seconds(30),
-            "memory_size": 512,
-            "environment": common_env,
-            "layers": [self.common_layer],
-        }
-
-        # Locations functions
+        # Locations functions - read operations (optimized)
         self.get_locations_fn = lambda_.Function(
             self,
             "GetLocationsFunction",
             handler="get_locations.handler",
             code=lambda_.Code.from_asset("../backend/functions/locations"),
-            **lambda_config,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),  # Quick read operations
+            memory_size=256,  # Less memory for simple queries
+            environment=common_env,
+            layers=[self.common_layer],
         )
         self.locations_table.grant_read_data(self.get_locations_fn)
 
@@ -218,16 +252,25 @@ class ChristmasLightsStack(Stack):
             "GetLocationByIdFunction",
             handler="get_location_by_id.handler",
             code=lambda_.Code.from_asset("../backend/functions/locations"),
-            **lambda_config,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(5),  # Very fast single-item read
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
         )
         self.locations_table.grant_read_data(self.get_location_by_id_fn)
 
+        # Create location - write operation (needs more time)
         self.create_location_fn = lambda_.Function(
             self,
             "CreateLocationFunction",
             handler="create_location.handler",
             code=lambda_.Code.from_asset("../backend/functions/locations"),
-            **lambda_config,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(15),  # Write operations need more time
+            memory_size=512,
+            environment=common_env,
+            layers=[self.common_layer],
         )
         self.locations_table.grant_read_write_data(self.create_location_fn)
 
@@ -248,16 +291,36 @@ class ChristmasLightsStack(Stack):
             cognito_user_pools=[self.user_pool],
         )
 
-        # Create API
+        # Determine allowed origins based on environment
+        if self.env_name == "prod":
+            # TODO: Replace with your actual production domain
+            allowed_origins = ["https://christmaslights.example.com"]
+        else:
+            # Development: allow localhost
+            allowed_origins = [
+                "http://localhost:5173",
+                "http://localhost:3000",
+                f"https://{self.distribution.distribution_domain_name}" if hasattr(self, 'distribution') else "http://localhost:5173"
+            ]
+
+        # Create API with rate limiting
         self.api = apigw.RestApi(
             self,
             "ChristmasLightsApi",
             rest_api_name=f"christmas-lights-api-{self.env_name}",
             description="Christmas Lights Finder API",
             default_cors_preflight_options=apigw.CorsOptions(
-                allow_origins=apigw.Cors.ALL_ORIGINS,  # TODO: Restrict in production
+                allow_origins=allowed_origins,
                 allow_methods=apigw.Cors.ALL_METHODS,
                 allow_headers=["Content-Type", "Authorization"],
+            ),
+            deploy_options=apigw.StageOptions(
+                stage_name=self.env_name,
+                throttling_rate_limit=100,  # Requests per second
+                throttling_burst_limit=200,  # Burst capacity
+                logging_level=apigw.MethodLoggingLevel.INFO,
+                data_trace_enabled=True,
+                metrics_enabled=True,
             ),
         )
 

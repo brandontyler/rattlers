@@ -1,8 +1,22 @@
 """API response utilities."""
 
 import json
+import os
 from typing import Any, Dict, Optional
 from http import HTTPStatus
+
+
+def _get_cors_headers() -> Dict[str, str]:
+    """Get CORS headers with appropriate origin."""
+    allowed_origin = os.environ.get("ALLOWED_ORIGIN", "*")
+
+    return {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": allowed_origin,
+        "Access-Control-Allow-Headers": "Content-Type,Authorization",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+        "Access-Control-Max-Age": "3600",
+    }
 
 
 def success_response(
@@ -27,12 +41,7 @@ def success_response(
 
     return {
         "statusCode": status_code,
-        "headers": {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Content-Type,Authorization",
-            "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-        },
+        "headers": _get_cors_headers(),
         "body": json.dumps(body, default=str),
     }
 
@@ -59,12 +68,7 @@ def error_response(
 
     return {
         "statusCode": status_code,
-        "headers": {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Content-Type,Authorization",
-            "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-        },
+        "headers": _get_cors_headers(),
         "body": json.dumps(body),
     }
 
