@@ -50,9 +50,14 @@ src/
 - ✅ API service layer
 - ✅ TypeScript types
 - ✅ Tailwind CSS styling
-- ⏳ Map integration (Leaflet) - Coming soon
-- ⏳ Location search and filtering - Coming soon
+- ✅ Map integration (Leaflet) with custom markers
+- ✅ Location popups with details
+- ✅ "Near me" geolocation
+- ✅ Loading states
+- ✅ Real API data fetching
+- ⏳ Location search and filtering - Partial (UI exists, needs wiring)
 - ⏳ User feedback system - Coming soon
+- ⏳ Route planning - Coming soon
 
 ## Tech Stack
 
