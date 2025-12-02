@@ -99,20 +99,43 @@ class LocationsTable:
 
     def list_all(
         self,
-        status: Optional[str] = None,
+        status: Optional[str] = "active",
         limit: int = 50,
+        sort_by_rating: bool = False,
     ) -> List[Dict]:
-        """List all locations with optional status filter."""
-        # TODO: Implement pagination and GSI queries
-        # For MVP, we'll do a table scan (not ideal for production)
+        """
+        List all locations using GSI query (optimized).
 
-        if status:
-            response = self.table.scan(
-                FilterExpression=Attr("status").eq(status),
+        Args:
+            status: Status to filter by (default: active)
+            limit: Maximum number of items to return
+            sort_by_rating: If True, sort by rating (descending), else by createdAt
+
+        Returns:
+            List of location dictionaries
+        """
+        if not status:
+            status = "active"
+
+        # Choose GSI based on sort preference
+        if sort_by_rating:
+            # Use rating index to get top-rated displays
+            index_name = "status-averageRating-index"
+            response = self.table.query(
+                IndexName=index_name,
+                KeyConditionExpression=Key("status").eq(status),
                 Limit=limit,
+                ScanIndexForward=False,  # Descending order (highest rating first)
             )
         else:
-            response = self.table.scan(Limit=limit)
+            # Use createdAt index for newest first
+            index_name = "status-createdAt-index"
+            response = self.table.query(
+                IndexName=index_name,
+                KeyConditionExpression=Key("status").eq(status),
+                Limit=limit,
+                ScanIndexForward=False,  # Descending order (newest first)
+            )
 
         items = response.get("Items", [])
         return [decimal_to_float(item) for item in items]
