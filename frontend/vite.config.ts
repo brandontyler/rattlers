@@ -10,6 +10,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  define: {
+    // Polyfill for amazon-cognito-identity-js which expects Node.js globals
+    global: 'globalThis',
+  },
   server: {
     port: 5173,
     host: true,

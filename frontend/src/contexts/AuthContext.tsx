@@ -4,6 +4,7 @@ import {
   CognitoUser,
   AuthenticationDetails,
   CognitoUserSession,
+  CognitoUserAttribute,
 } from 'amazon-cognito-identity-js';
 import type { UserProfile } from '@/types';
 import { apiService } from '@/services/api';
@@ -21,10 +22,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const userPool = new CognitoUserPool({
+// Only initialize Cognito if credentials are available (not placeholder values)
+const hasCognitoConfig =
+  import.meta.env.VITE_COGNITO_USER_POOL_ID &&
+  import.meta.env.VITE_COGNITO_CLIENT_ID &&
+  !import.meta.env.VITE_COGNITO_USER_POOL_ID.includes('TBD') &&
+  !import.meta.env.VITE_COGNITO_CLIENT_ID.includes('TBD');
+
+const userPool = hasCognitoConfig ? new CognitoUserPool({
   UserPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID,
   ClientId: import.meta.env.VITE_COGNITO_CLIENT_ID,
-});
+}) : null;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -36,6 +44,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuthState = async () => {
     try {
+      if (!userPool) {
+        console.warn('Cognito not configured - auth features disabled');
+        setIsLoading(false);
+        return;
+      }
       const currentUser = userPool.getCurrentUser();
       if (currentUser) {
         currentUser.getSession(async (err: Error | null, session: CognitoUserSession | null) => {
@@ -72,6 +85,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (email: string, password: string): Promise<void> => {
+    if (!userPool) {
+      throw new Error('Authentication not configured');
+    }
     return new Promise((resolve, reject) => {
       const authDetails = new AuthenticationDetails({
         Username: email,
@@ -106,17 +122,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signup = async (email: string, password: string, name?: string): Promise<void> => {
+    if (!userPool) {
+      throw new Error('Authentication not configured');
+    }
     return new Promise((resolve, reject) => {
-      const attributeList = [];
+      const attributeList: CognitoUserAttribute[] = [];
 
       if (name) {
-        attributeList.push({
-          Name: 'name',
-          Value: name,
-        });
+        attributeList.push(
+          new CognitoUserAttribute({
+            Name: 'name',
+            Value: name,
+          })
+        );
       }
 
-      userPool.signUp(email, password, attributeList, [], (err, result) => {
+      userPool.signUp(email, password, attributeList, [], (err, _result) => {
         if (err) {
           reject(err);
           return;
@@ -127,13 +148,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const confirmSignup = async (email: string, code: string): Promise<void> => {
+    if (!userPool) {
+      throw new Error('Authentication not configured');
+    }
     return new Promise((resolve, reject) => {
       const cognitoUser = new CognitoUser({
         Username: email,
         Pool: userPool,
       });
 
-      cognitoUser.confirmRegistration(code, true, (err, result) => {
+      cognitoUser.confirmRegistration(code, true, (err, _result) => {
         if (err) {
           reject(err);
           return;
@@ -144,13 +168,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resendConfirmationCode = async (email: string): Promise<void> => {
+    if (!userPool) {
+      throw new Error('Authentication not configured');
+    }
     return new Promise((resolve, reject) => {
       const cognitoUser = new CognitoUser({
         Username: email,
         Pool: userPool,
       });
 
-      cognitoUser.resendConfirmationCode((err, result) => {
+      cognitoUser.resendConfirmationCode((err, _result) => {
         if (err) {
           reject(err);
           return;
@@ -161,9 +188,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async (): Promise<void> => {
-    const currentUser = userPool.getCurrentUser();
-    if (currentUser) {
-      currentUser.signOut();
+    if (userPool) {
+      const currentUser = userPool.getCurrentUser();
+      if (currentUser) {
+        currentUser.signOut();
+      }
     }
     localStorage.removeItem('authToken');
     setUser(null);

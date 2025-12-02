@@ -1,50 +1,208 @@
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Custom styles */
+/* Base styles with sophisticated holiday theme */
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-cream-50 text-forest-900 font-body antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-semibold;
+  }
+
+  h1 {
+    @apply text-4xl md:text-5xl lg:text-6xl;
+  }
+
+  h2 {
+    @apply text-3xl md:text-4xl lg:text-5xl;
+  }
+
+  h3 {
+    @apply text-2xl md:text-3xl;
   }
 }
 
+/* Component layer with distinctive, cohesive aesthetics */
 @layer components {
+  /* Primary button - warm burgundy with gold glow on hover */
   .btn-primary {
-    @apply px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed;
+    @apply px-6 py-3 bg-burgundy-600 text-cream-50 rounded-lg font-medium
+           transition-all duration-300 ease-out
+           hover:bg-burgundy-700 hover:shadow-glow
+           active:scale-95
+           disabled:bg-forest-300 disabled:cursor-not-allowed disabled:shadow-none;
   }
 
+  /* Secondary button - forest green outline */
   .btn-secondary {
-    @apply px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors;
+    @apply px-6 py-3 bg-transparent text-forest-700 border-2 border-forest-600 rounded-lg font-medium
+           transition-all duration-300
+           hover:bg-forest-50 hover:border-forest-700
+           active:scale-95;
   }
 
+  /* Gold accent button for CTAs */
+  .btn-gold {
+    @apply px-6 py-3 bg-gold-500 text-forest-900 rounded-lg font-semibold
+           shadow-glow-sm transition-all duration-300
+           hover:bg-gold-400 hover:shadow-glow
+           active:scale-95;
+  }
+
+  /* Input field - cream with forest focus ring */
   .input-field {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full px-4 py-3 bg-white border-2 border-forest-200 rounded-lg
+           font-body text-forest-900 placeholder:text-forest-400
+           transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent
+           disabled:bg-cream-100 disabled:cursor-not-allowed;
   }
 
+  /* Card component - soft shadows with subtle grain texture */
   .card {
-    @apply bg-white rounded-lg shadow-md p-6;
+    @apply bg-white rounded-xl shadow-soft p-6
+           transition-shadow duration-300
+           hover:shadow-soft-lg;
+  }
+
+  /* Card with glow effect */
+  .card-glow {
+    @apply card relative overflow-hidden;
+  }
+
+  .card-glow::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-500;
+    background: radial-gradient(circle at center, rgba(234, 179, 8, 0.1), transparent 70%);
+  }
+
+  .card-glow:hover::before {
+    @apply opacity-100;
+  }
+
+  /* Badge components */
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
+  }
+
+  .badge-forest {
+    @apply bg-forest-100 text-forest-700;
+  }
+
+  .badge-gold {
+    @apply bg-gold-100 text-gold-800;
+  }
+
+  .badge-burgundy {
+    @apply bg-burgundy-100 text-burgundy-700;
+  }
+
+  /* Link styles */
+  .link {
+    @apply text-forest-600 hover:text-forest-700 underline-offset-4 hover:underline
+           transition-colors duration-200;
   }
 }
 
-/* Leaflet map custom styles */
+/* Leaflet map custom styles with winter theme */
 .leaflet-container {
   height: 100%;
   width: 100%;
-  border-radius: 0.5rem;
+  border-radius: 1rem;
+  box-shadow: 0 10px 40px rgba(6, 95, 70, 0.15);
 }
 
-/* Loading spinner */
-.spinner {
-  border: 3px solid rgba(239, 68, 68, 0.1);
-  border-top: 3px solid #ef4444;
+/* Custom marker styles */
+.custom-marker {
+  background-color: #cc3f3f;
+  border: 3px solid #fafaf3;
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  width: 24px;
+  height: 24px;
+  box-shadow: 0 2px 8px rgba(171, 45, 45, 0.4);
+  animation: pulseSoft 2s ease-in-out infinite;
+}
+
+/* Leaflet popup customization */
+.leaflet-popup-content-wrapper {
+  @apply bg-white rounded-xl shadow-soft-lg;
+  padding: 0;
+  overflow: hidden;
+}
+
+.leaflet-popup-content {
+  margin: 0;
+}
+
+.leaflet-popup-tip {
+  @apply bg-white;
+}
+
+/* Loading spinner with gold accent */
+.spinner {
+  border: 3px solid rgba(234, 179, 8, 0.2);
+  border-top: 3px solid #eab308;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
   animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Decorative elements */
+.grain-texture {
+  position: relative;
+}
+
+.grain-texture::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Gradient overlays */
+.gradient-forest {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+}
+
+.gradient-burgundy {
+  background: linear-gradient(135deg, #cc3f3f 0%, #8d2828 100%);
+}
+
+.gradient-winter {
+  background: linear-gradient(135deg, #fafaf3 0%, #f5f4e8 50%, #efecd5 100%);
+}
+
+/* Shimmer effect for loading states */
+.shimmer {
+  background: linear-gradient(90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2.5s linear infinite;
+}
+
+/* Utilities */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
 }
