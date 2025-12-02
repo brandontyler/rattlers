@@ -1,0 +1,198 @@
+import { useEffect, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { Icon, LatLngTuple } from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import LocationPopup from './LocationPopup';
+import type { Location } from '@/types';
+
+// Fix for default marker icons in React Leaflet
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+const DefaultIcon = new Icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+
+// Custom burgundy marker icon
+const customIcon = new Icon({
+  iconUrl: 'data:image/svg+xml;base64,' + btoa(`
+    <svg width="32" height="45" viewBox="0 0 32 45" xmlns="http://www.w3.org/2000/svg">
+      <g filter="url(#shadow)">
+        <path d="M16 0C9.37 0 4 5.37 4 12c0 9 12 24 12 24s12-15 12-24c0-6.63-5.37-12-12-12z" fill="#cc3f3f"/>
+        <circle cx="16" cy="12" r="6" fill="#fafaf3"/>
+        <circle cx="16" cy="12" r="3" fill="#eab308"/>
+      </g>
+      <defs>
+        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+          <feOffset dx="0" dy="2" result="offsetblur"/>
+          <feComponentTransfer>
+            <feFuncA type="linear" slope="0.3"/>
+          </feComponentTransfer>
+          <feMerge>
+            <feMergeNode/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+    </svg>
+  `),
+  iconSize: [32, 45],
+  iconAnchor: [16, 45],
+  popupAnchor: [0, -45],
+});
+
+// Component to handle map center changes
+function MapController({ center }: { center: LatLngTuple }) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.setView(center, map.getZoom());
+  }, [center, map]);
+
+  return null;
+}
+
+interface MapViewProps {
+  locations?: Location[];
+  center?: LatLngTuple;
+  zoom?: number;
+  height?: string;
+  onLocationClick?: (location: Location) => void;
+}
+
+export default function MapView({
+  locations = [],
+  center = [32.7767, -96.7970], // DFW default center
+  zoom = 10,
+  height = '600px',
+  onLocationClick,
+}: MapViewProps) {
+  const [userLocation, setUserLocation] = useState<LatLngTuple | null>(null);
+  const [mapCenter, setMapCenter] = useState<LatLngTuple>(center);
+
+  // Get user's location on mount
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const coords: LatLngTuple = [
+            position.coords.latitude,
+            position.coords.longitude,
+          ];
+          setUserLocation(coords);
+        },
+        (error) => {
+          console.warn('Geolocation error:', error);
+        }
+      );
+    }
+  }, []);
+
+  const handleNearMe = () => {
+    if (userLocation) {
+      setMapCenter(userLocation);
+    } else {
+      // Request permission again
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const coords: LatLngTuple = [
+              position.coords.latitude,
+              position.coords.longitude,
+            ];
+            setUserLocation(coords);
+            setMapCenter(coords);
+          },
+          (_error) => {
+            alert('Unable to get your location. Please enable location services.');
+          }
+        );
+      }
+    }
+  };
+
+  return (
+    <div className="relative">
+      {/* Near Me Button */}
+      <button
+        onClick={handleNearMe}
+        className="absolute top-4 right-4 z-[1000] bg-white px-4 py-2 rounded-lg shadow-soft hover:shadow-soft-lg transition-shadow flex items-center gap-2 text-forest-700 font-medium"
+      >
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+          />
+        </svg>
+        Near Me
+      </button>
+
+      {/* Map Container */}
+      <div style={{ height }} className="rounded-xl overflow-hidden shadow-soft-lg">
+        <MapContainer
+          center={mapCenter}
+          zoom={zoom}
+          scrollWheelZoom={true}
+          style={{ height: '100%', width: '100%' }}
+        >
+          <MapController center={mapCenter} />
+
+          {/* Map tiles */}
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+
+          {/* User location marker */}
+          {userLocation && (
+            <Marker position={userLocation} icon={DefaultIcon}>
+              <Popup>
+                <div className="p-2">
+                  <p className="font-semibold text-forest-700">You are here</p>
+                </div>
+              </Popup>
+            </Marker>
+          )}
+
+          {/* Location markers */}
+          {locations.map((location) => (
+            <Marker
+              key={location.id}
+              position={[location.lat, location.lng]}
+              icon={customIcon}
+              eventHandlers={{
+                click: () => {
+                  if (onLocationClick) {
+                    onLocationClick(location);
+                  }
+                },
+              }}
+            >
+              <Popup>
+                <LocationPopup location={location} />
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+      </div>
+    </div>
+  );
+}
