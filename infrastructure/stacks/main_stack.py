@@ -274,11 +274,41 @@ class ChristmasLightsStack(Stack):
         )
         self.locations_table.grant_read_write_data(self.create_location_fn)
 
+        # Feedback functions
+        self.submit_feedback_fn = lambda_.Function(
+            self,
+            "SubmitFeedbackFunction",
+            handler="submit_feedback.handler",
+            code=lambda_.Code.from_asset("../backend/functions/feedback"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.locations_table.grant_read_write_data(self.submit_feedback_fn)
+        self.feedback_table.grant_read_write_data(self.submit_feedback_fn)
+
+        self.report_inactive_fn = lambda_.Function(
+            self,
+            "ReportInactiveFunction",
+            handler="report_inactive.handler",
+            code=lambda_.Code.from_asset("../backend/functions/feedback"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.locations_table.grant_read_write_data(self.report_inactive_fn)
+
         # Store functions for API Gateway integration
         self.lambda_functions = {
             "get_locations": self.get_locations_fn,
             "get_location_by_id": self.get_location_by_id_fn,
             "create_location": self.create_location_fn,
+            "submit_feedback": self.submit_feedback_fn,
+            "report_inactive": self.report_inactive_fn,
         }
 
     def create_api_gateway(self):
@@ -347,7 +377,25 @@ class ChristmasLightsStack(Stack):
             apigw.LambdaIntegration(self.get_location_by_id_fn),
         )
 
-        # TODO: Add more endpoints (feedback, suggestions, etc.)
+        # /locations/{id}/feedback endpoint
+        feedback = location_by_id.add_resource("feedback")
+        feedback.add_method(
+            "POST",
+            apigw.LambdaIntegration(self.submit_feedback_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # /locations/{id}/report endpoint
+        report = location_by_id.add_resource("report")
+        report.add_method(
+            "POST",
+            apigw.LambdaIntegration(self.report_inactive_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # TODO: Add more endpoints (suggestions, etc.)
 
     def create_cloudfront_distribution(self):
         """Create CloudFront distribution for frontend."""
