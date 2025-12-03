@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import type { Location } from '@/types';
 import Badge from '../ui/Badge';
@@ -21,6 +21,10 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
   const [isReporting, setIsReporting] = useState(false);
   const [reported, setReported] = useState(false);
   const [hasError, setHasError] = useState(false);
+  
+  // Refs for bulletproof click protection (state updates are async, refs are sync)
+  const isLikingRef = useRef(false);
+  const isReportingRef = useRef(false);
 
   const displayRating = location.averageRating
     ? location.averageRating.toFixed(1)
@@ -49,9 +53,11 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
   }, [location.id, isAuthenticated]);
 
   const handleLike = async () => {
-    // Guard conditions - removed || liked to allow unliking
-    if (!isAuthenticated || isLiking) return;
+    // Use ref for synchronous check - state updates are async and unreliable for guards
+    if (!isAuthenticated || isLikingRef.current) return;
 
+    isLikingRef.current = true;
+    
     // Store previous state for rollback
     const previousLiked = optimisticLiked;
     const previousCount = optimisticLikeCount;
@@ -85,14 +91,17 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
 
       setTimeout(() => setHasError(false), 3000);
     } finally {
+      isLikingRef.current = false;
       setIsLiking(false);
     }
   };
 
   const handleReport = async () => {
-    if (!isAuthenticated || isReporting || reported) return;
+    if (!isAuthenticated || isReportingRef.current || reported) return;
 
+    isReportingRef.current = true;
     setIsReporting(true);
+    
     try {
       await apiService.reportInactive(location.id, { reason: 'No lights visible' });
       setReported(true);
@@ -100,6 +109,7 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
     } catch (error) {
       console.error('Failed to submit report:', error);
     } finally {
+      isReportingRef.current = false;
       setIsReporting(false);
     }
   };
