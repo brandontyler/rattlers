@@ -318,6 +318,7 @@ class ChristmasLightsStack(Stack):
             layers=[self.common_layer],
         )
         self.locations_table.grant_read_write_data(self.report_inactive_fn)
+        self.feedback_table.grant_read_write_data(self.report_inactive_fn)
 
         self.get_feedback_status_fn = lambda_.Function(
             self,

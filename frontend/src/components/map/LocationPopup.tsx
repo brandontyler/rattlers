@@ -26,26 +26,26 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
     ? location.averageRating.toFixed(1)
     : 'N/A';
 
-  // Fetch initial like state on mount
+  // Fetch initial like and report state on mount
   useEffect(() => {
     if (!isAuthenticated) {
       return;
     }
 
-    const fetchLikeStatus = async () => {
+    const fetchFeedbackStatus = async () => {
       try {
         const response = await apiService.getFeedbackStatus(location.id);
         if (response.success && response.data) {
-          const liked = response.data.liked ?? false;
-          setOptimisticLiked(liked);
+          setOptimisticLiked(response.data.liked ?? false);
+          setReported(response.data.reported ?? false);
         }
       } catch (error) {
-        console.error('Failed to fetch like status:', error);
+        console.error('Failed to fetch feedback status:', error);
         setOptimisticLiked(false);
       }
     };
 
-    fetchLikeStatus();
+    fetchFeedbackStatus();
   }, [location.id, isAuthenticated]);
 
   const handleLike = async () => {

@@ -38,25 +38,26 @@ export default function LocationDetailPage() {
     fetchLocation();
   }, [id]);
 
-  // Fetch initial like state on mount
+  // Fetch initial like and report state on mount
   useEffect(() => {
     if (!isAuthenticated || !id) {
       return;
     }
 
-    const fetchLikeStatus = async () => {
+    const fetchFeedbackStatus = async () => {
       try {
         const response = await apiService.getFeedbackStatus(id);
         if (response.success && response.data) {
           setHasLiked(response.data.liked ?? false);
+          setHasReported(response.data.reported ?? false);
         }
       } catch (err) {
-        console.error('Failed to fetch like status:', err);
+        console.error('Failed to fetch feedback status:', err);
         setHasLiked(false);
       }
     };
 
-    fetchLikeStatus();
+    fetchFeedbackStatus();
   }, [id, isAuthenticated]);
 
   if (loading) {
@@ -151,10 +152,10 @@ export default function LocationDetailPage() {
                   <Badge variant={location.status === 'active' ? 'forest' : 'burgundy'}>
                     {location.status === 'active' ? '✨ Active' : '❄️ Inactive'}
                   </Badge>
-                  {location.averageRating && location.averageRating >= 4.5 && (
+                  {location.averageRating !== undefined && location.averageRating >= 4.5 && (
                     <Badge variant="gold">⭐ Highly Rated</Badge>
                   )}
-                  {location.reportCount && location.reportCount > 0 && (
+                  {location.reportCount !== undefined && location.reportCount > 0 && (
                     <Badge variant="burgundy">⚠️ {location.reportCount} reports</Badge>
                   )}
                 </div>
