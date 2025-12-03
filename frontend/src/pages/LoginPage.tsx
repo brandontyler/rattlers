@@ -20,7 +20,7 @@ export default function LoginPage() {
       await login(email, password);
       navigate('/');
     } catch (err: any) {
-      setError(err.message || 'Failed to login. Authentication is not yet configured.');
+      setError(err.message || 'Failed to login. Please try again.');
     } finally {
       setIsLoading(false);
     }
