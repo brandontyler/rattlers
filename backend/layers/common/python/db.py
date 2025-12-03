@@ -168,6 +168,20 @@ class LocationsTable:
             },
         )
 
+    def decrement_like_count(self, location_id: str) -> None:
+        """Decrement like count for a location (minimum 0)."""
+        self.table.update_item(
+            Key={
+                "PK": f"location#{location_id}",
+                "SK": "metadata",
+            },
+            UpdateExpression="SET likeCount = if_not_exists(likeCount, :zero) - :dec",
+            ExpressionAttributeValues={
+                ":zero": 0,
+                ":dec": 1,
+            },
+        )
+
     def increment_report_count(self, location_id: str) -> int:
         """Increment report count and return new count."""
         response = self.table.update_item(
@@ -214,10 +228,39 @@ class FeedbackTable:
         self.table.put_item(Item=item)
         return feedback
 
+    def delete(self, feedback_id: str, location_id: str) -> None:
+        """Delete a feedback record."""
+        self.table.delete_item(
+            Key={
+                "PK": f"feedback#{feedback_id}",
+                "SK": f"location#{location_id}",
+            }
+        )
+
+    def get_user_feedback(self, location_id: str, user_id: str, feedback_type: str) -> Optional[Dict]:
+        """Get a user's feedback for a specific location and type."""
+        response = self.table.scan(
+            FilterExpression=Attr("locationId").eq(location_id) & 
+                           Attr("userId").eq(user_id) & 
+                           Attr("type").eq(feedback_type),
+            Limit=1,
+        )
+        items = response.get("Items", [])
+        return decimal_to_float(items[0]) if items else None
+
+    def update_rating_value(self, feedback_id: str, location_id: str, rating: int) -> None:
+        """Update the rating value of an existing feedback."""
+        self.table.update_item(
+            Key={
+                "PK": f"feedback#{feedback_id}",
+                "SK": f"location#{location_id}",
+            },
+            UpdateExpression="SET rating = :r",
+            ExpressionAttributeValues={":r": rating},
+        )
+
     def get_by_location(self, location_id: str, limit: int = 100) -> List[Dict]:
         """Get all feedback for a location."""
-        # Use GSI to query by location_id
-        # For MVP, we'll scan (implement GSI in CDK later)
         response = self.table.scan(
             FilterExpression=Attr("locationId").eq(location_id),
             Limit=limit,

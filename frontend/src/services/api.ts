@@ -5,6 +5,7 @@ import type {
   ApiResponse,
   LocationFilters,
   FeedbackRequest,
+  FeedbackResponse,
   SuggestionRequest,
   ReportRequest,
   UserProfile,
@@ -88,8 +89,8 @@ class ApiService {
   }
 
   // Feedback endpoints
-  async submitFeedback(locationId: string, feedback: FeedbackRequest): Promise<ApiResponse<void>> {
-    const { data } = await this.api.post<ApiResponse<void>>(
+  async submitFeedback(locationId: string, feedback: FeedbackRequest): Promise<ApiResponse<FeedbackResponse>> {
+    const { data } = await this.api.post<ApiResponse<FeedbackResponse>>(
       `/locations/${locationId}/feedback`,
       feedback
     );

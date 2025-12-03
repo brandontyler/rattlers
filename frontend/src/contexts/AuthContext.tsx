@@ -7,7 +7,6 @@ import {
   CognitoUserAttribute,
 } from 'amazon-cognito-identity-js';
 import type { UserProfile } from '@/types';
-import { apiService } from '@/services/api';
 
 interface AuthContextType {
   user: UserProfile | null;

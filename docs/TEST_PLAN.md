@@ -48,8 +48,8 @@
 
 | # | Test | Steps | Expected | Pass |
 |---|------|-------|----------|------|
-| 3.1 | Login page loads | Go to `/login` | Login form displays | [ ] |
-| 3.2 | Sign in success | Enter testuser@example.com / TestPass123! | Redirects to home, shows logged in state | [ ] |
+| 3.1 | Login page loads | Go to `/login` | Login form displays | [x] |
+| 3.2 | Sign in success | Enter testuser@example.com / TestPass123! | Redirects to home, shows logged in state | [x] |
 | 3.3 | Sign in failure | Enter wrong password | Shows error message | [ ] |
 | 3.4 | Sign out | Click logout/sign out | Returns to logged out state | [ ] |
 | 3.5 | Signup page loads | Go to `/signup` | Signup form displays | [ ] |
