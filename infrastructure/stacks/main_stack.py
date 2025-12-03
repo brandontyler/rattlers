@@ -79,17 +79,18 @@ class ChristmasLightsStack(Stack):
             projection_type=dynamodb.ProjectionType.ALL,
         )
 
+        # TODO: Uncomment after first GSI is deployed (DynamoDB only allows 1 GSI change per deploy)
         # Add GSI for querying by status and rating (for top-rated displays)
-        self.locations_table.add_global_secondary_index(
-            index_name="status-averageRating-index",
-            partition_key=dynamodb.Attribute(
-                name="status", type=dynamodb.AttributeType.STRING
-            ),
-            sort_key=dynamodb.Attribute(
-                name="averageRating", type=dynamodb.AttributeType.NUMBER
-            ),
-            projection_type=dynamodb.ProjectionType.ALL,
-        )
+        # self.locations_table.add_global_secondary_index(
+        #     index_name="status-averageRating-index",
+        #     partition_key=dynamodb.Attribute(
+        #         name="status", type=dynamodb.AttributeType.STRING
+        #     ),
+        #     sort_key=dynamodb.Attribute(
+        #         name="averageRating", type=dynamodb.AttributeType.NUMBER
+        #     ),
+        #     projection_type=dynamodb.ProjectionType.ALL,
+        # )
 
         # Feedback table
         self.feedback_table = dynamodb.Table(
