@@ -32,11 +32,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             location_id, user["id"], "star"
         )
 
+        # Get user's report feedback
+        report_feedback = feedback_table.get_user_feedback(
+            location_id, user["id"], "report"
+        )
+
         # Build response
         data = {
             "locationId": location_id,
             "liked": like_feedback is not None,
             "rating": star_feedback.get("rating") if star_feedback else None,
+            "reported": report_feedback is not None,
         }
 
         if like_feedback:

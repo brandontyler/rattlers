@@ -72,6 +72,14 @@ Frontend (React)  →  API Gateway  →  Lambda  →  DynamoDB
 
 ## Future Ideas / Backlog
 
+### Automated Testing
+**Why:** Manual testing doesn't scale. Need automated tests for confidence in deployments.
+- **Frontend:** Vitest + React Testing Library for unit/component tests
+- **Frontend E2E:** Playwright for end-to-end browser tests
+- **Backend:** pytest for Lambda function unit tests
+- **Integration:** API endpoint tests with mocked DynamoDB
+- **CI/CD:** GitHub Actions to run tests on PR
+
 ### User Profiles (`/users/me` endpoint)
 **Why:** Currently user info comes from Cognito token. A dedicated endpoint would enable:
 - Saved favorite locations

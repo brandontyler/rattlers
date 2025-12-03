@@ -61,6 +61,7 @@ export interface FeedbackStatusResponse {
   locationId: string;
   liked: boolean;
   rating: number | null;
+  reported: boolean;
   likedAt?: string;
   ratedAt?: string;
 }

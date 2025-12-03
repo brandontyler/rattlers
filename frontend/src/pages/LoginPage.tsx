@@ -6,9 +6,11 @@ import { Button, Input, Card } from '@/components/ui';
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmationCode, setConfirmationCode] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const { login, confirmSignup, resendConfirmationCode } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -20,11 +22,90 @@ export default function LoginPage() {
       await login(email, password);
       navigate('/');
     } catch (err: any) {
+      if (err.message?.includes('not confirmed') || err.code === 'UserNotConfirmedException') {
+        setNeedsConfirmation(true);
+        try {
+          await resendConfirmationCode(email);
+        } catch {}
+      }
       setError(err.message || 'Failed to login. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleConfirm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
+    try {
+      await confirmSignup(email, confirmationCode);
+      await login(email, password);
+      navigate('/');
+    } catch (err: any) {
+      setError(err.message || 'Failed to confirm account');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (needsConfirmation) {
+    return (
+      <div className="min-h-[calc(100vh-300px)] flex items-center justify-center px-4 py-12 animate-fade-in">
+        <Card className="w-full max-w-md p-8">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-gold-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-3xl">📧</span>
+            </div>
+            <h2 className="font-display text-2xl font-bold text-forest-900 mb-2">
+              Confirm Your Email
+            </h2>
+            <p className="text-forest-600 text-sm">
+              We've sent a confirmation code to<br />
+              <span className="font-semibold">{email}</span>
+            </p>
+          </div>
+
+          {error && (
+            <div className="bg-burgundy-50 border border-burgundy-200 text-burgundy-800 px-4 py-3 rounded-lg mb-6 text-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleConfirm} className="space-y-4">
+            <Input
+              label="Confirmation Code"
+              type="text"
+              value={confirmationCode}
+              onChange={(e) => setConfirmationCode(e.target.value)}
+              placeholder="Enter 6-digit code"
+              required
+            />
+            <Button type="submit" variant="primary" fullWidth loading={isLoading}>
+              {isLoading ? 'Confirming...' : 'Confirm & Login'}
+            </Button>
+          </form>
+
+          <div className="mt-4 text-center">
+            <button
+              onClick={async () => {
+                try {
+                  await resendConfirmationCode(email);
+                  alert('Confirmation code resent!');
+                } catch (err: any) {
+                  setError(err.message || 'Failed to resend code');
+                }
+              }}
+              className="text-sm text-burgundy-600 hover:text-burgundy-700 font-medium"
+            >
+              Resend code
+            </button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[calc(100vh-300px)] flex items-center justify-center px-4 py-12 animate-fade-in">
@@ -119,14 +200,7 @@ export default function LoginPage() {
                 required
               />
 
-              <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 text-burgundy-600 border-forest-300 rounded focus:ring-forest-500"
-                  />
-                  <span className="text-forest-700">Remember me</span>
-                </label>
+              <div className="flex justify-end text-sm">
                 <Link to="/forgot-password" className="text-burgundy-600 hover:text-burgundy-700 font-medium">
                   Forgot password?
                 </Link>

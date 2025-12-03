@@ -12,7 +12,7 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
   const [success, setSuccess] = useState(false);
-  const { signup, confirmSignup } = useAuth();
+  const { signup, confirmSignup, resendConfirmationCode } = useAuth();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,7 +115,18 @@ export default function SignupPage() {
           </form>
 
           <div className="mt-6 text-center">
-            <button className="text-sm text-burgundy-600 hover:text-burgundy-700 font-medium">
+            <button 
+              onClick={async () => {
+                try {
+                  await resendConfirmationCode(email);
+                  setError('');
+                  alert('Confirmation code resent!');
+                } catch (err: any) {
+                  setError(err.message || 'Failed to resend code');
+                }
+              }}
+              className="text-sm text-burgundy-600 hover:text-burgundy-700 font-medium"
+            >
               Resend code
             </button>
           </div>

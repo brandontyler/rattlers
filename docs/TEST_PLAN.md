@@ -57,9 +57,9 @@
 | 3.1 | Login page loads | Go to `/login` | Login form displays | [x] |
 | 3.2 | Sign in success | Enter testuser@example.com / TestPass123! | Redirects to home, shows logged in state | [x] |
 | 3.3 | Sign in failure | Enter wrong password | Shows error message | [x] |
-| 3.4 | Sign out | Click logout/sign out | Returns to logged out state | [ ] |
-| 3.5 | Signup page loads | Go to `/signup` | Signup form displays | [ ] |
-| 3.6 | Protected actions | Try to Like without signing in | Prompts to sign in | [ ] |
+| 3.4 | Sign out | Click logout/sign out | Returns to logged out state | [x] |
+| 3.5 | Signup page loads | Go to `/signup` | Signup form displays | [x] |
+| 3.6 | Protected actions | Try to Like without signing in | Prompts to sign in | [x] |
 
 ---
 
@@ -122,6 +122,8 @@ curl -s -X POST "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/l
 | 6.3 | No duplicate likes | Rapidly click Like in multiple tabs | Only one like created per user | [ ] |
 | 6.4 | Rating updates | Submit star rating, check location | averageRating recalculated | [ ] |
 | 6.5 | Report count | Report location, check in DB | reportCount incremented | [ ] |
+| 6.6 | No duplicate reports | Report, refresh, try to report again | Button stays "Reported", count doesn't increase | [ ] |
+| 6.7 | Report flagging | Report location 3 times (different users) | Location status changes to "flagged", hidden from map | [ ] |
 
 ---
 
@@ -134,8 +136,8 @@ curl -s -X POST "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/l
 | 3. Authentication | 6 | | |
 | 4. API Endpoints | 5 | | |
 | 5. Security | 3 | | |
-| 6. Data Integrity | 5 | | |
-| **TOTAL** | **41** | | |
+| 6. Data Integrity | 7 | | |
+| **TOTAL** | **43** | | |
 
 ---
 

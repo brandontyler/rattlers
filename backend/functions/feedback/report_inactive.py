@@ -5,10 +5,12 @@ POST /locations/{id}/report
 """
 
 import json
+from uuid import uuid4
+from datetime import datetime
 from typing import Dict, Any
 from auth import require_auth, get_user_info
-from responses import success_response, error_response, validation_error, not_found_error, internal_error
-from db import LocationsTable
+from responses import success_response, validation_error, not_found_error, internal_error
+from db import LocationsTable, FeedbackTable
 
 # Number of reports before flagging
 REPORT_THRESHOLD = 3
@@ -39,7 +41,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not location:
             return not_found_error("Location not found")
 
-        # Increment report count and get new count
+        # Check if user already reported this location
+        feedback_table = FeedbackTable()
+        existing = feedback_table.get_user_feedback(location_id, user["id"], "report")
+
+        if existing:
+            return success_response(
+                message="You have already reported this location.",
+                data={"alreadyReported": True, "reportCount": location.get("reportCount", 0)},
+            )
+
+        # Create report record
+        feedback_table.create({
+            "id": str(uuid4()),
+            "locationId": location_id,
+            "userId": user["id"],
+            "type": "report",
+            "reason": reason,
+            "createdAt": datetime.utcnow().isoformat() + "Z",
+        })
+
+        # Increment report count
         new_count = locations_table.increment_report_count(location_id)
 
         # Flag location if threshold reached
@@ -50,10 +72,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         return success_response(
             message="Report submitted. Thank you for helping keep our data accurate!",
-            data={
-                "reportCount": new_count,
-                "flagged": flagged,
-            },
+            data={"reportCount": new_count, "flagged": flagged},
         )
 
     except Exception as e:
