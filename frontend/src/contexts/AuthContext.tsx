@@ -7,7 +7,6 @@ import {
   CognitoUserAttribute,
 } from 'amazon-cognito-identity-js';
 import type { UserProfile } from '@/types';
-import { apiService } from '@/services/api';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -54,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         currentUser.getSession(async (err: Error | null, session: CognitoUserSession | null) => {
           if (err || !session || !session.isValid()) {
             setUser(null);
+            localStorage.removeItem('authToken');
             setIsLoading(false);
             return;
           }
@@ -62,16 +62,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const token = session.getIdToken().getJwtToken();
           localStorage.setItem('authToken', token);
 
-          // Fetch user profile
-          try {
-            const response = await apiService.getCurrentUser();
-            if (response.success && response.data) {
-              setUser(response.data);
-            }
-          } catch (error) {
-            console.error('Failed to fetch user profile:', error);
-            setUser(null);
-          }
+          // Extract user info from token payload
+          const payload = session.getIdToken().payload;
+          setUser({
+            id: payload.sub,
+            email: payload.email,
+            name: payload.name || undefined,
+            isAdmin: (payload['cognito:groups'] || []).includes('Admins'),
+          });
 
           setIsLoading(false);
         });
@@ -104,15 +102,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const token = session.getIdToken().getJwtToken();
           localStorage.setItem('authToken', token);
 
-          try {
-            const response = await apiService.getCurrentUser();
-            if (response.success && response.data) {
-              setUser(response.data);
-            }
-            resolve();
-          } catch (error) {
-            reject(error);
-          }
+          // Extract user info from token payload
+          const payload = session.getIdToken().payload;
+          setUser({
+            id: payload.sub,
+            email: payload.email,
+            name: payload.name || undefined,
+            isAdmin: (payload['cognito:groups'] || []).includes('Admins'),
+          });
+          resolve();
         },
         onFailure: (err) => {
           reject(err);

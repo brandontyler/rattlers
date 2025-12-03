@@ -101,18 +101,25 @@ DFW Christmas Lights Finder is a serverless web application built entirely on AW
 
 7. **SubmitFeedback** (`POST /locations/{id}/feedback`)
    - Requires authentication
-   - Creates feedback record
-   - Updates location aggregate stats
+   - Like: Toggle behavior (creates or removes like)
+   - Star: Creates or updates rating
+   - Atomic writes prevent duplicate likes from race conditions
+   - Updates location aggregate stats (likeCount, averageRating)
 
-8. **ReportInactive** (`POST /locations/{id}/report`)
+8. **GetFeedbackStatus** (`GET /locations/{id}/feedback/status`)
+   - Requires authentication
+   - Returns user's current feedback status for a location
+   - Used to display correct UI state (Like vs Unlike button)
+
+9. **ReportInactive** (`POST /locations/{id}/report`)
    - Requires authentication
    - Increments report count
    - Flags location if threshold reached (3 reports)
 
-9. **GetSuggestions** (`GET /suggestions`) - Admin only
-   - Lists pending suggestions
+10. **GetSuggestions** (`GET /suggestions`) - Admin only
+    - Lists pending suggestions
 
-10. **ApproveSuggestion** (`POST /suggestions/{id}/approve`) - Admin only
+11. **ApproveSuggestion** (`POST /suggestions/{id}/approve`) - Admin only
     - Converts suggestion to location
 
 ### Database (DynamoDB)
@@ -163,17 +170,32 @@ Attributes:
   "id": "uuid",
   "locationId": "uuid",
   "userId": "cognito-sub",
-  "type": "like|star|report",
+  "type": "like|star",
   "rating": number (1-5, optional),
   "comment": "string" (Phase 3),
   "createdAt": "ISO-8601"
 }
 
-GSI-1:
+GSI-1 (userId-locationId-index):
+  PK: userId
+  SK: locationId
+  (For efficient user feedback lookups - prevents race conditions)
+
+  Purpose:
+  - Check if user has already liked/rated a location
+  - Query complexity: O(1) instead of O(n) table scan
+  - Atomic conditional writes prevent duplicate likes
+
+GSI-2 (location-createdAt-index):
   PK: location#{location-id}
   SK: createdAt#
-  (For querying all feedback for a location)
+  (For querying all feedback for a location chronologically)
 ```
+
+**Race Condition Prevention:**
+- Atomic writes with `ConditionExpression` on PK/SK
+- GSI enables fast duplicate checking before write
+- Idempotent responses for concurrent requests
 
 #### Suggestions Table
 ```
@@ -314,9 +336,9 @@ Attributes:
 
 ### Deployment Process
 ```bash
-# Deploy infrastructure
+# Deploy infrastructure (uses uv)
 cd infrastructure
-cdk deploy --all
+uv run cdk deploy --all
 
 # Build and deploy frontend
 cd frontend
@@ -364,6 +386,6 @@ aws cloudfront create-invalidation --distribution-id XXX --paths "/*"
 - RTO (Recovery Time Objective): 4 hours
 
 ### Rollback Plan
-- Infrastructure: `cdk rollback`
+- Infrastructure: `uv run cdk rollback`
 - Frontend: Revert CloudFront to previous S3 version
 - Database: Restore from PITR

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import type { Location } from '@/types';
 import Badge from '../ui/Badge';
@@ -12,27 +12,78 @@ interface LocationPopupProps {
 
 export default function LocationPopup({ location, onFeedbackSubmit }: LocationPopupProps) {
   const { isAuthenticated } = useAuth();
-  const [likeCount, setLikeCount] = useState(location.likeCount || 0);
+
+  // Optimistic state for instant UI updates
+  const [optimisticLiked, setOptimisticLiked] = useState(false);
+  const [optimisticLikeCount, setOptimisticLikeCount] = useState(location.likeCount || 0);
+
   const [isLiking, setIsLiking] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
-  const [liked, setLiked] = useState(false);
   const [reported, setReported] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   const displayRating = location.averageRating
     ? location.averageRating.toFixed(1)
     : 'N/A';
 
-  const handleLike = async () => {
-    if (!isAuthenticated || isLiking || liked) return;
+  // Fetch initial like state on mount
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
 
+    const fetchLikeStatus = async () => {
+      try {
+        const response = await apiService.getFeedbackStatus(location.id);
+        if (response.success && response.data) {
+          const liked = response.data.liked ?? false;
+          setOptimisticLiked(liked);
+        }
+      } catch (error) {
+        console.error('Failed to fetch like status:', error);
+        setOptimisticLiked(false);
+      }
+    };
+
+    fetchLikeStatus();
+  }, [location.id, isAuthenticated]);
+
+  const handleLike = async () => {
+    // Guard conditions - removed || liked to allow unliking
+    if (!isAuthenticated || isLiking) return;
+
+    // Store previous state for rollback
+    const previousLiked = optimisticLiked;
+    const previousCount = optimisticLikeCount;
+
+    // Optimistic update - flip the state
+    const newLikedState = !previousLiked;
+    setOptimisticLiked(newLikedState);
+    setOptimisticLikeCount(prev => newLikedState ? prev + 1 : Math.max(prev - 1, 0));
     setIsLiking(true);
+    setHasError(false);
+
     try {
-      await apiService.submitFeedback(location.id, { type: 'like' });
-      setLikeCount((prev) => prev + 1);
-      setLiked(true);
-      onFeedbackSubmit?.();
+      const response = await apiService.submitFeedback(location.id, { type: 'like' });
+
+      if (response.success && response.data) {
+        // Server responded - use server truth
+        const serverLikedResult = response.data.liked ?? false;
+        setOptimisticLiked(serverLikedResult);
+
+        onFeedbackSubmit?.();
+      } else {
+        throw new Error('Server returned unsuccessful response');
+      }
     } catch (error) {
-      console.error('Failed to submit like:', error);
+      console.error('Failed to toggle like:', error);
+
+      // ROLLBACK optimistic update
+      setOptimisticLiked(previousLiked);
+      setOptimisticLikeCount(previousCount);
+      setHasError(true);
+
+      setTimeout(() => setHasError(false), 3000);
     } finally {
       setIsLiking(false);
     }
@@ -113,7 +164,7 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
             >
               <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
             </svg>
-            <span className="text-forest-600">{likeCount}</span>
+            <span className="text-forest-600">{optimisticLikeCount}</span>
           </div>
         </div>
 
@@ -122,20 +173,20 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
           {/* Like button */}
           <button
             onClick={handleLike}
-            disabled={!isAuthenticated || isLiking || liked}
+            disabled={!isAuthenticated || isLiking}
             className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              liked
-                ? 'bg-burgundy-100 text-burgundy-700 cursor-default'
+              optimisticLiked
+                ? 'bg-burgundy-100 text-burgundy-700 hover:bg-burgundy-200'
                 : isAuthenticated
                 ? 'bg-burgundy-50 text-burgundy-600 hover:bg-burgundy-100'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            }`}
-            title={!isAuthenticated ? 'Sign in to like' : liked ? 'Already liked' : 'Like this display'}
+            } ${hasError ? 'ring-2 ring-red-500' : ''}`}
+            title={!isAuthenticated ? 'Sign in to like' : optimisticLiked ? 'Unlike this display' : 'Like this display'}
           >
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
             </svg>
-            {liked ? 'Liked!' : isLiking ? '...' : 'Like'}
+            {isLiking ? '...' : optimisticLiked ? 'Unlike' : 'Like'}
           </button>
 
           {/* Report button */}

@@ -38,6 +38,27 @@ export default function LocationDetailPage() {
     fetchLocation();
   }, [id]);
 
+  // Fetch initial like state on mount
+  useEffect(() => {
+    if (!isAuthenticated || !id) {
+      return;
+    }
+
+    const fetchLikeStatus = async () => {
+      try {
+        const response = await apiService.getFeedbackStatus(id);
+        if (response.success && response.data) {
+          setHasLiked(response.data.liked ?? false);
+        }
+      } catch (err) {
+        console.error('Failed to fetch like status:', err);
+        setHasLiked(false);
+      }
+    };
+
+    fetchLikeStatus();
+  }, [id, isAuthenticated]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -73,14 +94,20 @@ export default function LocationDetailPage() {
   };
 
   const handleLike = async () => {
-    if (!isAuthenticated || isLiking || hasLiked) return;
+    if (!isAuthenticated || isLiking) return;
     setIsLiking(true);
     try {
-      await apiService.submitFeedback(location.id, { type: 'like' });
-      setHasLiked(true);
-      setLocation(prev => prev ? { ...prev, likeCount: (prev.likeCount || 0) + 1 } : null);
+      const response = await apiService.submitFeedback(location.id, { type: 'like' });
+      if (response.success && response.data) {
+        const liked = response.data.liked ?? false;
+        setHasLiked(liked);
+        setLocation(prev => prev ? { 
+          ...prev, 
+          likeCount: liked ? (prev.likeCount || 0) + 1 : Math.max((prev.likeCount || 0) - 1, 0)
+        } : null);
+      }
     } catch (err) {
-      console.error('Failed to like:', err);
+      console.error('Failed to toggle like:', err);
     } finally {
       setIsLiking(false);
     }
@@ -162,13 +189,13 @@ export default function LocationDetailPage() {
                 <Button
                   variant="secondary"
                   onClick={handleLike}
-                  disabled={!isAuthenticated || isLiking || hasLiked}
+                  disabled={!isAuthenticated || isLiking}
                   className={hasLiked ? 'bg-burgundy-50 border-burgundy-600' : ''}
                 >
                   <svg className="w-5 h-5 mr-2" fill={hasLiked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                   </svg>
-                  {hasLiked ? 'Liked!' : isLiking ? '...' : 'Like'}
+                  {isLiking ? '...' : hasLiked ? 'Unlike' : 'Like'}
                 </Button>
               </div>
             </div>

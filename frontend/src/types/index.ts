@@ -50,6 +50,21 @@ export interface FeedbackRequest {
   rating?: number;
 }
 
+export interface FeedbackResponse {
+  liked?: boolean;
+  id?: string;
+  locationId: string;
+  rating?: number;
+}
+
+export interface FeedbackStatusResponse {
+  locationId: string;
+  liked: boolean;
+  rating: number | null;
+  likedAt?: string;
+  ratedAt?: string;
+}
+
 // Suggestion types
 export interface Suggestion {
   id: string;

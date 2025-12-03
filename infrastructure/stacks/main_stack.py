@@ -104,6 +104,18 @@ class ChristmasLightsStack(Stack):
             removal_policy=RemovalPolicy.DESTROY if self.env_name == "dev" else RemovalPolicy.RETAIN,
         )
 
+        # Add GSI for efficient user feedback queries
+        self.feedback_table.add_global_secondary_index(
+            index_name="userId-locationId-index",
+            partition_key=dynamodb.Attribute(
+                name="userId", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="locationId", type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
         # Suggestions table
         self.suggestions_table = dynamodb.Table(
             self,
@@ -205,13 +217,18 @@ class ChristmasLightsStack(Stack):
 
     def create_lambda_layer(self):
         """Create Lambda layer with shared code."""
+        import hashlib
+        import time
 
+        # Force new layer version by including timestamp in hash
+        layer_path = "../backend/layers/common"
+        
         self.common_layer = lambda_.LayerVersion(
             self,
             "CommonLayer",
-            code=lambda_.Code.from_asset("../backend/layers/common"),
+            code=lambda_.Code.from_asset(layer_path),
             compatible_runtimes=[lambda_.Runtime.PYTHON_3_12],
-            description="Common utilities and models",
+            description=f"Common utilities and models - v{int(time.time())}",
         )
 
     def create_lambda_functions(self):
@@ -302,6 +319,19 @@ class ChristmasLightsStack(Stack):
         )
         self.locations_table.grant_read_write_data(self.report_inactive_fn)
 
+        self.get_feedback_status_fn = lambda_.Function(
+            self,
+            "GetFeedbackStatusFunction",
+            handler="get_feedback_status.handler",
+            code=lambda_.Code.from_asset("../backend/functions/feedback"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(5),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.feedback_table.grant_read_data(self.get_feedback_status_fn)
+
         # Store functions for API Gateway integration
         self.lambda_functions = {
             "get_locations": self.get_locations_fn,
@@ -309,6 +339,7 @@ class ChristmasLightsStack(Stack):
             "create_location": self.create_location_fn,
             "submit_feedback": self.submit_feedback_fn,
             "report_inactive": self.report_inactive_fn,
+            "get_feedback_status": self.get_feedback_status_fn,
         }
 
     def create_api_gateway(self):
@@ -382,6 +413,15 @@ class ChristmasLightsStack(Stack):
         feedback.add_method(
             "POST",
             apigw.LambdaIntegration(self.submit_feedback_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # /locations/{id}/feedback/status endpoint
+        feedback_status = feedback.add_resource("status")
+        feedback_status.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.get_feedback_status_fn),
             authorizer=authorizer,
             authorization_type=apigw.AuthorizationType.COGNITO,
         )

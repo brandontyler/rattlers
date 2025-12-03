@@ -2,7 +2,7 @@
 
 import os
 import boto3
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from decimal import Decimal
 from boto3.dynamodb.conditions import Key, Attr
 
@@ -168,6 +168,25 @@ class LocationsTable:
             },
         )
 
+    def decrement_like_count(self, location_id: str) -> None:
+        """Decrement like count for a location (minimum 0)."""
+        try:
+            self.table.update_item(
+                Key={
+                    "PK": f"location#{location_id}",
+                    "SK": "metadata",
+                },
+                UpdateExpression="SET likeCount = likeCount - :dec",
+                ConditionExpression="likeCount > :zero",
+                ExpressionAttributeValues={
+                    ":zero": 0,
+                    ":dec": 1,
+                },
+            )
+        except self.table.meta.client.exceptions.ConditionalCheckFailedException:
+            # Count already at 0, no need to decrement
+            print(f"Like count already at 0 for location {location_id}")
+
     def increment_report_count(self, location_id: str) -> int:
         """Increment report count and return new count."""
         response = self.table.update_item(
@@ -214,10 +233,84 @@ class FeedbackTable:
         self.table.put_item(Item=item)
         return feedback
 
+    def create_feedback_atomic(self, feedback: Dict) -> Tuple[bool, Optional[str]]:
+        """
+        Create feedback with conditional write to prevent duplicates.
+
+        Returns:
+            Tuple[bool, Optional[str]]: (success, error_code)
+            - success=True, error_code=None: Item created successfully
+            - success=False, error_code='ConditionalCheckFailedException': Item already exists
+        """
+        item = float_to_decimal(feedback)
+        item["PK"] = f"feedback#{feedback['id']}"
+        item["SK"] = f"location#{feedback['locationId']}"
+
+        try:
+            self.table.put_item(
+                Item=item,
+                ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)",
+            )
+            return True, None
+        except self.table.meta.client.exceptions.ConditionalCheckFailedException:
+            print(f"Conditional write failed: feedback already exists for PK={item['PK']}")
+            return False, "ConditionalCheckFailedException"
+        except Exception as e:
+            print(f"Unexpected error creating feedback: {str(e)}")
+            return False, str(type(e).__name__)
+
+    def delete(self, feedback_id: str, location_id: str) -> None:
+        """Delete a feedback record."""
+        self.table.delete_item(
+            Key={
+                "PK": f"feedback#{feedback_id}",
+                "SK": f"location#{location_id}",
+            }
+        )
+
+    def get_user_feedback(self, location_id: str, user_id: str, feedback_type: str) -> Optional[Dict]:
+        """
+        Get a user's feedback for a specific location and type.
+        Uses GSI for efficient querying instead of expensive SCAN.
+        """
+        try:
+            response = self.table.query(
+                IndexName="userId-locationId-index",
+                KeyConditionExpression=Key("userId").eq(user_id) & Key("locationId").eq(location_id),
+                FilterExpression=Attr("type").eq(feedback_type),
+                Limit=1,
+            )
+            items = response.get("Items", [])
+            return decimal_to_float(items[0]) if items else None
+        except Exception as e:
+            print(f"Error querying user feedback with GSI: {str(e)}")
+            # Fallback to scan if GSI query fails (backwards compatibility)
+            return self._get_user_feedback_scan(location_id, user_id, feedback_type)
+
+    def _get_user_feedback_scan(self, location_id: str, user_id: str, feedback_type: str) -> Optional[Dict]:
+        """Fallback scan method for backwards compatibility."""
+        response = self.table.scan(
+            FilterExpression=Attr("locationId").eq(location_id) &
+                           Attr("userId").eq(user_id) &
+                           Attr("type").eq(feedback_type),
+            Limit=1,
+        )
+        items = response.get("Items", [])
+        return decimal_to_float(items[0]) if items else None
+
+    def update_rating_value(self, feedback_id: str, location_id: str, rating: int) -> None:
+        """Update the rating value of an existing feedback."""
+        self.table.update_item(
+            Key={
+                "PK": f"feedback#{feedback_id}",
+                "SK": f"location#{location_id}",
+            },
+            UpdateExpression="SET rating = :r",
+            ExpressionAttributeValues={":r": rating},
+        )
+
     def get_by_location(self, location_id: str, limit: int = 100) -> List[Dict]:
         """Get all feedback for a location."""
-        # Use GSI to query by location_id
-        # For MVP, we'll scan (implement GSI in CDK later)
         response = self.table.scan(
             FilterExpression=Attr("locationId").eq(location_id),
             Limit=limit,
