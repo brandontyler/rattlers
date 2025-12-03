@@ -12,7 +12,9 @@ export interface Location {
   likeCount: number;
   reportCount: number;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
+  googleMapsUrl?: string;
+  createdBy?: string;
 }
 
 export interface LocationsResponse {
