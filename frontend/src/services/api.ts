@@ -6,6 +6,7 @@ import type {
   LocationFilters,
   FeedbackRequest,
   FeedbackResponse,
+  FeedbackStatusResponse,
   SuggestionRequest,
   ReportRequest,
   UserProfile,
@@ -93,6 +94,13 @@ class ApiService {
     const { data } = await this.api.post<ApiResponse<FeedbackResponse>>(
       `/locations/${locationId}/feedback`,
       feedback
+    );
+    return data;
+  }
+
+  async getFeedbackStatus(locationId: string): Promise<ApiResponse<FeedbackStatusResponse>> {
+    const { data } = await this.api.get<ApiResponse<FeedbackStatusResponse>>(
+      `/locations/${locationId}/feedback/status`
     );
     return data;
   }

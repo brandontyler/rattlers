@@ -15,6 +15,9 @@ cd frontend && npm run dev
 # Deploy infrastructure changes
 cd infrastructure && uv run cdk deploy
 
+# Synthesize infrastructure (check for errors)
+cd infrastructure && uv run cdk synth
+
 # Run import scripts
 cd scripts && uv run python import_locations.py --help
 ```
@@ -34,11 +37,9 @@ cd scripts && uv run python import_locations.py --help
 - **Data:** 146 locations imported and geocoded
 - **Map:** Leaflet with markers, popups, "Near Me" geolocation
 - **Auth:** Cognito login/signup working
-- **Feedback:** Like, star rating, report endpoints
+- **Feedback:** Like/unlike toggle, star rating, report endpoints
+- **Like System:** Fixed toggle behavior with optimistic UI updates, initial state loading, and race condition prevention
 - **Security:** CORS restricted, rate limiting (100 req/sec)
-
-### 🔧 In Progress
-- Auth flow fixes (this branch: `fix/remove-demo-mode-notice`)
 
 ### ⏳ Next Up
 1. Complete auth testing
@@ -57,13 +58,14 @@ Frontend (React)  →  API Gateway  →  Lambda  →  DynamoDB
 
 **Key Tables:**
 - `christmas-lights-locations-dev` - 146 locations with GSIs
-- `christmas-lights-feedback-dev` - Likes, ratings
+- `christmas-lights-feedback-dev` - Likes, ratings (with userId-locationId GSI for race condition prevention)
 - `christmas-lights-suggestions-dev` - User submissions
 
 **Key Endpoints:**
 - `GET /v1/locations` - List all (public)
 - `GET /v1/locations/{id}` - Single location (public)
-- `POST /v1/locations/{id}/feedback` - Like/rate (auth required)
+- `POST /v1/locations/{id}/feedback` - Like/unlike toggle, star rating (auth required)
+- `GET /v1/locations/{id}/feedback/status` - Get user's feedback status (auth required)
 - `POST /v1/locations/{id}/report` - Report inactive (auth required)
 
 ---
@@ -146,8 +148,11 @@ git checkout -b feature/my-feature
 git add -A && git commit -m "feat: description"
 gh pr create --base main --title "Title"
 
-# Deploy
+# Deploy infrastructure (uses uv)
 cd infrastructure && uv run cdk deploy
+
+# Check infrastructure diff before deploying
+cd infrastructure && uv run cdk diff
 
 # Check logs
 aws logs tail "/aws/lambda/ChristmasLightsStack-dev-GetLocationsFunctionB2F3B-xxx" --since 5m
@@ -162,7 +167,12 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add session notes, blockers, or decisions here:_
 
-- **Dec 3, 2025:** Fixed auth to use Cognito token instead of missing `/users/me` endpoint
+- **Dec 3, 2025 (PM):** Fixed like/unlike button functionality
+  - Frontend: Optimistic UI updates with rollback on error
+  - Backend: GSI for O(1) user feedback queries, atomic writes to prevent race conditions
+  - New endpoint: `GET /locations/{id}/feedback/status` for initial state loading
+  - Users can now properly toggle like/unlike (was only incrementing before)
+- **Dec 3, 2025 (AM):** Fixed auth to use Cognito token instead of missing `/users/me` endpoint
 - **Dec 2, 2025:** MVP complete - map, locations, feedback all working
 
 ---

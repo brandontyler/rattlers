@@ -38,6 +38,27 @@ export default function LocationDetailPage() {
     fetchLocation();
   }, [id]);
 
+  // Fetch initial like state on mount
+  useEffect(() => {
+    if (!isAuthenticated || !id) {
+      return;
+    }
+
+    const fetchLikeStatus = async () => {
+      try {
+        const response = await apiService.getFeedbackStatus(id);
+        if (response.success && response.data) {
+          setHasLiked(response.data.liked ?? false);
+        }
+      } catch (err) {
+        console.error('Failed to fetch like status:', err);
+        setHasLiked(false);
+      }
+    };
+
+    fetchLikeStatus();
+  }, [id, isAuthenticated]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

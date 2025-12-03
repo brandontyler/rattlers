@@ -64,28 +64,54 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if feedback_type == "like":
             if existing:
                 # Unlike - remove the feedback
-                feedback_table.delete(existing["id"], location_id)
-                locations_table.decrement_like_count(location_id)
-                return success_response(
-                    data={"liked": False, "locationId": location_id},
-                    message="Like removed",
-                )
+                try:
+                    feedback_table.delete(existing["id"], location_id)
+                    locations_table.decrement_like_count(location_id)
+                    return success_response(
+                        data={"liked": False, "locationId": location_id},
+                        message="Like removed",
+                    )
+                except Exception as e:
+                    print(f"Error removing like: {str(e)}")
+                    return internal_error()
             else:
-                # Like - create new feedback
+                # Like - create new feedback with atomic write
                 feedback_id = str(uuid4())
-                feedback_table.create({
+                feedback_data = {
                     "id": feedback_id,
                     "locationId": location_id,
                     "userId": user["id"],
                     "type": "like",
                     "createdAt": datetime.utcnow().isoformat() + "Z",
-                })
-                locations_table.increment_like_count(location_id)
-                return success_response(
-                    data={"liked": True, "id": feedback_id, "locationId": location_id},
-                    message="Location liked!",
-                    status_code=201,
-                )
+                }
+
+                success, error_code = feedback_table.create_feedback_atomic(feedback_data)
+
+                if success:
+                    # Successfully created - increment count
+                    locations_table.increment_like_count(location_id)
+                    return success_response(
+                        data={"liked": True, "id": feedback_id, "locationId": location_id},
+                        message="Location liked!",
+                        status_code=201,
+                    )
+                elif error_code == "ConditionalCheckFailedException":
+                    # Race condition detected - return idempotent success response
+                    print(f"Race condition detected for user {user['id']} on location {location_id}")
+                    existing = feedback_table.get_user_feedback(location_id, user["id"], "like")
+
+                    return success_response(
+                        data={
+                            "liked": True,
+                            "id": existing["id"] if existing else feedback_id,
+                            "locationId": location_id
+                        },
+                        message="Location liked!",
+                        status_code=200,
+                    )
+                else:
+                    print(f"Unexpected error in atomic create: {error_code}")
+                    return internal_error()
         else:
             # Star rating - update or create
             if existing:

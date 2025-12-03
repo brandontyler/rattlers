@@ -154,7 +154,7 @@ Soft delete - sets status to 'inactive'.
 
 ### Feedback
 
-#### Submit Feedback
+#### Submit Feedback (Like/Unlike Toggle)
 ```
 POST /locations/{id}/feedback
 Authorization: Required
@@ -171,22 +171,77 @@ Authorization: Required
 **Validation:**
 - `type`: Required, must be "like" or "star"
 - `rating`: Required if type is "star", must be 1-5
-- User can only submit one feedback per location per day
 
-**Response:**
+**Like Behavior (Toggle):**
+- If user hasn't liked: Creates like and returns `liked: true`
+- If user has already liked: Removes like and returns `liked: false`
+- Atomic operations prevent duplicate likes from race conditions
+- Location `likeCount` automatically increments/decrements
+
+**Response (Like):**
+```json
+{
+  "success": true,
+  "data": {
+    "liked": true,
+    "id": "uuid",
+    "locationId": "uuid"
+  },
+  "message": "Location liked!"
+}
+```
+
+**Response (Unlike):**
+```json
+{
+  "success": true,
+  "data": {
+    "liked": false,
+    "locationId": "uuid"
+  },
+  "message": "Like removed"
+}
+```
+
+**Response (Star Rating):**
 ```json
 {
   "success": true,
   "data": {
     "id": "uuid",
     "locationId": "uuid",
-    "type": "star",
-    "rating": 5,
-    "createdAt": "2024-11-30T00:00:00Z"
+    "rating": 5
   },
-  "message": "Feedback submitted successfully"
+  "message": "Rating submitted!"
 }
 ```
+
+#### Get Feedback Status
+```
+GET /locations/{id}/feedback/status
+Authorization: Required
+```
+
+Returns the current user's feedback status for a location (whether they've liked/rated it).
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "locationId": "uuid",
+    "liked": true,
+    "rating": 5,
+    "likedAt": "2024-11-30T00:00:00Z",
+    "ratedAt": "2024-11-30T00:00:00Z"
+  }
+}
+```
+
+**Use Cases:**
+- Display correct "Like"/"Unlike" button state on page load
+- Show user's existing rating when viewing location details
+- Prevent duplicate feedback submissions
 
 #### Report Inactive
 ```
