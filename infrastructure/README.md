@@ -7,20 +7,17 @@ AWS CDK infrastructure code (Python) for deploying the application.
 - AWS CLI configured with appropriate credentials
 - AWS CDK Toolkit installed: `npm install -g aws-cdk`
 - Python 3.12+
+- [uv](https://github.com/astral-sh/uv) (Python package manager)
 - Node.js (for CDK CLI)
 
 ## Setup
 
 ```bash
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
 # Install dependencies
-pip install -r requirements.txt
+uv sync
 
 # Bootstrap CDK (first time only, per account/region)
-cdk bootstrap
+uv run cdk bootstrap
 ```
 
 ## Deployment
@@ -29,23 +26,23 @@ cdk bootstrap
 
 ```bash
 # Synthesize CloudFormation template
-cdk synth
+uv run cdk synth
 
 # Deploy to dev environment
-cdk deploy
+uv run cdk deploy
 
 # Deploy with specific profile
-cdk deploy --profile your-aws-profile
+uv run cdk deploy --profile your-aws-profile
 
 # Deploy with approval
-cdk deploy --require-approval never
+uv run cdk deploy --require-approval never
 ```
 
 ### Production Environment
 
 ```bash
 # Deploy to production
-cdk deploy -c env=prod
+uv run cdk deploy -c env=prod
 ```
 
 ## Stack Resources
@@ -71,19 +68,19 @@ The CDK stack creates:
 
 ```bash
 # List all stacks
-cdk list
+uv run cdk list
 
 # Show differences between deployed and local
-cdk diff
+uv run cdk diff
 
 # Destroy stack (dev only!)
-cdk destroy
+uv run cdk destroy
 
 # Watch mode (auto-deploy on changes)
-cdk watch
+uv run cdk watch
 
 # Show CloudFormation template
-cdk synth > template.yaml
+uv run cdk synth > template.yaml
 ```
 
 ## Outputs
@@ -192,7 +189,7 @@ aws cloudformation continue-update-rollback --stack-name ChristmasLightsStack-de
 
 ```bash
 # Destroy development stack
-cdk destroy
+uv run cdk destroy
 
 # Note: S3 buckets with objects won't delete automatically
 # Empty them first or set auto_delete_objects=True in code

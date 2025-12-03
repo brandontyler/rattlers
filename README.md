@@ -65,6 +65,7 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 ### Prerequisites
 - Node.js 18+ and npm
 - Python 3.12+
+- [uv](https://github.com/astral-sh/uv) (Python package manager)
 - AWS CLI configured
 - AWS CDK installed (`npm install -g aws-cdk`)
 
@@ -80,20 +81,23 @@ npm run dev
 #### Backend (Local Testing)
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+uv sync
+uv run pytest
 ```
 
 #### Infrastructure Deployment
 ```bash
 cd infrastructure
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-cdk bootstrap  # First time only
-cdk deploy
+uv sync
+uv run cdk bootstrap  # First time only
+uv run cdk deploy
+```
+
+#### Scripts
+```bash
+cd scripts
+uv sync
+uv run python import_locations.py --help
 ```
 
 ## Environment Variables

@@ -17,29 +17,29 @@ Import and geocode locations from your Google Maps export.
 
 **Installation:**
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
 
 **Usage:**
 
 ```bash
 # Basic usage - geocode and save to CSV
-python import_locations.py your_export.csv --output-csv geocoded.csv
+uv run python import_locations.py your_export.csv --output-csv geocoded.csv
 
 # Using Google Geocoding API (more accurate, but requires API key)
-python import_locations.py your_export.csv \
+uv run python import_locations.py your_export.csv \
   --geocode google \
   --google-api-key YOUR_API_KEY \
   --output-csv geocoded.csv
 
 # Geocode and import directly to DynamoDB
-python import_locations.py your_export.csv \
+uv run python import_locations.py your_export.csv \
   --output-csv geocoded.csv \
   --import-to-dynamodb \
   --table-name christmas-lights-locations-dev
 
 # Save as JSON for inspection
-python import_locations.py your_export.csv \
+uv run python import_locations.py your_export.csv \
   --output-json locations.json
 ```
 
@@ -56,12 +56,12 @@ python import_locations.py your_export.csv \
 1. Export from Google Maps (see `/docs/GOOGLE_MAPS_EXPORT_GUIDE.md`)
 2. Run geocoding:
    ```bash
-   python import_locations.py my_export.csv --output-csv geocoded.csv
+   uv run python import_locations.py my_export.csv --output-csv geocoded.csv
    ```
 3. Review the geocoded.csv file
 4. Import to DynamoDB:
    ```bash
-   python import_locations.py geocoded.csv --import-to-dynamodb
+   uv run python import_locations.py geocoded.csv --import-to-dynamodb
    ```
 
 **Geocoding Services:**
@@ -140,14 +140,14 @@ Deploy the entire application to AWS.
 2. **Geocode the addresses:**
    ```bash
    cd scripts
-   pip install -r requirements.txt
+   uv sync
 
    # Using free Nominatim (slower but free)
-   python import_locations.py ~/Downloads/Takeout/Maps/Saved\ Places.csv \
+   uv run python import_locations.py ~/Downloads/Takeout/Maps/Saved\ Places.csv \
      --output-csv christmas_lights_geocoded.csv
 
    # OR using Google API (faster, more accurate)
-   python import_locations.py ~/Downloads/Takeout/Maps/Saved\ Places.csv \
+   uv run python import_locations.py ~/Downloads/Takeout/Maps/Saved\ Places.csv \
      --geocode google \
      --google-api-key YOUR_API_KEY \
      --output-csv christmas_lights_geocoded.csv
@@ -165,7 +165,7 @@ Deploy the entire application to AWS.
    # Make sure infrastructure is deployed first
    export AWS_REGION=us-east-1
 
-   python import_locations.py christmas_lights_geocoded.csv \
+   uv run python import_locations.py christmas_lights_geocoded.csv \
      --import-to-dynamodb \
      --table-name christmas-lights-locations-dev
    ```
@@ -182,7 +182,7 @@ Deploy the entire application to AWS.
 
 ### "Module not found: geopy"
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
 
 ### "Google API key required"
@@ -198,7 +198,7 @@ Some addresses might be incomplete or invalid. Options:
 
 ### "DynamoDB table not found"
 Make sure:
-- Infrastructure is deployed: `cd infrastructure && cdk deploy`
+- Infrastructure is deployed: `cd infrastructure && uv run cdk deploy`
 - Table name is correct: check CloudFormation outputs
 - AWS credentials have DynamoDB permissions
 
