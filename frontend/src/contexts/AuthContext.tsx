@@ -135,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
       }
 
-      userPool.signUp(email, password, attributeList, [], (err, _result) => {
+      userPool.signUp(email, password, attributeList, [], (err) => {
         if (err) {
           reject(err);
           return;
@@ -155,7 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         Pool: userPool,
       });
 
-      cognitoUser.confirmRegistration(code, true, (err, _result) => {
+      cognitoUser.confirmRegistration(code, true, (err) => {
         if (err) {
           reject(err);
           return;
@@ -175,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         Pool: userPool,
       });
 
-      cognitoUser.resendConfirmationCode((err, _result) => {
+      cognitoUser.resendConfirmationCode((err) => {
         if (err) {
           reject(err);
           return;
