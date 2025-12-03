@@ -71,13 +71,13 @@ Run these curl commands to test the API directly:
 ```bash
 curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations?pageSize=3" | jq '.pagination'
 ```
-- [ ] Returns pagination with total: 146
+- [x] Returns pagination with total: 146
 
 ### 4.2 GET /locations/{id}
 ```bash
 curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations/5755eb1f-403b-4c7d-a154-7eed0c9ecc01" | jq '.data.address'
 ```
-- [ ] Returns "119 Magnolia Ln"
+- [x] Returns "119 Magnolia Ln"
 
 ### 4.3 POST /feedback (no auth)
 ```bash
@@ -85,13 +85,13 @@ curl -s -X POST "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/l
   -H "Content-Type: application/json" \
   -d '{"type": "like"}'
 ```
-- [ ] Returns 401 Unauthorized
+- [x] Returns 401 Unauthorized
 
 ### 4.4 GET /feedback/status (no auth)
 ```bash
 curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations/5755eb1f-403b-4c7d-a154-7eed0c9ecc01/feedback/status"
 ```
-- [ ] Returns 401 Unauthorized
+- [x] Returns 401 Unauthorized
 
 ### 4.5 POST /report (no auth)
 ```bash
@@ -99,7 +99,7 @@ curl -s -X POST "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/l
   -H "Content-Type: application/json" \
   -d '{"reason": "test"}'
 ```
-- [ ] Returns 401 Unauthorized
+- [x] Returns 401 Unauthorized
 
 ---
 

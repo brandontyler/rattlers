@@ -107,7 +107,7 @@ export default function MapView({
             setUserLocation(coords);
             setMapCenter(coords);
           },
-          (_error) => {
+          () => {
             alert('Unable to get your location. Please enable location services.');
           }
         );
