@@ -615,10 +615,9 @@ When you return and have questions:
 3. **First deployment:**
    ```bash
    cd infrastructure
-   python -m venv venv && source venv/bin/activate
-   pip install -r requirements.txt
-   cdk bootstrap
-   cdk deploy
+   uv sync
+   uv run cdk bootstrap
+   uv run cdk deploy
    ```
 
 ---

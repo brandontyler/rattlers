@@ -1,15 +1,57 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Location } from '@/types';
 import Badge from '../ui/Badge';
+import { useAuth } from '@/contexts/AuthContext';
+import { apiService } from '@/services/api';
 
 interface LocationPopupProps {
   location: Location;
+  onFeedbackSubmit?: () => void;
 }
 
-export default function LocationPopup({ location }: LocationPopupProps) {
+export default function LocationPopup({ location, onFeedbackSubmit }: LocationPopupProps) {
+  const { isAuthenticated } = useAuth();
+  const [likeCount, setLikeCount] = useState(location.likeCount || 0);
+  const [isLiking, setIsLiking] = useState(false);
+  const [isReporting, setIsReporting] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [reported, setReported] = useState(false);
+
   const displayRating = location.averageRating
     ? location.averageRating.toFixed(1)
     : 'N/A';
+
+  const handleLike = async () => {
+    if (!isAuthenticated || isLiking || liked) return;
+
+    setIsLiking(true);
+    try {
+      await apiService.submitFeedback(location.id, { type: 'like' });
+      setLikeCount((prev) => prev + 1);
+      setLiked(true);
+      onFeedbackSubmit?.();
+    } catch (error) {
+      console.error('Failed to submit like:', error);
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
+  const handleReport = async () => {
+    if (!isAuthenticated || isReporting || reported) return;
+
+    setIsReporting(true);
+    try {
+      await apiService.reportInactive(location.id, { reason: 'No lights visible' });
+      setReported(true);
+      onFeedbackSubmit?.();
+    } catch (error) {
+      console.error('Failed to submit report:', error);
+    } finally {
+      setIsReporting(false);
+    }
+  };
 
   return (
     <div className="min-w-[280px] max-w-[320px]">
@@ -62,26 +104,66 @@ export default function LocationPopup({ location }: LocationPopupProps) {
             <span className="font-medium text-forest-700">{displayRating}</span>
           </div>
 
-          {/* Feedback count */}
-          {location.feedbackCount !== undefined && (
-            <div className="flex items-center gap-1">
-              <svg
-                className="w-4 h-4 text-forest-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                />
-              </svg>
-              <span className="text-forest-600">{location.feedbackCount} reviews</span>
-            </div>
-          )}
+          {/* Like count */}
+          <div className="flex items-center gap-1">
+            <svg
+              className="w-4 h-4 text-burgundy-500"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+            </svg>
+            <span className="text-forest-600">{likeCount}</span>
+          </div>
         </div>
+
+        {/* Action buttons */}
+        <div className="flex gap-2 mb-3">
+          {/* Like button */}
+          <button
+            onClick={handleLike}
+            disabled={!isAuthenticated || isLiking || liked}
+            className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              liked
+                ? 'bg-burgundy-100 text-burgundy-700 cursor-default'
+                : isAuthenticated
+                ? 'bg-burgundy-50 text-burgundy-600 hover:bg-burgundy-100'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+            title={!isAuthenticated ? 'Sign in to like' : liked ? 'Already liked' : 'Like this display'}
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+            </svg>
+            {liked ? 'Liked!' : isLiking ? '...' : 'Like'}
+          </button>
+
+          {/* Report button */}
+          <button
+            onClick={handleReport}
+            disabled={!isAuthenticated || isReporting || reported}
+            className={`flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              reported
+                ? 'bg-gray-100 text-gray-500 cursor-default'
+                : isAuthenticated
+                ? 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+            title={!isAuthenticated ? 'Sign in to report' : reported ? 'Reported' : 'Report as inactive'}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            {reported ? 'Reported' : isReporting ? '...' : 'Report'}
+          </button>
+        </div>
+
+        {/* Sign in prompt */}
+        {!isAuthenticated && (
+          <p className="text-xs text-gray-500 mb-3 text-center">
+            <Link to="/login" className="text-burgundy-600 hover:underline">Sign in</Link> to like or report
+          </p>
+        )}
 
         {/* View Details Link */}
         <Link

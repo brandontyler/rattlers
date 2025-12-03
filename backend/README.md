@@ -52,19 +52,12 @@ backend/
 ## Local Development
 
 ```bash
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-
-# Run tests
-pytest
+# Install dependencies and run tests
+uv sync
+uv run pytest
 
 # Run tests with coverage
-pytest --cov=functions --cov=layers
+uv run pytest --cov=functions --cov=layers
 ```
 
 ## Environment Variables
