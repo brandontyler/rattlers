@@ -64,10 +64,10 @@ def handler(event, context):
         now = datetime.now(timezone.utc).isoformat()
         location_id = str(uuid.uuid4())
 
-        # Create new location
+        # Create new location (use lowercase pk/sk to match existing convention)
         location_item = {
-            "PK": f"LOCATION#{location_id}",
-            "SK": "METADATA",
+            "PK": f"location#{location_id}",
+            "SK": "metadata",
             "id": location_id,
             "address": suggestion.get("address"),
             "description": suggestion.get("description"),
