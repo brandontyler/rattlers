@@ -411,6 +411,7 @@ class ChristmasLightsStack(Stack):
             layers=[self.common_layer],
         )
         self.suggestions_table.grant_read_data(self.get_suggestions_fn)
+        self.photos_bucket.grant_read(self.get_suggestions_fn)
 
         # Approve suggestion function (admin)
         self.approve_suggestion_fn = lambda_.Function(

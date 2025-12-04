@@ -21,6 +21,7 @@ export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSuggestions();
@@ -224,10 +225,37 @@ export default function AdminPage() {
                               </svg>
                               {suggestion.lat.toFixed(4)}, {suggestion.lng.toFixed(4)}
                             </span>
+                            {suggestion.photos.length > 0 && (
+                              <span className="flex items-center gap-1 text-gold-600">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                {suggestion.photos.length} photo{suggestion.photos.length > 1 ? 's' : ''}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
-                      <p className="text-forest-700 leading-relaxed">{suggestion.description}</p>
+                      <p className="text-forest-700 leading-relaxed mb-4">{suggestion.description}</p>
+                      
+                      {/* Photo Thumbnails */}
+                      {suggestion.photos.length > 0 && (
+                        <div className="flex gap-2 flex-wrap">
+                          {suggestion.photos.map((photoUrl, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setLightboxImage(photoUrl)}
+                              className="w-20 h-20 rounded-lg overflow-hidden border-2 border-forest-200 hover:border-forest-400 transition-colors focus:outline-none focus:ring-2 focus:ring-forest-500"
+                            >
+                              <img
+                                src={photoUrl}
+                                alt={`Photo ${idx + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex lg:flex-col gap-3 lg:min-w-[140px]">
@@ -264,6 +292,29 @@ export default function AdminPage() {
           )}
         </Card>
       </div>
+
+      {/* Lightbox Modal */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+            onClick={() => setLightboxImage(null)}
+          >
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <img
+            src={lightboxImage}
+            alt="Full size preview"
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
