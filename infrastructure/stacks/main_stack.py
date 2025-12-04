@@ -446,6 +446,38 @@ class ChristmasLightsStack(Stack):
             ),
         )
 
+        # Add CORS headers to Gateway error responses (4XX/5XX)
+        # This ensures CORS headers are returned even when auth fails
+        cors_headers = {
+            "Access-Control-Allow-Origin": f"'{allowed_origins[0]}'",
+            "Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+            "Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,OPTIONS'",
+        }
+
+        self.api.add_gateway_response(
+            "Unauthorized",
+            type=apigw.ResponseType.UNAUTHORIZED,
+            response_headers=cors_headers,
+        )
+
+        self.api.add_gateway_response(
+            "AccessDenied",
+            type=apigw.ResponseType.ACCESS_DENIED,
+            response_headers=cors_headers,
+        )
+
+        self.api.add_gateway_response(
+            "Default4XX",
+            type=apigw.ResponseType.DEFAULT_4_XX,
+            response_headers=cors_headers,
+        )
+
+        self.api.add_gateway_response(
+            "Default5XX",
+            type=apigw.ResponseType.DEFAULT_5_XX,
+            response_headers=cors_headers,
+        )
+
         # API v1
         v1 = self.api.root.add_resource("v1")
 
