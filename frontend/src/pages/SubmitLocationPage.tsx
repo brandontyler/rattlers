@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Input, Card } from '@/components/ui';
+import { Button, Card } from '@/components/ui';
 import AddressAutocomplete, { AddressAutocompleteRef } from '@/components/ui/AddressAutocomplete';
 import type { AddressSuggestion } from '@/types';
 
@@ -11,7 +11,6 @@ export default function SubmitLocationPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [selectedAddress, setSelectedAddress] = useState<AddressSuggestion | null>(null);
 
   const addressRef = useRef<AddressAutocompleteRef>(null);
 
@@ -40,8 +39,7 @@ export default function SubmitLocationPage() {
     setPhotoPreviewUrls(photoPreviewUrls.filter((_, i) => i !== index));
   };
 
-  const handleAddressSelect = (suggestion: AddressSuggestion) => {
-    setSelectedAddress(suggestion);
+  const handleAddressSelect = (_suggestion: AddressSuggestion) => {
     setError('');
   };
 
@@ -128,7 +126,6 @@ export default function SubmitLocationPage() {
                 setDescription('');
                 setPhotos([]);
                 setPhotoPreviewUrls([]);
-                setSelectedAddress(null);
                 addressRef.current?.clearSelection();
               }}
             >
