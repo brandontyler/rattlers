@@ -93,7 +93,9 @@ export default function LocationDetailPage() {
     if (location.googleMapsUrl) {
       window.open(location.googleMapsUrl, '_blank');
     } else {
-      const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${location.lat},${location.lng}`;
+      // Use address for accurate directions (lat/lng can point to wrong house)
+      const encodedAddress = encodeURIComponent(location.address);
+      const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`;
       window.open(googleMapsUrl, '_blank');
     }
   };
