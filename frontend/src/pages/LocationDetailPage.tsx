@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button, Card, Badge, LoadingSpinner } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,6 +16,10 @@ export default function LocationDetailPage() {
   const [hasReported, setHasReported] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
+  
+  // Refs for bulletproof click protection (state updates are async, refs are sync)
+  const isLikingRef = useRef(false);
+  const isReportingRef = useRef(false);
 
   useEffect(() => {
     const fetchLocation = async () => {
@@ -95,34 +99,44 @@ export default function LocationDetailPage() {
   };
 
   const handleLike = async () => {
-    if (!isAuthenticated || isLiking) return;
+    // Use ref for synchronous check - state updates are async and unreliable for guards
+    if (!isAuthenticated || isLikingRef.current || !location) return;
+    
+    isLikingRef.current = true;
     setIsLiking(true);
+    
     try {
       const response = await apiService.submitFeedback(location.id, { type: 'like' });
       if (response.success && response.data) {
-        const liked = response.data.liked ?? false;
-        setHasLiked(liked);
-        setLocation(prev => prev ? { 
-          ...prev, 
-          likeCount: liked ? (prev.likeCount || 0) + 1 : Math.max((prev.likeCount || 0) - 1, 0)
-        } : null);
+        const serverLiked = response.data.liked ?? false;
+        setHasLiked(serverLiked);
+      }
+      // Always refetch location to get accurate count from server
+      const locationResponse = await apiService.getLocationById(location.id);
+      if (locationResponse.success && locationResponse.data) {
+        setLocation(locationResponse.data);
       }
     } catch (err) {
       console.error('Failed to toggle like:', err);
     } finally {
+      isLikingRef.current = false;
       setIsLiking(false);
     }
   };
 
   const handleReport = async () => {
-    if (!isAuthenticated || isReporting || hasReported) return;
+    if (!isAuthenticated || isReportingRef.current || hasReported) return;
+    
+    isReportingRef.current = true;
     setIsReporting(true);
+    
     try {
       await apiService.reportInactive(location.id, { reason: 'No lights visible' });
       setHasReported(true);
     } catch (err) {
       console.error('Failed to report:', err);
     } finally {
+      isReportingRef.current = false;
       setIsReporting(false);
     }
   };

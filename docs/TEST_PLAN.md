@@ -22,11 +22,11 @@
 | 1.2 | Locations display | Zoom out on map | 146 markers visible | [x] |
 | 1.3 | "Near Me" button | Click "Near Me" button | Map centers on your location (may prompt for permission) | [x] |
 | 1.4 | Location popup | Click any marker | Popup shows address, rating, like count | [x] |
-| 1.5 | Popup like (auth) | Sign in, click Like on popup | Like count increments, button changes to "Unlike" | [ ] |
-| 1.6 | Popup unlike (auth) | Click "Unlike" on already-liked location | Like count decrements, button changes to "Like" | [ ] |
-| 1.7 | Popup like persists | Like a location, close/reopen popup | Button shows "Unlike" (maintains state) | [ ] |
-| 1.8 | Popup optimistic update | Click Like | Button updates instantly before server responds | [ ] |
-| 1.9 | Popup report (auth) | Sign in, click Report on popup | Button shows "Reported" | [ ] |
+| 1.5 | Popup like (auth) | Sign in, click Like on popup | Like count increments, button changes to "Unlike" | [x] |
+| 1.6 | Popup unlike (auth) | Click "Unlike" on already-liked location | Like count decrements, button changes to "Like" | [x] |
+| 1.7 | Popup like persists | Like a location, close/reopen popup | Button shows "Unlike" (maintains state) | [x] |
+| 1.8 | Popup optimistic update | Click Like | Button updates instantly before server responds | [x] |
+| 1.9 | Popup report (auth) | Sign in, click Report on popup | Button shows "Reported" | [x] |
 | 1.10 | Popup like (no auth) | Sign out, click Like on popup | Shows "Sign in to like" message | [x] |
 | 1.11 | View Details link | Click "View Details" on popup | Navigates to location detail page | [x] |
 
@@ -39,10 +39,10 @@
 | 2.1 | Page loads real data | Click "View Details" from any popup | Shows real address (not "123 Christmas Lane") | [x] |
 | 2.2 | Direct URL access | Go to `/location/5755eb1f-403b-4c7d-a154-7eed0c9ecc01` | Shows "119 Magnolia Ln" with stats | [x] |
 | 2.3 | Get Directions | Click "Get Directions" button | Opens Google Maps with location | [x] |
-| 2.4 | Like button (auth) | Sign in, click Like | Count updates, button changes to "Unlike" | [ ] |
-| 2.5 | Unlike button (auth) | Click "Unlike" on already-liked location | Count decrements, button changes to "Like" | [ ] |
-| 2.6 | Like state on page load | Like location, refresh page | Button shows "Unlike" on reload | [ ] |
-| 2.7 | Rapid clicking prevention | Quickly click Like/Unlike multiple times | Button disables during request, prevents duplicate likes | [ ] |
+| 2.4 | Like button (auth) | Sign in, click Like | Count updates, button changes to "Unlike" | [x] |
+| 2.5 | Unlike button (auth) | Click "Unlike" on already-liked location | Count decrements, button changes to "Like" | [x] |
+| 2.6 | Like state on page load | Like location, refresh page | Button shows "Unlike" on reload | [x] |
+| 2.7 | Rapid clicking prevention | Quickly click Like/Unlike multiple times | Button disables during request, prevents duplicate likes | [x] |
 | 2.8 | Report button (auth) | Sign in, click "Report Issue" | Button shows "Reported - Thank you!" | [ ] |
 | 2.9 | Like button (no auth) | Sign out, click Like | Button disabled or shows sign-in prompt | [x] |
 | 2.10 | Invalid location ID | Go to `/location/invalid-id-here` | Shows "Location Not Found" message | [x] |

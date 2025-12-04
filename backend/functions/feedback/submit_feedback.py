@@ -75,8 +75,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     print(f"Error removing like: {str(e)}")
                     return internal_error()
             else:
-                # Like - create new feedback with atomic write
-                feedback_id = str(uuid4())
+                # Like - create new feedback with deterministic ID for atomic uniqueness
+                # ID is based on user+location+type so duplicates will fail the conditional write
+                feedback_id = f"like-{user['id']}-{location_id}"
                 feedback_data = {
                     "id": feedback_id,
                     "locationId": location_id,
@@ -96,7 +97,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         status_code=201,
                     )
                 elif error_code == "ConditionalCheckFailedException":
-                    # Race condition detected - return idempotent success response
+                    # Race condition detected - user already liked, return current state
                     print(f"Race condition detected for user {user['id']} on location {location_id}")
                     existing = feedback_table.get_user_feedback(location_id, user["id"], "like")
 
