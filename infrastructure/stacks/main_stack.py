@@ -517,7 +517,7 @@ class ChristmasLightsStack(Stack):
         CfnOutput(
             self,
             "ApiEndpoint",
-            value=self.api.url,
+            value=f"{self.api.url}v1/",
             description="API Gateway endpoint URL",
         )
 
