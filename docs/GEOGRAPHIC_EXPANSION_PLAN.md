@@ -28,6 +28,90 @@ if 31.5 <= lat <= 34.0 and -98.5 <= lng <= -95.5:
 
 ---
 
+## Frontend Geographic Dependencies
+
+### Hardcoded Text References (Need Regionalization)
+
+**Component Locations with "DFW" / "Dallas-Fort Worth":**
+
+1. **Layout.tsx** (App title and footer)
+   - Line ~20: `"DFW Christmas Lights"` (header title)
+   - Line ~40: `"DFW Christmas Lights"` (mobile menu)
+   - Line ~180: `"across the Dallas-Fort Worth area"` (footer)
+   - Line ~260: `"Made with ❤️ for the DFW community"` (footer copyright)
+
+2. **HomePage.tsx** (Hero section and stats)
+   - Line 51: `"Christmas Lights in DFW"` (main headline)
+   - Line 55: `"across the Dallas-Fort Worth area"` (subheading)
+
+3. **SubmitLocationPage.tsx**
+   - Line 162: `"Start typing an address in the DFW area..."` (placeholder)
+
+4. **SignupPage.tsx**
+   - Success message mentions "Christmas lights in DFW"
+
+**Impact:** All user-facing text assumes DFW market
+
+### Hardcoded Map Configuration
+
+**MapView.tsx** (Line 69):
+```typescript
+center = [32.7767, -96.7970], // DFW default center
+zoom = 10,
+```
+
+**Current Behavior:**
+- Always centers on Dallas (32.7767°N, 96.7970°W)
+- No logic to detect or switch regions
+- "Near Me" button works anywhere (uses browser geolocation)
+
+**Issue:** Houston user sees Dallas map by default
+
+### AddressAutocomplete Component
+
+**Location:** `frontend/src/components/ui/AddressAutocomplete.tsx`
+
+**Current Implementation:**
+```typescript
+// Line 79: No region parameter passed
+const response = await apiService.suggestAddresses({ query: inputValue });
+```
+
+**API Service** (`frontend/src/services/api.ts:92-94`):
+```typescript
+async suggestAddresses(request: AddressSuggestionsRequest): Promise<AddressSuggestionsResponse> {
+  const { data } = await this.api.post<AddressSuggestionsResponse>('/locations/suggest-addresses', request);
+  return data;
+}
+```
+
+**Current Request Shape:**
+```typescript
+interface AddressSuggestionsRequest {
+  query: string;  // No region field
+}
+```
+
+**Good News:** Component is **region-agnostic**
+- Displays whatever suggestions the backend returns
+- No hardcoded filtering or logic
+- Easy to extend with region parameter
+
+### Missing Region Selection UI
+
+**What's Needed:**
+- ❌ No region picker/dropdown
+- ❌ No region auto-detection display
+- ❌ No localStorage for saved region preference
+- ❌ No URL routing (e.g., `/dfw`, `/houston`)
+
+**Current User Flow:**
+1. User lands on site → sees "DFW" everywhere
+2. Houston user must manually search Houston addresses
+3. Backend filters results, but UX is confusing
+
+---
+
 ## Scaling Challenges
 
 ### 1. **Geographic Limitations**
@@ -90,40 +174,277 @@ if 31.5 <= lat <= 34.0 and -98.5 <= lng <= -95.5:
        # Include suggestion
    ```
 
+4. **Frontend: Create Region Context Provider**
+   ```typescript
+   // src/contexts/RegionContext.tsx
+   interface RegionConfig {
+     regionId: string;
+     name: string;
+     displayName: string;
+     centerPoint: { lat: number; lng: number };
+     defaultZoom: number;
+   }
+
+   const RegionContext = createContext<{
+     region: RegionConfig;
+     setRegion: (regionId: string) => void;
+     availableRegions: RegionConfig[];
+   }>(/* ... */);
+   ```
+
+5. **Frontend: Update Types to Include Region**
+   ```typescript
+   // src/types/index.ts
+   interface AddressSuggestionsRequest {
+     query: string;
+     region?: string;  // NEW: Optional region parameter
+   }
+   ```
+
+6. **Frontend: Update AddressAutocomplete Component**
+   ```typescript
+   // src/components/ui/AddressAutocomplete.tsx (line 79)
+   const { region } = useRegion();
+   const response = await apiService.suggestAddresses({
+     query: inputValue,
+     region: region.regionId  // NEW: Pass current region
+   });
+   ```
+
+7. **Frontend: Regionalize Text Content**
+   ```typescript
+   // src/config/regions.ts
+   export const REGION_CONTENT = {
+     'north-texas': {
+       title: 'DFW Christmas Lights',
+       heroText: 'Christmas Lights in DFW',
+       description: 'across the Dallas-Fort Worth area'
+     },
+     'houston': {
+       title: 'Houston Christmas Lights',
+       heroText: 'Christmas Lights in Houston',
+       description: 'across the Greater Houston area'
+     }
+   };
+
+   // Usage in components:
+   const { region } = useRegion();
+   const content = REGION_CONTENT[region.regionId];
+   ```
+
+8. **Frontend: Update MapView with Dynamic Center**
+   ```typescript
+   // src/components/map/MapView.tsx (line 69)
+   const { region } = useRegion();
+   const center = region ? [region.centerPoint.lat, region.centerPoint.lng] : [32.7767, -96.7970];
+   ```
+
+9. **Frontend: Add Region Selector Component**
+   ```typescript
+   // src/components/ui/RegionSelector.tsx
+   function RegionSelector() {
+     const { region, setRegion, availableRegions } = useRegion();
+     return (
+       <Select value={region.regionId} onChange={setRegion}>
+         {availableRegions.map(r => (
+           <option key={r.regionId} value={r.regionId}>{r.name}</option>
+         ))}
+       </Select>
+     );
+   }
+   ```
+
 #### Example Regions to Add:
 - **Houston Metro** (lat: 29.0-30.5, lng: -96.0 to -94.5)
 - **Austin Metro** (lat: 29.8-30.8, lng: -98.5 to -97.0)
 - **San Antonio** (lat: 29.0-29.8, lng: -99.0 to -98.0)
 - **Oklahoma City** (lat: 35.0-35.8, lng: -98.0 to -97.0)
 
-**Effort:** 2-3 days
-**Benefit:** Easy expansion to new metros
+#### Frontend Files Requiring Changes:
+
+| File | Change Required | Complexity |
+|------|----------------|------------|
+| `src/contexts/RegionContext.tsx` | **NEW**: Create region context | Medium |
+| `src/config/regions.ts` | **NEW**: Region content config | Low |
+| `src/types/index.ts` | Add `region?` to AddressSuggestionsRequest | Low |
+| `src/services/api.ts` | Pass region to backend | Low |
+| `src/components/ui/AddressAutocomplete.tsx` | Use region from context | Low |
+| `src/components/ui/RegionSelector.tsx` | **NEW**: Dropdown selector | Low |
+| `src/components/map/MapView.tsx` | Use dynamic center from region | Low |
+| `src/components/Layout.tsx` | Replace "DFW" with `{content.title}` | Low |
+| `src/pages/HomePage.tsx` | Replace hardcoded text | Low |
+| `src/pages/SubmitLocationPage.tsx` | Replace placeholder text | Low |
+| `src/pages/SignupPage.tsx` | Replace success message | Low |
+
+**Effort:**
+- Backend: 1-2 days (DynamoDB table, Lambda changes, API update)
+- Frontend: 2-3 days (Context, components, text replacement)
+- **Total: 3-5 days**
+
+**Benefit:** Easy expansion to new metros without code changes
 
 ---
 
 ### Phase 2: Intelligent Region Detection
 **Goal:** Auto-detect user's region
 
-#### Approaches:
+#### Approach 1: Browser Geolocation API (Recommended First)
 
-1. **Browser Geolocation API**
-   ```typescript
-   navigator.geolocation.getCurrentPosition((position) => {
-       const userRegion = detectRegion(position.coords);
-       // Use region for searches
-   });
-   ```
+**Implementation:**
+```typescript
+// src/hooks/useRegionDetection.ts
+export function useRegionDetection() {
+  const [detectedRegion, setDetectedRegion] = useState<string | null>(null);
 
-2. **IP-based Geolocation**
-   - Use CloudFront headers: `CloudFront-Viewer-Country-Region-Name`
-   - Fallback to IP geolocation service
+  useEffect(() => {
+    // Check localStorage first
+    const saved = localStorage.getItem('selectedRegion');
+    if (saved) {
+      setDetectedRegion(saved);
+      return;
+    }
 
-3. **User Preference Storage**
-   - Store selected region in localStorage
-   - Allow manual region switching
+    // Try geolocation
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const region = findRegionByCoordinates(
+            position.coords.latitude,
+            position.coords.longitude
+          );
+          setDetectedRegion(region?.regionId || 'north-texas');
+          localStorage.setItem('selectedRegion', region?.regionId || 'north-texas');
+        },
+        () => {
+          // Default to North Texas if denied
+          setDetectedRegion('north-texas');
+        }
+      );
+    }
+  }, []);
+
+  return detectedRegion;
+}
+```
+
+**Benefits:**
+- Most accurate (actual user location)
+- Already implemented in MapView.tsx (lines 78-93)
+- User controls permission
+
+**Drawbacks:**
+- Requires user permission
+- Doesn't work if user denies
+
+---
+
+#### Approach 2: IP-based Geolocation
+
+**Implementation:**
+```typescript
+// Use CloudFront viewer headers
+// Lambda@Edge or backend can pass region in response headers
+headers['X-Detected-Region'] = detectRegionFromIP(viewerIP);
+
+// Frontend reads header:
+const detectedRegion = response.headers['x-detected-region'];
+```
+
+**Alternative: Third-party service**
+```typescript
+// Using ipapi.co (free tier: 1000 req/day)
+const response = await fetch('https://ipapi.co/json/');
+const data = await response.json();
+// data.city, data.region, data.latitude, data.longitude
+const region = mapCityToRegion(data.city);
+```
+
+**Benefits:**
+- No permission required
+- Works immediately on page load
+- Good fallback if geolocation denied
+
+**Drawbacks:**
+- Less accurate (VPN, corporate networks)
+- Additional service dependency
+- Privacy concerns
+
+---
+
+#### Approach 3: Smart Defaults + Manual Override
+
+**Recommended Implementation:**
+```typescript
+// src/contexts/RegionContext.tsx
+export function RegionProvider({ children }) {
+  const [region, setRegion] = useState<RegionConfig | null>(null);
+
+  useEffect(() => {
+    const initializeRegion = async () => {
+      // Priority 1: User's saved preference
+      const saved = localStorage.getItem('selectedRegion');
+      if (saved) {
+        setRegion(REGIONS[saved]);
+        return;
+      }
+
+      // Priority 2: Browser geolocation
+      const geoRegion = await tryGeolocation();
+      if (geoRegion) {
+        setRegion(geoRegion);
+        return;
+      }
+
+      // Priority 3: IP-based detection
+      const ipRegion = await tryIPDetection();
+      if (ipRegion) {
+        setRegion(ipRegion);
+        return;
+      }
+
+      // Priority 4: Default to North Texas
+      setRegion(REGIONS['north-texas']);
+    };
+
+    initializeRegion();
+  }, []);
+
+  const handleRegionChange = (regionId: string) => {
+    setRegion(REGIONS[regionId]);
+    localStorage.setItem('selectedRegion', regionId);
+  };
+
+  return (
+    <RegionContext.Provider value={{ region, setRegion: handleRegionChange }}>
+      {children}
+    </RegionContext.Provider>
+  );
+}
+```
+
+**UI Enhancement - Region Banner:**
+```typescript
+// Show banner on first visit
+{detectedRegion && !localStorage.getItem('regionConfirmed') && (
+  <div className="bg-gold-100 border-b border-gold-300 p-3 text-center">
+    <p>
+      We detected you're in <strong>{region.name}</strong>.
+      <button onClick={() => setShowRegionPicker(true)}>
+        Change region
+      </button>
+    </p>
+  </div>
+)}
+```
+
+---
 
 **Effort:** 1 week
-**Benefit:** Better UX, no manual region selection
+- Day 1-2: Geolocation hook and region detection logic
+- Day 3-4: IP fallback and localStorage persistence
+- Day 5: Region selector UI and confirmation banner
+
+**Benefit:** 95%+ users see correct region automatically
 
 ---
 
