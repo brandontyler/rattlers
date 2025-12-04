@@ -1,0 +1,129 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy Infrastructure and Frontend
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Add uv to PATH
+        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install infrastructure dependencies
+        working-directory: infrastructure
+        run: uv sync
+
+      - name: Deploy CDK stack
+        working-directory: infrastructure
+        run: |
+          uv run cdk deploy --require-approval never --outputs-file cdk-outputs.json
+          cat cdk-outputs.json
+
+      - name: Extract CDK outputs
+        id: cdk-outputs
+        working-directory: infrastructure
+        run: |
+          BUCKET_NAME=$(jq -r '.["ChristmasLightsStack-dev"].FrontendBucketName' cdk-outputs.json)
+          CLOUDFRONT_URL=$(jq -r '.["ChristmasLightsStack-dev"].CloudFrontUrl' cdk-outputs.json)
+          API_ENDPOINT=$(jq -r '.["ChristmasLightsStack-dev"].ApiEndpoint' cdk-outputs.json)
+          USER_POOL_ID=$(jq -r '.["ChristmasLightsStack-dev"].UserPoolId' cdk-outputs.json)
+          USER_POOL_CLIENT_ID=$(jq -r '.["ChristmasLightsStack-dev"].UserPoolClientId' cdk-outputs.json)
+
+          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+          echo "cloudfront_url=$CLOUDFRONT_URL" >> $GITHUB_OUTPUT
+          echo "api_endpoint=$API_ENDPOINT" >> $GITHUB_OUTPUT
+          echo "user_pool_id=$USER_POOL_ID" >> $GITHUB_OUTPUT
+          echo "user_pool_client_id=$USER_POOL_CLIENT_ID" >> $GITHUB_OUTPUT
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_API_ENDPOINT: ${{ steps.cdk-outputs.outputs.api_endpoint }}
+          VITE_COGNITO_USER_POOL_ID: ${{ steps.cdk-outputs.outputs.user_pool_id }}
+          VITE_COGNITO_CLIENT_ID: ${{ steps.cdk-outputs.outputs.user_pool_client_id }}
+          VITE_AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: npm run build
+
+      - name: Deploy frontend to S3
+        working-directory: frontend
+        run: |
+          aws s3 sync dist/ s3://${{ steps.cdk-outputs.outputs.bucket_name }}/ \
+            --delete \
+            --cache-control "public, max-age=31536000, immutable" \
+            --exclude "index.html" \
+            --exclude "*.json"
+
+          # Upload index.html and manifest with no-cache
+          aws s3 cp dist/index.html s3://${{ steps.cdk-outputs.outputs.bucket_name }}/index.html \
+            --cache-control "no-cache, no-store, must-revalidate"
+
+          # Upload JSON files with short cache
+          aws s3 sync dist/ s3://${{ steps.cdk-outputs.outputs.bucket_name }}/ \
+            --exclude "*" \
+            --include "*.json" \
+            --cache-control "max-age=300"
+
+      - name: Get CloudFront Distribution ID
+        id: cloudfront
+        run: |
+          DISTRIBUTION_ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?Origins.Items[?DomainName=='${{ steps.cdk-outputs.outputs.bucket_name }}.s3.amazonaws.com']].Id | [0]" \
+            --output text)
+          echo "distribution_id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.cloudfront.outputs.distribution_id }} \
+            --paths "/*"
+
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Successful! 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Frontend URL:** ${{ steps.cdk-outputs.outputs.cloudfront_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "**API Endpoint:** ${{ steps.cdk-outputs.outputs.api_endpoint }}" >> $GITHUB_STEP_SUMMARY
+          echo "**CloudFront Distribution:** ${{ steps.cloudfront.outputs.distribution_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Cache invalidated - changes should be live in 1-2 minutes." >> $GITHUB_STEP_SUMMARY
