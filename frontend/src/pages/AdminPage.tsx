@@ -41,8 +41,8 @@ export default function AdminPage() {
 
   const fetchLocationCount = async () => {
     try {
-      const response = await apiService.getLocations();
-      setLocationCount(response.data?.length || 0);
+      const response = await apiService.getLocations({ pageSize: 500 });
+      setLocationCount(response.pagination?.total || response.data?.length || 0);
     } catch {
       // Silently fail - count is not critical
     }
