@@ -17,8 +17,8 @@ Go to **Settings → Secrets and variables → Actions** and add:
 
 | Secret Name | Description | Example |
 |-------------|-------------|---------|
-| `AWS_ACCESS_KEY_ID` | AWS access key with deployment permissions | `AKIAIOSFODNN7EXAMPLE` |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret access key | `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY` |
+| `AWS_ACCESS_KEY_ID` | AWS access key with deployment permissions | `access_key_id` |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret access key | `secret_access_key` |
 | `AWS_REGION` | AWS region for deployment | `us-east-1` |
 
 ### AWS IAM Permissions Required
