@@ -17,12 +17,14 @@ interface Suggestion {
 
 export default function AdminPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [locationCount, setLocationCount] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSuggestions();
+    fetchLocationCount();
   }, []);
 
   const fetchSuggestions = async () => {
@@ -37,11 +39,21 @@ export default function AdminPage() {
     }
   };
 
+  const fetchLocationCount = async () => {
+    try {
+      const response = await apiService.getLocations();
+      setLocationCount(response.data?.length || 0);
+    } catch {
+      // Silently fail - count is not critical
+    }
+  };
+
   const handleApprove = async (id: string) => {
     try {
       setProcessingId(id);
       await apiService.approveSuggestion(id);
       setSuggestions(suggestions.filter(s => s.id !== id));
+      setLocationCount(prev => (prev ?? 0) + 1);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to approve suggestion');
     } finally {
@@ -128,7 +140,7 @@ export default function AdminPage() {
                 </svg>
               </div>
             </div>
-            <p className="text-4xl font-display font-bold text-forest-900 mb-1">148</p>
+            <p className="text-4xl font-display font-bold text-forest-900 mb-1">{locationCount ?? '...'}</p>
             <p className="text-sm font-medium text-forest-600">Total Locations</p>
           </Card>
 
