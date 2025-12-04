@@ -45,12 +45,12 @@ jobs:
 
       - name: Install infrastructure dependencies
         working-directory: infrastructure
-        run: uv sync
+        run: uv pip install -r requirements.txt --system
 
       - name: Deploy CDK stack
         working-directory: infrastructure
         run: |
-          uv run cdk deploy --require-approval never --outputs-file cdk-outputs.json
+          cdk deploy --require-approval never --outputs-file cdk-outputs.json
           cat cdk-outputs.json
 
       - name: Extract CDK outputs
