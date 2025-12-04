@@ -46,10 +46,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 status_code=400,
             )
 
-        # Add DFW context if not present
+        # Add North Texas context if not present
         search_query = query
         if 'TX' not in query.upper() and 'TEXAS' not in query.upper():
-            search_query = f"{query}, Dallas-Fort Worth, TX"
+            search_query = f"{query}, North Texas"
 
         # Initialize geocoder
         geocoder = Nominatim(
@@ -75,13 +75,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     # Extract relevant address information
                     address = location.address
 
-                    # Filter to only DFW area (approximately)
-                    # DFW area is roughly: lat 32.5-33.2, lng -97.5 to -96.5
+                    # Filter to North Texas area (expanded to include surrounding cities)
+                    # Includes: Dallas, Fort Worth, Denton, McKinney, Plano, Frisco, Arlington
+                    # Also: Gainesville, Sherman, Denison, Waxahachie, Weatherford, Greenville
                     lat = location.latitude
                     lng = location.longitude
 
-                    # Only include results in or near DFW area
-                    if 32.0 <= lat <= 33.5 and -97.8 <= lng <= -96.3:
+                    # North Texas bounds: roughly from Waxahachie to Sherman/Gainesville
+                    # Lat 31.5-34.0 covers south suburbs to northern cities
+                    # Lng -98.5 to -95.5 covers Weatherford west to Greenville east
+                    if 31.5 <= lat <= 34.0 and -98.5 <= lng <= -95.5:
                         suggestions.append({
                             "address": address,
                             "lat": lat,
