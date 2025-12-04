@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Card } from '@/components/ui';
 import AddressAutocomplete, { AddressAutocompleteRef } from '@/components/ui/AddressAutocomplete';
+import { apiService } from '@/services/api';
 import type { AddressSuggestion } from '@/types';
 
 export default function SubmitLocationPage() {
@@ -72,22 +73,17 @@ export default function SubmitLocationPage() {
     }
 
     try {
-      // TODO: Replace with actual API call
-      // The suggestion object contains: { address, lat, lng, displayName }
-      console.log('Submitting location:', {
+      await apiService.submitSuggestion({
         address: suggestion.address,
         lat: suggestion.lat,
         lng: suggestion.lng,
-        description,
-        photos,
+        description: description.trim(),
+        // photos: [] - TODO: implement photo upload
       });
 
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Simulate success
       setIsSubmitted(true);
     } catch (err: any) {
-      setError(err.message || 'Failed to submit location. Please try again.');
+      setError(err.response?.data?.message || err.message || 'Failed to submit location. Please try again.');
     } finally {
       setIsLoading(false);
     }

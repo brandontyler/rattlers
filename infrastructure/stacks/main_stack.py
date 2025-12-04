@@ -377,6 +377,20 @@ class ChristmasLightsStack(Stack):
             layers=[self.common_layer],
         )
 
+        # Submit suggestion function
+        self.submit_suggestion_fn = lambda_.Function(
+            self,
+            "SubmitSuggestionFunction",
+            handler="submit_suggestion.handler",
+            code=lambda_.Code.from_asset("../backend/functions/suggestions"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.suggestions_table.grant_write_data(self.submit_suggestion_fn)
+
         # Store functions for API Gateway integration
         self.lambda_functions = {
             "get_locations": self.get_locations_fn,
@@ -386,6 +400,7 @@ class ChristmasLightsStack(Stack):
             "report_inactive": self.report_inactive_fn,
             "get_feedback_status": self.get_feedback_status_fn,
             "suggest_addresses": self.suggest_addresses_fn,
+            "submit_suggestion": self.submit_suggestion_fn,
         }
 
     def create_api_gateway(self):
@@ -488,7 +503,14 @@ class ChristmasLightsStack(Stack):
             authorization_type=apigw.AuthorizationType.COGNITO,
         )
 
-        # TODO: Add more endpoints (suggestions, etc.)
+        # /suggestions endpoints
+        suggestions = v1.add_resource("suggestions")
+        suggestions.add_method(
+            "POST",
+            apigw.LambdaIntegration(self.submit_suggestion_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
 
     def create_cloudfront_distribution(self):
         """Create CloudFront distribution for frontend."""
