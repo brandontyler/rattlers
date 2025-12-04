@@ -41,11 +41,11 @@ class ChristmasLightsStack(Stack):
         # Create Lambda functions
         self.create_lambda_functions()
 
-        # Create API Gateway
-        self.create_api_gateway()
-
         # Create CloudFront distribution for frontend
         self.create_cloudfront_distribution()
+
+        # Create API Gateway (after CloudFront so CORS can include CF domain)
+        self.create_api_gateway()
 
         # Create outputs
         self.create_outputs()
