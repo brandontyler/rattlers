@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import Button from './ui/Button';
 
 export default function Layout() {
   const { isAuthenticated, user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const location = useLocation();
 
   return (
     <div className="min-h-screen flex flex-col bg-cream-50">
@@ -75,6 +76,7 @@ export default function Layout() {
                 <>
                   <Link
                     to="/login"
+                    state={{ from: location.pathname }}
                     className="text-cream-100 hover:text-gold-300 transition-colors font-medium"
                   >
                     Login
@@ -161,6 +163,7 @@ export default function Layout() {
                 <>
                   <Link
                     to="/login"
+                    state={{ from: location.pathname }}
                     className="block text-cream-100 hover:text-gold-300 transition-colors font-medium py-2"
                     onClick={() => setMobileMenuOpen(false)}
                   >
