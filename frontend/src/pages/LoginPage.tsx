@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button, Input, Card } from '@/components/ui';
 
@@ -12,6 +12,10 @@ export default function LoginPage() {
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
   const { login, confirmSignup, resendConfirmationCode } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Get the page to redirect to after login (default to home)
+  const from = (location.state as { from?: string })?.from || '/';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +24,7 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      navigate('/');
+      navigate(from, { replace: true });
     } catch (err: any) {
       if (err.message?.includes('not confirmed') || err.code === 'UserNotConfirmedException') {
         setNeedsConfirmation(true);
@@ -42,7 +46,7 @@ export default function LoginPage() {
     try {
       await confirmSignup(email, confirmationCode);
       await login(email, password);
-      navigate('/');
+      navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.message || 'Failed to confirm account');
     } finally {
