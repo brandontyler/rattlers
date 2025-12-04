@@ -277,6 +277,7 @@ class ChristmasLightsStack(Stack):
             "FEEDBACK_TABLE_NAME": self.feedback_table.table_name,
             "SUGGESTIONS_TABLE_NAME": self.suggestions_table.table_name,
             "PHOTOS_BUCKET_NAME": self.photos_bucket.bucket_name,
+            "PHOTOS_CDN_URL": f"https://{self.photos_distribution.distribution_domain_name}" if hasattr(self, 'photos_distribution') else "",
             "ALLOWED_ORIGIN": allowed_origin,
             "ENV_NAME": self.env_name,
         }
@@ -419,6 +420,9 @@ class ChristmasLightsStack(Stack):
         )
         self.suggestions_table.grant_read_write_data(self.approve_suggestion_fn)
         self.locations_table.grant_write_data(self.approve_suggestion_fn)
+        # Grant S3 permissions to move photos from pending/ to approved/
+        self.photos_bucket.grant_read_write(self.approve_suggestion_fn)
+        self.photos_bucket.grant_delete(self.approve_suggestion_fn)
 
         # Reject suggestion function (admin)
         self.reject_suggestion_fn = lambda_.Function(
@@ -433,6 +437,24 @@ class ChristmasLightsStack(Stack):
             layers=[self.common_layer],
         )
         self.suggestions_table.grant_read_write_data(self.reject_suggestion_fn)
+        # Grant S3 permissions to delete photos from pending/
+        self.photos_bucket.grant_delete(self.reject_suggestion_fn)
+        self.photos_bucket.grant_read(self.reject_suggestion_fn)
+
+        # Photo upload URL function
+        self.get_upload_url_fn = lambda_.Function(
+            self,
+            "GetUploadUrlFunction",
+            handler="get_upload_url.handler",
+            code=lambda_.Code.from_asset("../backend/functions/photos"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        # Grant S3 permissions for presigned URL generation
+        self.photos_bucket.grant_put(self.get_upload_url_fn)
 
         # Store functions for API Gateway integration
         self.lambda_functions = {
@@ -447,6 +469,7 @@ class ChristmasLightsStack(Stack):
             "get_suggestions": self.get_suggestions_fn,
             "approve_suggestion": self.approve_suggestion_fn,
             "reject_suggestion": self.reject_suggestion_fn,
+            "get_upload_url": self.get_upload_url_fn,
         }
 
     def create_api_gateway(self):
@@ -615,8 +638,20 @@ class ChristmasLightsStack(Stack):
             authorization_type=apigw.AuthorizationType.COGNITO,
         )
 
+        # /photos endpoints
+        photos = v1.add_resource("photos")
+
+        # /photos/upload-url endpoint
+        upload_url = photos.add_resource("upload-url")
+        upload_url.add_method(
+            "POST",
+            apigw.LambdaIntegration(self.get_upload_url_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
     def create_cloudfront_distribution(self):
-        """Create CloudFront distribution for frontend."""
+        """Create CloudFront distribution for frontend and photos."""
 
         # CloudFront distribution with S3 origin using OAC
         self.distribution = cloudfront.Distribution(
@@ -642,6 +677,30 @@ class ChristmasLightsStack(Stack):
                     response_http_status=200,
                 ),
             ],
+        )
+
+        # CloudFront distribution for serving approved photos
+        self.photos_distribution = cloudfront.Distribution(
+            self,
+            "PhotosDistribution",
+            default_behavior=cloudfront.BehaviorOptions(
+                origin=origins.S3BucketOrigin.with_origin_access_control(
+                    self.photos_bucket,
+                ),
+                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
+                # Only allow access to approved/ prefix via origin path
+            ),
+            # Restrict to approved photos only
+            additional_behaviors={
+                "approved/*": cloudfront.BehaviorOptions(
+                    origin=origins.S3BucketOrigin.with_origin_access_control(
+                        self.photos_bucket,
+                    ),
+                    viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                    cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
+                ),
+            },
         )
 
         # Update S3 CORS to include CloudFront domain (dev only)
@@ -715,4 +774,18 @@ class ChristmasLightsStack(Stack):
             "PhotosBucketName",
             value=self.photos_bucket.bucket_name,
             description="Photos S3 bucket name",
+        )
+
+        CfnOutput(
+            self,
+            "PhotosCdnUrl",
+            value=f"https://{self.photos_distribution.distribution_domain_name}",
+            description="Photos CloudFront distribution URL",
+        )
+
+        CfnOutput(
+            self,
+            "PhotosDistributionId",
+            value=self.photos_distribution.distribution_id,
+            description="Photos CloudFront distribution ID",
         )

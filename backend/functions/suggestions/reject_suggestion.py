@@ -8,7 +8,10 @@ import boto3
 from botocore.exceptions import ClientError
 
 dynamodb = boto3.resource("dynamodb")
+s3_client = boto3.client("s3")
+
 table = dynamodb.Table(os.environ.get("SUGGESTIONS_TABLE_NAME", "christmas-lights-suggestions-dev"))
+PHOTOS_BUCKET = os.environ.get("PHOTOS_BUCKET_NAME", "christmas-lights-photos-dev")
 
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
 
@@ -64,6 +67,17 @@ def handler(event, context):
             }
 
         now = datetime.now(timezone.utc).isoformat()
+
+        # Delete associated photos from S3 (pending/ directory)
+        pending_photos = suggestion.get("photos", [])
+        for photo_key in pending_photos:
+            if photo_key and photo_key.startswith("pending/"):
+                try:
+                    s3_client.delete_object(Bucket=PHOTOS_BUCKET, Key=photo_key)
+                    print(f"Deleted photo: {photo_key}")
+                except ClientError as e:
+                    print(f"Error deleting photo {photo_key}: {e}")
+                    # Continue with other photos even if one fails
 
         # Update suggestion status
         table.update_item(

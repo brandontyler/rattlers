@@ -154,12 +154,27 @@ class ApiService {
     return data;
   }
 
-  async uploadPhoto(uploadUrl: string, file: File): Promise<void> {
-    await axios.put(uploadUrl, file, {
-      headers: {
-        'Content-Type': file.type,
-      },
+  async uploadPhoto(uploadUrl: string, fields: Record<string, string>, file: File): Promise<void> {
+    // Use FormData for presigned POST uploads
+    const formData = new FormData();
+
+    // Add all presigned fields first (order matters)
+    Object.entries(fields).forEach(([key, value]) => {
+      formData.append(key, value);
     });
+
+    // Add the file last
+    formData.append('file', file);
+
+    // Upload using fetch (axios has issues with FormData to S3)
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+    }
   }
 
   // User endpoints

@@ -138,13 +138,15 @@ export interface ReportRequest {
 // Photo upload types
 export interface UploadUrlResponse {
   uploadUrl: string;
-  photoUrl: string;
+  fields: Record<string, string>;
+  photoKey: string;
   expiresIn: number;
 }
 
 export interface PhotoUploadRequest {
-  fileName: string;
   contentType: string;
+  fileSize: number;
+  suggestionId?: string;
 }
 
 // Address suggestion types
