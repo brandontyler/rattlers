@@ -216,20 +216,50 @@ class ChristmasLightsStack(Stack):
         )
 
     def create_lambda_layer(self):
-        """Create Lambda layer with shared code."""
-        import hashlib
+        """Create Lambda layer with shared code and dependencies."""
         import time
+        import subprocess
+        import shutil
+        import tempfile
 
-        # Force new layer version by including timestamp in hash
-        layer_path = "../backend/layers/common"
+        layer_source = "../backend/layers/common"
         
-        self.common_layer = lambda_.LayerVersion(
-            self,
-            "CommonLayer",
-            code=lambda_.Code.from_asset(layer_path),
-            compatible_runtimes=[lambda_.Runtime.PYTHON_3_12],
-            description=f"Common utilities and models - v{int(time.time())}",
-        )
+        # Create a temporary directory for bundling
+        with tempfile.TemporaryDirectory() as tmpdir:
+            python_dir = os.path.join(tmpdir, "python")
+            os.makedirs(python_dir)
+            
+            # Export dependencies from uv.lock and install them
+            pyproject_file = os.path.join(layer_source, "pyproject.toml")
+            if os.path.exists(pyproject_file):
+                subprocess.run(
+                    ["uv", "export", "--no-hashes", "--no-dev", "--frozen", "-o", f"{tmpdir}/requirements.txt"],
+                    cwd=layer_source,
+                    check=True
+                )
+                subprocess.run(
+                    ["uv", "pip", "install", "-r", f"{tmpdir}/requirements.txt", "--target", python_dir, "--quiet"],
+                    check=True
+                )
+            
+            # Copy custom Python modules
+            source_python_dir = os.path.join(layer_source, "python")
+            if os.path.exists(source_python_dir):
+                for item in os.listdir(source_python_dir):
+                    src = os.path.join(source_python_dir, item)
+                    dst = os.path.join(python_dir, item)
+                    if os.path.isdir(src):
+                        shutil.copytree(src, dst, dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(src, dst)
+            
+            self.common_layer = lambda_.LayerVersion(
+                self,
+                "CommonLayer",
+                code=lambda_.Code.from_asset(tmpdir),
+                compatible_runtimes=[lambda_.Runtime.PYTHON_3_12],
+                description=f"Common utilities and models - v{int(time.time())}",
+            )
 
     def create_lambda_functions(self):
         """Create Lambda functions."""
