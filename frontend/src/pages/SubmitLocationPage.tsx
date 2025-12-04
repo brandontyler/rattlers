@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Card } from '@/components/ui';
 import AddressAutocomplete, { AddressAutocompleteRef } from '@/components/ui/AddressAutocomplete';
@@ -7,7 +7,7 @@ import type { AddressSuggestion } from '@/types';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const MAX_PHOTOS = 3;
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
 
 export default function SubmitLocationPage() {
   const [description, setDescription] = useState('');
@@ -19,6 +19,13 @@ export default function SubmitLocationPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const addressRef = useRef<AddressAutocompleteRef>(null);
+
+  // Cleanup preview URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      photoPreviewUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -33,7 +40,7 @@ export default function SubmitLocationPage() {
     for (const file of files) {
       // Check file type
       if (!ALLOWED_TYPES.includes(file.type)) {
-        setError('Only JPEG, PNG, and WebP images are allowed');
+        setError('Only JPEG, PNG, WebP, and HEIC images are allowed');
         return;
       }
 

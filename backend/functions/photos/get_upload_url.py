@@ -17,7 +17,7 @@ ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 MAX_PHOTOS_PER_SUGGESTION = 3
 URL_EXPIRATION_SECONDS = 900  # 15 minutes
-ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"]
+ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic"]
 
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
@@ -118,7 +118,7 @@ def handler(event, context):
         conditions = [
             {"bucket": PHOTOS_BUCKET},
             ["content-length-range", 1, MAX_FILE_SIZE],
-            ["starts-with", "$Content-Type", "image/"],
+            ["eq", "$Content-Type", content_type],  # Exact match for security
             {"key": photo_key},
         ]
 
@@ -176,5 +176,6 @@ def _get_extension_from_content_type(content_type: str) -> str:
         "image/jpeg": "jpg",
         "image/png": "png",
         "image/webp": "webp",
+        "image/heic": "heic",
     }
     return mapping.get(content_type, "jpg")

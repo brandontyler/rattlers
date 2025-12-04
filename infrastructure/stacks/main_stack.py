@@ -165,10 +165,16 @@ class ChristmasLightsStack(Stack):
                 )
             ],
             lifecycle_rules=[
+                # Clean up orphaned pending uploads after 48 hours
                 s3.LifecycleRule(
-                    abort_incomplete_multipart_upload_after=Duration.days(7),
-                    expiration=Duration.days(365),  # Delete old photos after 1 year
-                )
+                    id="cleanup-pending-uploads",
+                    prefix="pending/",
+                    expiration=Duration.days(2),
+                ),
+                s3.LifecycleRule(
+                    id="cleanup-multipart",
+                    abort_incomplete_multipart_upload_after=Duration.days(1),
+                ),
             ],
             removal_policy=RemovalPolicy.DESTROY if self.env_name == "dev" else RemovalPolicy.RETAIN,
             auto_delete_objects=self.env_name == "dev",
@@ -679,28 +685,19 @@ class ChristmasLightsStack(Stack):
             ],
         )
 
-        # CloudFront distribution for serving approved photos
+        # CloudFront distribution for serving approved photos only
+        # Uses origin_path to restrict access to approved/ prefix
         self.photos_distribution = cloudfront.Distribution(
             self,
             "PhotosDistribution",
             default_behavior=cloudfront.BehaviorOptions(
                 origin=origins.S3BucketOrigin.with_origin_access_control(
                     self.photos_bucket,
+                    origin_path="/approved",  # Only serve from approved/
                 ),
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
-                # Only allow access to approved/ prefix via origin path
             ),
-            # Restrict to approved photos only
-            additional_behaviors={
-                "approved/*": cloudfront.BehaviorOptions(
-                    origin=origins.S3BucketOrigin.with_origin_access_control(
-                        self.photos_bucket,
-                    ),
-                    viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-                    cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
-                ),
-            },
         )
 
         # Update S3 CORS to include CloudFront domain (dev only)

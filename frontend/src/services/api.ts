@@ -17,6 +17,9 @@ import type {
   AddressSuggestionsResponse,
 } from '@/types';
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000;
+
 class ApiService {
   private api: AxiosInstance;
 
@@ -61,6 +64,10 @@ class ApiService {
   private handleUnauthorized(): void {
     localStorage.removeItem('authToken');
     window.location.href = '/login';
+  }
+
+  private async sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   // Locations endpoints
@@ -155,26 +162,40 @@ class ApiService {
   }
 
   async uploadPhoto(uploadUrl: string, fields: Record<string, string>, file: File): Promise<void> {
-    // Use FormData for presigned POST uploads
-    const formData = new FormData();
+    let lastError: Error | null = null;
 
-    // Add all presigned fields first (order matters)
-    Object.entries(fields).forEach(([key, value]) => {
-      formData.append(key, value);
-    });
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        const formData = new FormData();
 
-    // Add the file last
-    formData.append('file', file);
+        // Add all presigned fields first (order matters)
+        Object.entries(fields).forEach(([key, value]) => {
+          formData.append(key, value);
+        });
 
-    // Upload using fetch (axios has issues with FormData to S3)
-    const response = await fetch(uploadUrl, {
-      method: 'POST',
-      body: formData,
-    });
+        // Add the file last
+        formData.append('file', file);
 
-    if (!response.ok) {
-      throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+        // Upload using fetch (axios has issues with FormData to S3)
+        const response = await fetch(uploadUrl, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok || response.status === 204) {
+          return;
+        }
+
+        throw new Error(`Upload failed: ${response.status}`);
+      } catch (err) {
+        lastError = err as Error;
+        if (attempt < MAX_RETRIES - 1) {
+          await this.sleep(RETRY_DELAY * (attempt + 1));
+        }
+      }
     }
+
+    throw lastError || new Error('Upload failed after retries');
   }
 
   // User endpoints
