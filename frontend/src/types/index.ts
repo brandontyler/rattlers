@@ -168,3 +168,23 @@ export interface AddressSuggestionsResponse {
     query: string;
   };
 }
+
+// Route PDF types
+export interface RouteStop {
+  id: string;
+  address: string;
+  lat: number;
+  lng: number;
+  description: string;
+  photos: string[];
+  averageRating: number;
+}
+
+export interface RoutePdfRequest {
+  stops: RouteStop[];
+}
+
+export interface RoutePdfResponse {
+  downloadUrl: string;
+  expiresIn: number;
+}
