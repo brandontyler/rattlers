@@ -17,6 +17,9 @@ import type {
   AddressSuggestionsResponse,
 } from '@/types';
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000;
+
 class ApiService {
   private api: AxiosInstance;
 
@@ -61,6 +64,10 @@ class ApiService {
   private handleUnauthorized(): void {
     localStorage.removeItem('authToken');
     window.location.href = '/login';
+  }
+
+  private async sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   // Locations endpoints
@@ -154,12 +161,41 @@ class ApiService {
     return data;
   }
 
-  async uploadPhoto(uploadUrl: string, file: File): Promise<void> {
-    await axios.put(uploadUrl, file, {
-      headers: {
-        'Content-Type': file.type,
-      },
-    });
+  async uploadPhoto(uploadUrl: string, fields: Record<string, string>, file: File): Promise<void> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        const formData = new FormData();
+
+        // Add all presigned fields first (order matters)
+        Object.entries(fields).forEach(([key, value]) => {
+          formData.append(key, value);
+        });
+
+        // Add the file last
+        formData.append('file', file);
+
+        // Upload using fetch (axios has issues with FormData to S3)
+        const response = await fetch(uploadUrl, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok || response.status === 204) {
+          return;
+        }
+
+        throw new Error(`Upload failed: ${response.status}`);
+      } catch (err) {
+        lastError = err as Error;
+        if (attempt < MAX_RETRIES - 1) {
+          await this.sleep(RETRY_DELAY * (attempt + 1));
+        }
+      }
+    }
+
+    throw lastError || new Error('Upload failed after retries');
   }
 
   // User endpoints

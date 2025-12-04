@@ -1,9 +1,13 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Card } from '@/components/ui';
 import AddressAutocomplete, { AddressAutocompleteRef } from '@/components/ui/AddressAutocomplete';
 import { apiService } from '@/services/api';
 import type { AddressSuggestion } from '@/types';
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_PHOTOS = 3;
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
 
 export default function SubmitLocationPage() {
   const [description, setDescription] = useState('');
@@ -11,17 +15,40 @@ export default function SubmitLocationPage() {
   const [photoPreviewUrls, setPhotoPreviewUrls] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>('');
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const addressRef = useRef<AddressAutocompleteRef>(null);
 
+  // Cleanup preview URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      photoPreviewUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, []);
+
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
 
-    // Limit to 3 photos
-    if (files.length + photos.length > 3) {
-      setError('You can upload a maximum of 3 photos');
+    // Limit to MAX_PHOTOS
+    if (files.length + photos.length > MAX_PHOTOS) {
+      setError(`You can upload a maximum of ${MAX_PHOTOS} photos`);
       return;
+    }
+
+    // Validate each file
+    for (const file of files) {
+      // Check file type
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        setError('Only JPEG, PNG, WebP, and HEIC images are allowed');
+        return;
+      }
+
+      // Check file size
+      if (file.size > MAX_FILE_SIZE) {
+        setError(`Each photo must be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
+        return;
+      }
     }
 
     // Create preview URLs
@@ -30,6 +57,41 @@ export default function SubmitLocationPage() {
     setPhotos([...photos, ...files]);
     setPhotoPreviewUrls([...photoPreviewUrls, ...newPreviewUrls]);
     setError('');
+  };
+
+  const uploadPhotos = async (suggestionId?: string): Promise<string[]> => {
+    const photoKeys: string[] = [];
+
+    for (let i = 0; i < photos.length; i++) {
+      const file = photos[i];
+      setUploadProgress(`Uploading photo ${i + 1} of ${photos.length}...`);
+
+      try {
+        // Get presigned URL
+        const response = await apiService.getUploadUrl({
+          contentType: file.type,
+          fileSize: file.size,
+          suggestionId,
+        });
+
+        if (!response.success || !response.data) {
+          throw new Error(response.message || 'Failed to get upload URL');
+        }
+
+        const { uploadUrl, fields, photoKey } = response.data;
+
+        // Upload to S3
+        await apiService.uploadPhoto(uploadUrl, fields, file);
+
+        photoKeys.push(photoKey);
+      } catch (err: any) {
+        console.error(`Failed to upload photo ${i + 1}:`, err);
+        throw new Error(`Failed to upload photo ${i + 1}: ${err.message}`);
+      }
+    }
+
+    setUploadProgress('');
+    return photoKeys;
   };
 
   const removePhoto = (index: number) => {
@@ -47,6 +109,7 @@ export default function SubmitLocationPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setUploadProgress('');
     setIsLoading(true);
 
     // Get address from ref
@@ -73,12 +136,20 @@ export default function SubmitLocationPage() {
     }
 
     try {
+      // Upload photos first (if any)
+      let photoKeys: string[] = [];
+      if (photos.length > 0) {
+        photoKeys = await uploadPhotos();
+      }
+
+      setUploadProgress('Submitting location...');
+
       await apiService.submitSuggestion({
         address: suggestion.address,
         lat: suggestion.lat,
         lng: suggestion.lng,
         description: description.trim(),
-        // photos: [] - TODO: implement photo upload
+        photos: photoKeys,
       });
 
       setIsSubmitted(true);
@@ -86,6 +157,7 @@ export default function SubmitLocationPage() {
       setError(err.response?.data?.message || err.message || 'Failed to submit location. Please try again.');
     } finally {
       setIsLoading(false);
+      setUploadProgress('');
     }
   };
 
@@ -270,7 +342,7 @@ export default function SubmitLocationPage() {
                               <span className="font-semibold">Click to upload</span> or drag and drop
                             </p>
                             <p className="text-xs text-forest-500">
-                              PNG, JPG or WEBP (up to {3 - photos.length} {photos.length === 2 ? 'photo' : 'photos'} remaining)
+                              PNG, JPG or WEBP, max 5MB each (up to {MAX_PHOTOS - photos.length} {photos.length === MAX_PHOTOS - 1 ? 'photo' : 'photos'} remaining)
                             </p>
                           </div>
                           <input
@@ -289,8 +361,19 @@ export default function SubmitLocationPage() {
 
                 {/* Submit Button */}
                 <div className="pt-4">
+                  {uploadProgress && (
+                    <div className="mb-4 text-center">
+                      <div className="inline-flex items-center gap-2 text-forest-600">
+                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span className="text-sm">{uploadProgress}</span>
+                      </div>
+                    </div>
+                  )}
                   <Button type="submit" variant="primary" size="lg" fullWidth loading={isLoading}>
-                    {isLoading ? 'Submitting...' : 'Submit for Review'}
+                    {isLoading ? (uploadProgress || 'Submitting...') : 'Submit for Review'}
                   </Button>
                 </div>
               </form>
