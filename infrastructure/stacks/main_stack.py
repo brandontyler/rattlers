@@ -526,6 +526,12 @@ class ChristmasLightsStack(Stack):
             value=f"https://{self.distribution.distribution_domain_name}",
             description="CloudFront distribution URL",
         )
+        CfnOutput(
+            self,
+            "CloudFrontDistributionId",
+            value=self.distribution.distribution_id,
+            description="CloudFront distribution ID",
+        )
 
         CfnOutput(
             self,

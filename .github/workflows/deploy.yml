@@ -59,12 +59,14 @@ jobs:
         run: |
           BUCKET_NAME=$(jq -r '.["ChristmasLightsStack-dev"].FrontendBucketName' cdk-outputs.json)
           CLOUDFRONT_URL=$(jq -r '.["ChristmasLightsStack-dev"].CloudFrontUrl' cdk-outputs.json)
+          CLOUDFRONT_DISTRIBUTION_ID=$(jq -r '.["ChristmasLightsStack-dev"].CloudFrontDistributionId' cdk-outputs.json)
           API_ENDPOINT=$(jq -r '.["ChristmasLightsStack-dev"].ApiEndpoint' cdk-outputs.json)
           USER_POOL_ID=$(jq -r '.["ChristmasLightsStack-dev"].UserPoolId' cdk-outputs.json)
           USER_POOL_CLIENT_ID=$(jq -r '.["ChristmasLightsStack-dev"].UserPoolClientId' cdk-outputs.json)
 
           echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
           echo "cloudfront_url=$CLOUDFRONT_URL" >> $GITHUB_OUTPUT
+          echo "cloudfront_distribution_id=$CLOUDFRONT_DISTRIBUTION_ID" >> $GITHUB_OUTPUT
           echo "api_endpoint=$API_ENDPOINT" >> $GITHUB_OUTPUT
           echo "user_pool_id=$USER_POOL_ID" >> $GITHUB_OUTPUT
           echo "user_pool_client_id=$USER_POOL_CLIENT_ID" >> $GITHUB_OUTPUT
@@ -101,18 +103,10 @@ jobs:
             --include "*.json" \
             --cache-control "max-age=300"
 
-      - name: Get CloudFront Distribution ID
-        id: cloudfront
-        run: |
-          DISTRIBUTION_ID=$(aws cloudfront list-distributions \
-            --query "DistributionList.Items[?Origins.Items[?DomainName=='${{ steps.cdk-outputs.outputs.bucket_name }}.s3.amazonaws.com']].Id | [0]" \
-            --output text)
-          echo "distribution_id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
-
       - name: Invalidate CloudFront cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id ${{ steps.cloudfront.outputs.distribution_id }} \
+            --distribution-id ${{ steps.cdk-outputs.outputs.cloudfront_distribution_id }} \
             --paths "/*"
 
       - name: Deployment summary
@@ -121,6 +115,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Frontend URL:** ${{ steps.cdk-outputs.outputs.cloudfront_url }}" >> $GITHUB_STEP_SUMMARY
           echo "**API Endpoint:** ${{ steps.cdk-outputs.outputs.api_endpoint }}" >> $GITHUB_STEP_SUMMARY
-          echo "**CloudFront Distribution:** ${{ steps.cloudfront.outputs.distribution_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**CloudFront Distribution:** ${{ steps.cdk-outputs.outputs.cloudfront_distribution_id }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Cache invalidated - changes should be live in 1-2 minutes." >> $GITHUB_STEP_SUMMARY
