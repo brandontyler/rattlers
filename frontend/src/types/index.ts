@@ -144,3 +144,23 @@ export interface PhotoUploadRequest {
   fileName: string;
   contentType: string;
 }
+
+// Address suggestion types
+export interface AddressSuggestion {
+  address: string;
+  lat: number;
+  lng: number;
+  displayName: string;
+}
+
+export interface AddressSuggestionsRequest {
+  query: string;
+}
+
+export interface AddressSuggestionsResponse {
+  success: boolean;
+  data: {
+    suggestions: AddressSuggestion[];
+    query: string;
+  };
+}

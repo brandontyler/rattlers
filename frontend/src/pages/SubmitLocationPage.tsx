@@ -1,15 +1,19 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Input, Card } from '@/components/ui';
+import AddressAutocomplete, { AddressAutocompleteRef } from '@/components/ui/AddressAutocomplete';
+import type { AddressSuggestion } from '@/types';
 
 export default function SubmitLocationPage() {
-  const [address, setAddress] = useState('');
   const [description, setDescription] = useState('');
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviewUrls, setPhotoPreviewUrls] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState<AddressSuggestion | null>(null);
+
+  const addressRef = useRef<AddressAutocompleteRef>(null);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -36,14 +40,29 @@ export default function SubmitLocationPage() {
     setPhotoPreviewUrls(photoPreviewUrls.filter((_, i) => i !== index));
   };
 
+  const handleAddressSelect = (suggestion: AddressSuggestion) => {
+    setSelectedAddress(suggestion);
+    setError('');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
+    // Get address from ref
+    const address = addressRef.current?.getAddress() || '';
+    const suggestion = addressRef.current?.getSelectedSuggestion();
+
     // Validation
     if (!address.trim()) {
       setError('Please enter an address');
+      setIsLoading(false);
+      return;
+    }
+
+    if (!suggestion) {
+      setError('Please select an address from the suggestions');
       setIsLoading(false);
       return;
     }
@@ -56,6 +75,15 @@ export default function SubmitLocationPage() {
 
     try {
       // TODO: Replace with actual API call
+      // The suggestion object contains: { address, lat, lng, displayName }
+      console.log('Submitting location:', {
+        address: suggestion.address,
+        lat: suggestion.lat,
+        lng: suggestion.lng,
+        description,
+        photos,
+      });
+
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Simulate success
@@ -97,10 +125,11 @@ export default function SubmitLocationPage() {
               size="lg"
               onClick={() => {
                 setIsSubmitted(false);
-                setAddress('');
                 setDescription('');
                 setPhotos([]);
                 setPhotoPreviewUrls([]);
+                setSelectedAddress(null);
+                addressRef.current?.clearSelection();
               }}
             >
               Submit Another
@@ -156,13 +185,12 @@ export default function SubmitLocationPage() {
                     Location Details
                   </h3>
 
-                  <Input
+                  <AddressAutocomplete
+                    ref={addressRef}
                     label="Street Address"
-                    type="text"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="123 Christmas Lane, Dallas, TX 75001"
-                    helperText="Enter the full address including city and ZIP code"
+                    placeholder="Start typing an address in the DFW area..."
+                    helperText="Type at least 3 characters to see suggestions. Select an address from the dropdown."
+                    onSelect={handleAddressSelect}
                     required
                   />
                 </div>
