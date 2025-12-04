@@ -46,10 +46,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 status_code=400,
             )
 
-        # Add North Texas context if not present
+        # Add Texas context if not present (Nominatim needs specific location)
         search_query = query
         if 'TX' not in query.upper() and 'TEXAS' not in query.upper():
-            search_query = f"{query}, North Texas"
+            search_query = f"{query}, Texas, USA"
 
         # Initialize geocoder
         geocoder = Nominatim(
@@ -81,10 +81,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     lat = location.latitude
                     lng = location.longitude
 
-                    # North Texas bounds: roughly from Waxahachie to Sherman/Gainesville
-                    # Lat 31.5-34.0 covers south suburbs to northern cities
+                    # North Texas bounds (plus a few miles into southern Oklahoma)
+                    # Lat 31.5-34.2 covers south suburbs to just north of TX/OK border
                     # Lng -98.5 to -95.5 covers Weatherford west to Greenville east
-                    if 31.5 <= lat <= 34.0 and -98.5 <= lng <= -95.5:
+                    if 31.5 <= lat <= 34.2 and -98.5 <= lng <= -95.5:
                         suggestions.append({
                             "address": address,
                             "lat": lat,
