@@ -13,6 +13,8 @@ import type {
   PhotoUploadRequest,
   UploadUrlResponse,
   Location,
+  AddressSuggestionsRequest,
+  AddressSuggestionsResponse,
 } from '@/types';
 
 class ApiService {
@@ -86,6 +88,11 @@ class ApiService {
 
   async deleteLocation(id: string): Promise<ApiResponse<void>> {
     const { data } = await this.api.delete<ApiResponse<void>>(`/locations/${id}`);
+    return data;
+  }
+
+  async suggestAddresses(request: AddressSuggestionsRequest): Promise<AddressSuggestionsResponse> {
+    const { data } = await this.api.post<AddressSuggestionsResponse>('/locations/suggest-addresses', request);
     return data;
   }
 

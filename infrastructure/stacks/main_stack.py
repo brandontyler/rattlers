@@ -333,6 +333,19 @@ class ChristmasLightsStack(Stack):
         )
         self.feedback_table.grant_read_data(self.get_feedback_status_fn)
 
+        # Address suggestions - geocoding
+        self.suggest_addresses_fn = lambda_.Function(
+            self,
+            "SuggestAddressesFunction",
+            handler="suggest_addresses.handler",
+            code=lambda_.Code.from_asset("../backend/functions/locations"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),  # Geocoding may take time
+            memory_size=512,  # More memory for geocoding operations
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+
         # Store functions for API Gateway integration
         self.lambda_functions = {
             "get_locations": self.get_locations_fn,
@@ -341,6 +354,7 @@ class ChristmasLightsStack(Stack):
             "submit_feedback": self.submit_feedback_fn,
             "report_inactive": self.report_inactive_fn,
             "get_feedback_status": self.get_feedback_status_fn,
+            "suggest_addresses": self.suggest_addresses_fn,
         }
 
     def create_api_gateway(self):
@@ -400,6 +414,13 @@ class ChristmasLightsStack(Stack):
             apigw.LambdaIntegration(self.create_location_fn),
             authorizer=authorizer,
             authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # /locations/suggest-addresses endpoint
+        suggest_addresses = locations.add_resource("suggest-addresses")
+        suggest_addresses.add_method(
+            "POST",
+            apigw.LambdaIntegration(self.suggest_addresses_fn),
         )
 
         # /locations/{id} endpoints
