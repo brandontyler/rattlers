@@ -90,11 +90,11 @@ def handler(event, context):
                     # Delete from pending location
                     s3_client.delete_object(Bucket=PHOTOS_BUCKET, Key=photo_key)
 
-                    # Add CDN URL to list
+                    # Add CDN URL to list (CloudFront has origin_path=/approved, so omit prefix)
+                    cdn_path = f"{location_id}/{filename}"
                     if PHOTOS_CDN_URL:
-                        approved_photo_urls.append(f"{PHOTOS_CDN_URL}/{approved_key}")
+                        approved_photo_urls.append(f"{PHOTOS_CDN_URL}/{cdn_path}")
                     else:
-                        # Fallback to S3 URL if CDN not configured
                         approved_photo_urls.append(f"https://{PHOTOS_BUCKET}.s3.amazonaws.com/{approved_key}")
 
                 except ClientError as e:
