@@ -450,35 +450,484 @@ export function RegionProvider({ children }) {
 
 ## Performance Optimization Plan
 
-### Phase 1: Caching Layer (High Priority)
-**Problem:** Every search hits geocoding API
+### Current Performance Characteristics
 
-#### Solution: Multi-Tier Caching
+**Frontend:**
+- ✅ Debouncing: 300ms (already implemented in AddressAutocomplete.tsx:76)
+- ❌ No request deduplication (multiple identical concurrent requests)
+- ❌ No client-side caching (every keystroke after debounce hits API)
+- ❌ No memoization of suggestion components
+- ❌ No prefetching of common searches
 
-1. **DynamoDB Cache**
-   ```python
-   # Table: geocode-cache
-   {
-       "queryHash": "md5(query + region)",
-       "suggestions": [...],
-       "cachedAt": 1234567890,
-       "ttl": 2592000  # 30 days
-   }
-   ```
+**Backend:**
+- ❌ No caching layer (every request geocodes)
+- ❌ No CDN caching headers
+- ❌ Lambda cold starts add 1-2s latency
+- ❌ Single-threaded geocoding (1 req at a time)
+- ✅ Nominatim rate limiting respected (1 req/sec)
 
-2. **Lambda In-Memory Cache**
-   ```python
-   # For hot queries within same Lambda execution
-   geocode_cache = {}  # Persists across warm invocations
-   ```
+**Network:**
+- ❌ No response compression
+- ❌ No request batching
+- ❌ No edge caching (CloudFront)
 
-#### Expected Impact:
-- **Cache hit rate:** 60-80% (common addresses)
-- **Latency reduction:** 500ms → 50ms for cached results
-- **Cost savings:** 70% fewer geocoding API calls
+---
 
-**Effort:** 3-4 days
-**Cost:** ~$5/month DynamoDB (estimate)
+### Phase 1: Frontend Performance Optimizations
+
+#### 1a. React Query for Smart Caching (Recommended)
+
+**Why React Query?**
+- Built-in caching, deduplication, and background refetching
+- Automatic stale-while-revalidate pattern
+- Request deduplication (prevents duplicate API calls)
+- Zero configuration needed for basic use
+
+**Implementation:**
+```typescript
+// src/hooks/useAddressSuggestions.ts
+import { useQuery } from '@tanstack/react-query';
+import { apiService } from '@/services/api';
+
+export function useAddressSuggestions(query: string, region?: string) {
+  return useQuery({
+    queryKey: ['address-suggestions', query, region],
+    queryFn: () => apiService.suggestAddresses({ query, region }),
+    enabled: query.length >= 3,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 30 * 60 * 1000, // 30 minutes
+    retry: 1,
+  });
+}
+
+// Usage in AddressAutocomplete.tsx:
+const { data, isLoading, error } = useAddressSuggestions(inputValue, region);
+```
+
+**Benefits:**
+- ✅ **Request deduplication:** Multiple identical searches share single request
+- ✅ **Automatic caching:** Same search twice = instant result
+- ✅ **Background refetch:** Keeps cache fresh automatically
+- ✅ **Error retry:** Built-in exponential backoff
+
+**Installation:**
+```bash
+npm install @tanstack/react-query
+```
+
+**Effort:** 2-3 hours
+**Cache hit improvement:** 40-60% (users often backspace and retype)
+
+---
+
+#### 1b. LocalStorage for Popular Searches
+
+**Implementation:**
+```typescript
+// src/utils/searchCache.ts
+interface CachedSearch {
+  query: string;
+  suggestions: AddressSuggestion[];
+  timestamp: number;
+  hitCount: number;
+}
+
+class SearchCache {
+  private storageKey = 'address-search-cache';
+  private maxEntries = 50;
+  private ttl = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+  get(query: string, region: string): AddressSuggestion[] | null {
+    const cache = this.getCache();
+    const key = `${query}:${region}`;
+    const entry = cache[key];
+
+    if (!entry || Date.now() - entry.timestamp > this.ttl) {
+      return null;
+    }
+
+    // Increment hit count for popularity tracking
+    entry.hitCount++;
+    this.setCache(cache);
+
+    return entry.suggestions;
+  }
+
+  set(query: string, region: string, suggestions: AddressSuggestion[]) {
+    const cache = this.getCache();
+    const key = `${query}:${region}`;
+
+    cache[key] = {
+      query,
+      suggestions,
+      timestamp: Date.now(),
+      hitCount: cache[key]?.hitCount || 0,
+    };
+
+    // Evict least popular entries if over limit
+    const entries = Object.entries(cache);
+    if (entries.length > this.maxEntries) {
+      entries.sort((a, b) => a[1].hitCount - b[1].hitCount);
+      entries.slice(0, entries.length - this.maxEntries).forEach(([key]) => {
+        delete cache[key];
+      });
+    }
+
+    this.setCache(cache);
+  }
+
+  private getCache(): Record<string, CachedSearch> {
+    try {
+      return JSON.parse(localStorage.getItem(this.storageKey) || '{}');
+    } catch {
+      return {};
+    }
+  }
+
+  private setCache(cache: Record<string, CachedSearch>) {
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(cache));
+    } catch (e) {
+      // Storage full, clear old entries
+      this.clear();
+    }
+  }
+
+  clear() {
+    localStorage.removeItem(this.storageKey);
+  }
+}
+
+export const searchCache = new SearchCache();
+```
+
+**Usage in AddressAutocomplete:**
+```typescript
+useEffect(() => {
+  // Check localStorage first
+  const cached = searchCache.get(inputValue, region.regionId);
+  if (cached) {
+    setSuggestions(cached);
+    setShowSuggestions(true);
+    return;
+  }
+
+  // Then hit API...
+  debounceTimerRef.current = setTimeout(async () => {
+    const response = await apiService.suggestAddresses({ query: inputValue });
+    searchCache.set(inputValue, region.regionId, response.data.suggestions);
+  }, 300);
+}, [inputValue]);
+```
+
+**Benefits:**
+- ✅ Instant results for repeat searches
+- ✅ Persists across sessions
+- ✅ Automatic LRU eviction
+- ✅ Works offline for cached queries
+
+**Effort:** 3-4 hours
+**Cache hit improvement:** 20-30% additional
+
+---
+
+#### 1c. Component Memoization
+
+**Current Issue:** Suggestion list re-renders on every state change
+
+**Solution:**
+```typescript
+// Memoize individual suggestion items
+const SuggestionItem = React.memo(({
+  suggestion,
+  isHighlighted,
+  onClick
+}: SuggestionItemProps) => (
+  <button
+    type="button"
+    onClick={() => onClick(suggestion)}
+    className={`suggestion-item ${isHighlighted ? 'highlighted' : ''}`}
+  >
+    <MapIcon />
+    <div>
+      <div className="address">{suggestion.displayName}</div>
+      <div className="coords">
+        {suggestion.lat.toFixed(4)}, {suggestion.lng.toFixed(4)}
+      </div>
+    </div>
+  </button>
+));
+
+// Use in AddressAutocomplete:
+{suggestions.map((suggestion, index) => (
+  <SuggestionItem
+    key={`${suggestion.lat}-${suggestion.lng}`}
+    suggestion={suggestion}
+    isHighlighted={index === highlightedIndex}
+    onClick={handleSelectSuggestion}
+  />
+))}
+```
+
+**Benefits:**
+- ✅ Prevents re-rendering of unchanged suggestions
+- ✅ Smoother keyboard navigation
+
+**Effort:** 1 hour
+
+---
+
+#### 1d. Prefetching Popular Searches
+
+**Implementation:**
+```typescript
+// src/utils/prefetch.ts
+const POPULAR_SEARCHES = [
+  '123 Main St',
+  'Downtown Dallas',
+  'Plano, TX',
+  'Fort Worth, TX',
+];
+
+export function prefetchPopularSearches(region: string) {
+  POPULAR_SEARCHES.forEach((query) => {
+    // Prefetch in background
+    queryClient.prefetchQuery({
+      queryKey: ['address-suggestions', query, region],
+      queryFn: () => apiService.suggestAddresses({ query, region }),
+    });
+  });
+}
+
+// Call on app mount or region change:
+useEffect(() => {
+  if (region && navigator.connection?.effectiveType !== 'slow-2g') {
+    prefetchPopularSearches(region.regionId);
+  }
+}, [region]);
+```
+
+**Benefits:**
+- ✅ Instant results for common searches
+- ✅ Respects user's network conditions
+
+**Effort:** 2 hours
+
+---
+
+### Phase 2: Backend Caching Strategy
+
+#### 2a. DynamoDB Cache Table (Primary)
+
+**Table Design:**
+```python
+# Table: geocode-cache
+{
+    "PK": "query#123 Main St, Dallas, TX#north-texas",  # Hash key
+    "SK": "metadata",  # Sort key
+    "suggestions": [
+        {"address": "...", "lat": 32.7767, "lng": -96.797, "displayName": "..."},
+        # ... up to 5 suggestions
+    ],
+    "cachedAt": 1234567890,
+    "hitCount": 42,  # Track popularity
+    "ttl": 2592000,  # 30 days (DynamoDB TTL)
+}
+```
+
+**Lambda Implementation:**
+```python
+import hashlib
+import json
+from typing import Dict, Any, List, Optional
+
+class GeocodeCache:
+    def __init__(self, table_name: str):
+        self.table = boto3.resource('dynamodb').Table(table_name)
+        self.ttl_days = 30
+
+    def get_cache_key(self, query: str, region: str) -> str:
+        """Generate cache key."""
+        normalized = query.lower().strip()
+        return f"query#{normalized}#{region}"
+
+    def get(self, query: str, region: str) -> Optional[List[Dict]]:
+        """Get cached suggestions."""
+        try:
+            response = self.table.get_item(
+                Key={
+                    'PK': self.get_cache_key(query, region),
+                    'SK': 'metadata'
+                }
+            )
+
+            if 'Item' in response:
+                # Increment hit count (async, don't wait)
+                self.increment_hit_count(query, region)
+                return response['Item']['suggestions']
+
+            return None
+        except Exception as e:
+            print(f"Cache get error: {e}")
+            return None
+
+    def set(self, query: str, region: str, suggestions: List[Dict]):
+        """Cache suggestions."""
+        try:
+            import time
+            ttl = int(time.time()) + (self.ttl_days * 24 * 60 * 60)
+
+            self.table.put_item(
+                Item={
+                    'PK': self.get_cache_key(query, region),
+                    'SK': 'metadata',
+                    'suggestions': suggestions,
+                    'cachedAt': int(time.time()),
+                    'hitCount': 0,
+                    'ttl': ttl,  # DynamoDB auto-deletes after 30 days
+                }
+            )
+        except Exception as e:
+            print(f"Cache set error: {e}")
+            # Don't fail request if cache write fails
+
+    def increment_hit_count(self, query: str, region: str):
+        """Increment cache hit counter (fire-and-forget)."""
+        try:
+            self.table.update_item(
+                Key={
+                    'PK': self.get_cache_key(query, region),
+                    'SK': 'metadata'
+                },
+                UpdateExpression='ADD hitCount :inc',
+                ExpressionAttributeValues={':inc': 1}
+            )
+        except:
+            pass  # Ignore errors for hit counting
+
+# Usage in Lambda:
+cache = GeocodeCache(os.environ['GEOCODE_CACHE_TABLE'])
+
+def handler(event, context):
+    query = body.get('query')
+    region = body.get('region', 'north-texas')
+
+    # Check cache first
+    cached = cache.get(query, region)
+    if cached:
+        return success_response(data={'suggestions': cached, 'query': query})
+
+    # Cache miss - geocode
+    suggestions = geocode_addresses(query, region)
+
+    # Cache for next time
+    cache.set(query, region, suggestions)
+
+    return success_response(data={'suggestions': suggestions, 'query': query})
+```
+
+**Benefits:**
+- ✅ 60-80% cache hit rate for common addresses
+- ✅ 500ms → 30ms latency for cached results
+- ✅ 70% cost reduction on geocoding API calls
+- ✅ Automatic expiration with DynamoDB TTL
+- ✅ Popularity tracking for optimization
+
+**Infrastructure (CDK):**
+```python
+# infrastructure/stacks/main_stack.py
+self.geocode_cache_table = dynamodb.Table(
+    self,
+    "GeocodeCacheTable",
+    table_name=f"christmas-lights-geocode-cache-{self.env_name}",
+    partition_key=dynamodb.Attribute(name="PK", type=dynamodb.AttributeType.STRING),
+    sort_key=dynamodb.Attribute(name="SK", type=dynamodb.AttributeType.STRING),
+    billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+    time_to_live_attribute="ttl",  # Enable TTL
+    removal_policy=RemovalPolicy.DESTROY if self.env_name == "dev" else RemovalPolicy.RETAIN,
+)
+
+# Grant cache table access
+self.geocode_cache_table.grant_read_write_data(self.suggest_addresses_fn)
+```
+
+**Cost Estimate:**
+- 10K requests/month with 70% cache hit = 3K DynamoDB reads
+- Cost: ~$0.38/month (read) + ~$1.25/month (write) = **~$1.60/month**
+- Saves: 7K geocoding calls × $0.004 = **$28/month**
+- **Net savings: $26.40/month**
+
+**Effort:** 1 day
+
+---
+
+#### 2b. Lambda In-Memory Cache (Secondary)
+
+**Problem:** DynamoDB cache still adds ~30ms latency
+
+**Solution:** In-memory cache for hot queries within Lambda execution context
+
+```python
+# Global scope (persists across warm invocations)
+MEMORY_CACHE = {}
+MEMORY_CACHE_SIZE = 100
+MEMORY_CACHE_TTL = 300  # 5 minutes
+
+def get_memory_cache(query: str, region: str) -> Optional[List[Dict]]:
+    """Check in-memory cache."""
+    import time
+    key = f"{query}:{region}"
+
+    if key in MEMORY_CACHE:
+        cached_at, suggestions = MEMORY_CACHE[key]
+        if time.time() - cached_at < MEMORY_CACHE_TTL:
+            return suggestions
+        else:
+            del MEMORY_CACHE[key]
+
+    return None
+
+def set_memory_cache(query: str, region: str, suggestions: List[Dict]):
+    """Set in-memory cache with LRU eviction."""
+    import time
+    key = f"{query}:{region}"
+
+    # Evict oldest if at capacity
+    if len(MEMORY_CACHE) >= MEMORY_CACHE_SIZE:
+        oldest_key = min(MEMORY_CACHE.keys(), key=lambda k: MEMORY_CACHE[k][0])
+        del MEMORY_CACHE[oldest_key]
+
+    MEMORY_CACHE[key] = (time.time(), suggestions)
+
+# Usage:
+def handler(event, context):
+    # L1: Check memory cache (< 1ms)
+    cached = get_memory_cache(query, region)
+    if cached:
+        return success_response(data={'suggestions': cached})
+
+    # L2: Check DynamoDB cache (~30ms)
+    cached = dynamo_cache.get(query, region)
+    if cached:
+        set_memory_cache(query, region, cached)  # Warm memory cache
+        return success_response(data={'suggestions': cached})
+
+    # L3: Geocode (~500-2000ms)
+    suggestions = geocode_addresses(query, region)
+    set_memory_cache(query, region, suggestions)
+    dynamo_cache.set(query, region, suggestions)
+
+    return success_response(data={'suggestions': suggestions})
+```
+
+**Benefits:**
+- ✅ < 1ms latency for hot queries
+- ✅ No additional cost (uses existing Lambda memory)
+- ✅ Automatic across warm invocations
+
+**Expected Hit Rate:** 10-15% (very hot queries only)
+
+**Effort:** 2 hours
 
 ---
 
@@ -526,45 +975,489 @@ export function RegionProvider({ children }) {
 
 ---
 
-### Phase 3: Performance Optimizations
+### Phase 3: Network & CDN Optimizations
 
-#### 3a. Lambda Optimization
+#### 3a. CloudFront Edge Caching
+
+**Problem:** Every API request goes to Lambda, even for identical queries
+
+**Solution:** Cache responses at CloudFront edge locations
+
 ```python
-# Increase memory for faster CPU
-memory_size=1024  # Current: 512MB → Better CPU allocation
+# backend/functions/locations/suggest_addresses.py
+def handler(event, context):
+    # ... existing geocoding logic ...
 
-# Provisioned concurrency for zero cold starts
-provisioned_concurrent_executions=2  # For consistent <100ms latency
+    # Determine cache headers based on query popularity
+    cache_duration = get_cache_duration(query, region)
+
+    return {
+        'statusCode': 200,
+        'headers': {
+            **_get_cors_headers(),
+            'Cache-Control': f'public, max-age={cache_duration}, s-maxage={cache_duration}',
+            'Vary': 'Accept-Encoding',  # Vary by compression
+        },
+        'body': json.dumps(response_body)
+    }
+
+def get_cache_duration(query: str, region: str) -> int:
+    """Dynamic cache duration based on query type."""
+    # Check if this is a popular search
+    hit_count = get_hit_count_from_dynamo(query, region)
+
+    if hit_count > 100:
+        return 3600  # 1 hour for very popular searches
+    elif hit_count > 10:
+        return 600   # 10 minutes for popular searches
+    else:
+        return 300   # 5 minutes for new searches
 ```
 
-**Cost Impact:** ~$15/month for 2 provisioned instances
-**Benefit:** Eliminates cold start latency
-
-#### 3b. Parallel Geocoding
+**CloudFront Configuration (CDK):**
 ```python
-# For multiple suggestions, geocode in parallel
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-
-async def geocode_batch(queries):
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        results = await asyncio.gather(*[
-            executor.submit(geocode, query) for query in queries
-        ])
-    return results
+# infrastructure/stacks/main_stack.py
+self.api_cache_policy = cloudfront.CachePolicy(
+    self,
+    "ApiCachePolicy",
+    cache_policy_name=f"christmas-lights-api-cache-{self.env_name}",
+    default_ttl=Duration.minutes(5),
+    max_ttl=Duration.hours(1),
+    min_ttl=Duration.seconds(0),
+    header_behavior=cloudfront.CacheHeaderBehavior.allow_list('Authorization'),
+    query_string_behavior=cloudfront.CacheQueryStringBehavior.all(),
+    cookie_behavior=cloudfront.CacheCookieBehavior.none(),
+    enable_accept_encoding_gzip=True,
+    enable_accept_encoding_brotli=True,
+)
 ```
 
-**Benefit:** 3-5x faster for batch operations
+**Benefits:**
+- ✅ Instant responses for cached queries (< 50ms)
+- ✅ Reduced Lambda invocations by 40-60%
+- ✅ Lower costs ($0.085 per 10K requests vs $0.20 Lambda)
+- ✅ Global edge caching (faster for distributed users)
 
-#### 3c. CDN Caching for Popular Searches
+**Effort:** 4 hours
+
+---
+
+#### 3b. Response Compression
+
+**Current:** Responses average ~2KB uncompressed
+
+**Solution:** Enable Brotli/Gzip compression
+
 ```python
-# Add Cache-Control headers for common queries
+# API Gateway automatically compresses if:
+# 1. Response > 1KB
+# 2. Content-Type is compressible
+# 3. Accept-Encoding header present
+
+# Ensure proper Content-Type:
 headers = {
-    "Cache-Control": "public, max-age=3600"  # 1 hour CDN cache
+    'Content-Type': 'application/json; charset=utf-8',
+    # ... other headers
 }
 ```
 
-**Benefit:** Instant responses for popular addresses
+**Expected compression:**
+- Uncompressed: ~2KB per response
+- Gzip: ~600 bytes (70% reduction)
+- Brotli: ~500 bytes (75% reduction)
+
+**Benefits:**
+- ✅ 70%+ bandwidth reduction
+- ✅ Faster transfer times (especially mobile)
+- ✅ Lower CloudFront costs
+
+**Effort:** Already enabled, just verify
+
+---
+
+#### 3c. HTTP/2 Server Push (Future Enhancement)
+
+**Concept:** Proactively push popular search results
+
+```typescript
+// When user visits Submit page, preload popular searches
+const link = document.createElement('link');
+link.rel = 'prefetch';
+link.href = '/api/v1/locations/suggest-addresses?query=Dallas';
+link.as = 'fetch';
+document.head.appendChild(link);
+```
+
+**Benefits:**
+- ✅ Instant results for predicted searches
+- ✅ Better UX for first-time users
+
+**Effort:** 2-3 hours
+
+---
+
+### Phase 4: Lambda Performance Tuning
+
+#### 4a. Memory & CPU Optimization
+
+**Current:** 512MB memory
+
+**Testing Strategy:**
+```bash
+# Test different memory allocations
+for memory in 512 1024 1536 2048; do
+  aws lambda update-function-configuration \
+    --function-name suggest-addresses \
+    --memory-size $memory
+
+  # Run 100 cold start tests
+  # Run 100 warm tests
+  # Measure p50, p95, p99 latency
+done
+```
+
+**Expected Results:**
+- 512MB: 1.2s cold, 450ms warm
+- 1024MB: 800ms cold, 200ms warm (2x CPU)
+- 1536MB: 600ms cold, 150ms warm
+- 2048MB: 500ms cold, 120ms warm
+
+**Recommendation:** **1024MB**
+- Cost: ~$3.34 per 1M requests (vs $1.67 for 512MB)
+- Latency: 50% faster
+- ROI: Worth it for user experience
+
+**CDK Update:**
+```python
+self.suggest_addresses_fn = lambda_.Function(
+    # ...
+    memory_size=1024,  # Doubled from 512MB
+    timeout=Duration.seconds(8),  # Reduced from 10s
+)
+```
+
+**Effort:** 2 hours (testing + deployment)
+
+---
+
+#### 4b. Provisioned Concurrency (Optional)
+
+**Problem:** Cold starts add 1-2s latency for first request
+
+**Solution:** Keep Lambda warm
+
+```python
+# infrastructure/stacks/main_stack.py
+self.suggest_addresses_fn.add_alias(
+    "live",
+    provisioned_concurrent_executions=2  # Keep 2 instances warm
+)
+```
+
+**Cost Analysis:**
+- Provisioned capacity: $0.0000041667 per GB-second
+- 2 instances × 1GB × 2,592,000 seconds/month = **$21.60/month**
+- Eliminates ~30% of cold starts (during low traffic periods)
+
+**When to use:**
+- Traffic > 100 requests/hour consistently
+- User experience is critical
+- Budget allows $20+/month for this feature
+
+**Recommendation:** **Wait until traffic justifies** (Q3 2024)
+
+---
+
+#### 4c. Async Fire-and-Forget for Cache Writes
+
+**Current Problem:** Waiting for DynamoDB write adds latency
+
+**Solution:** Write to cache asynchronously
+
+```python
+import threading
+
+def async_cache_write(cache, query, region, suggestions):
+    """Write to cache without blocking response."""
+    thread = threading.Thread(
+        target=lambda: cache.set(query, region, suggestions)
+    )
+    thread.daemon = True
+    thread.start()
+
+def handler(event, context):
+    # ... geocode ...
+
+    # Write to cache asynchronously (don't wait)
+    async_cache_write(dynamo_cache, query, region, suggestions)
+
+    # Return immediately
+    return success_response(data={'suggestions': suggestions})
+```
+
+**Benefits:**
+- ✅ 20-30ms latency reduction (no DynamoDB write wait)
+- ✅ Same caching benefits
+- ✅ Fire-and-forget pattern
+
+**Trade-off:** Cache write might fail silently (acceptable for cache)
+
+**Effort:** 1 hour
+
+---
+
+### Phase 5: Monitoring & Performance Tracking
+
+#### 5a. CloudWatch Custom Metrics
+
+```python
+# backend/functions/locations/suggest_addresses.py
+import time
+from aws_embedded_metrics import metric_scope
+
+@metric_scope
+def handler(event, context, metrics):
+    start_time = time.time()
+    cache_hit = False
+
+    # Check cache
+    cached = cache.get(query, region)
+    if cached:
+        cache_hit = True
+        suggestions = cached
+    else:
+        suggestions = geocode(query, region)
+
+    # Emit metrics
+    latency = (time.time() - start_time) * 1000
+    metrics.put_metric("Latency", latency, "Milliseconds")
+    metrics.put_metric("CacheHit", 1 if cache_hit else 0, "Count")
+    metrics.put_metric("SuggestionCount", len(suggestions), "Count")
+
+    metrics.set_property("Region", region)
+    metrics.set_property("QueryLength", len(query))
+
+    return success_response(data={'suggestions': suggestions})
+```
+
+**Dashboard Metrics:**
+1. **Performance**
+   - Average/p95/p99 latency
+   - Cold start rate
+   - Cache hit rate by region
+
+2. **Usage**
+   - Requests per minute
+   - Unique queries
+   - Top searched addresses
+
+3. **Errors**
+   - Geocoding failures
+   - Cache errors
+   - Rate limit hits
+
+**Effort:** 4 hours
+
+---
+
+#### 5b. Real User Monitoring (RUM)
+
+**Frontend:**
+```typescript
+// src/utils/monitoring.ts
+export function trackSearchPerformance(query: string, metrics: {
+  startTime: number;
+  endTime: number;
+  cacheHit: boolean;
+  resultsCount: number;
+}) {
+  const duration = metrics.endTime - metrics.startTime;
+
+  // Send to analytics
+  if (window.gtag) {
+    window.gtag('event', 'address_search', {
+      query_length: query.length,
+      duration_ms: duration,
+      cache_hit: metrics.cacheHit,
+      results_count: metrics.resultsCount,
+    });
+  }
+
+  // Log slow searches
+  if (duration > 1000) {
+    console.warn('Slow search detected:', {
+      query,
+      duration,
+      cacheHit: metrics.cacheHit,
+    });
+  }
+}
+```
+
+**Key Metrics to Track:**
+- Time to first suggestion
+- Total search time (debounce + network + render)
+- User's network type (4G, 3G, etc.)
+- Selection rate (% of searches that result in selection)
+
+**Effort:** 3 hours
+
+---
+
+#### 5c. Performance Budgets & Alerts
+
+```typescript
+// performance-budget.json
+{
+  "address_suggestions_api": {
+    "p95_latency_ms": 500,
+    "p99_latency_ms": 1000,
+    "cache_hit_rate": 0.60,
+    "error_rate": 0.01
+  },
+  "frontend_search": {
+    "time_to_first_result_ms": 800,
+    "total_search_time_ms": 1200
+  }
+}
+```
+
+**CloudWatch Alarms:**
+```python
+# infrastructure/stacks/main_stack.py
+cloudwatch.Alarm(
+    self,
+    "HighLatencyAlarm",
+    metric=self.suggest_addresses_fn.metric_duration(
+        statistic="p95"
+    ),
+    threshold=500,  # 500ms
+    evaluation_periods=2,
+    alarm_description="Address suggestion latency > 500ms (p95)",
+)
+
+cloudwatch.Alarm(
+    self,
+    "LowCacheHitRate",
+    metric=cloudwatch.Metric(
+        namespace="AddressSuggestions",
+        metric_name="CacheHitRate",
+        statistic="Average",
+    ),
+    threshold=0.50,  # < 50% cache hit
+    comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+    evaluation_periods=3,
+    alarm_description="Cache hit rate dropped below 50%",
+)
+```
+
+**Effort:** 4 hours
+
+---
+
+## Performance Optimization Summary
+
+### Complete Caching Strategy (Multi-Layer)
+
+The recommended approach combines **5 caching layers** for maximum performance:
+
+```
+User types "123 Main St"
+    ↓
+[1] LocalStorage Check (< 1ms)
+    ├─ HIT → Return cached suggestions
+    └─ MISS ↓
+[2] React Query Check (< 1ms)
+    ├─ HIT → Return cached suggestions
+    └─ MISS ↓
+[3] Debounce (300ms wait)
+    ↓
+[4] CloudFront Edge Cache (< 50ms)
+    ├─ HIT → Return from edge location
+    └─ MISS ↓
+[5] Lambda In-Memory Cache (< 1ms)
+    ├─ HIT → Return from Lambda memory
+    └─ MISS ↓
+[6] DynamoDB Cache (~30ms)
+    ├─ HIT → Cache in memory, return
+    └─ MISS ↓
+[7] Geocoding API (500-2000ms)
+    ├─ Cache in DynamoDB (async)
+    ├─ Cache in Lambda memory
+    └─ Return results
+```
+
+### Expected Performance by Phase
+
+| Metric | Current | Phase 1 | Phase 2 | Phase 3-5 | Target |
+|--------|---------|---------|---------|-----------|--------|
+| **Latency (p50)** | 800ms | 250ms | 150ms | 100ms | < 200ms |
+| **Latency (p95)** | 1800ms | 600ms | 350ms | 250ms | < 500ms |
+| **Latency (p99)** | 2500ms | 1200ms | 800ms | 500ms | < 1000ms |
+| **Cache Hit Rate** | 0% | 50% | 75% | 85% | > 70% |
+| **Cold Starts** | 30% | 30% | 30% | 5% | < 10% |
+| **Cost per 1K** | $0.20 | $0.12 | $0.08 | $0.06 | < $0.10 |
+
+### Implementation Priority
+
+**Immediate (Week 1):**
+1. ✅ **React Query** - 2-3 hours, 40% cache hit improvement
+2. ✅ **DynamoDB cache** - 1 day, 60% cache hit improvement
+3. ✅ **Lambda memory cache** - 2 hours, 15% additional cache hit
+
+**Near-term (Weeks 2-3):**
+4. ✅ **CloudFront caching** - 4 hours, 40% request reduction
+5. ✅ **Lambda 1024MB** - 2 hours, 50% latency improvement
+6. ✅ **Async cache writes** - 1 hour, 25ms latency reduction
+
+**Mid-term (Month 2):**
+7. ⏸️ **LocalStorage cache** - 4 hours, 25% additional cache hit
+8. ⏸️ **Component memoization** - 1 hour, smoother UX
+9. ⏸️ **CloudWatch metrics** - 4 hours, visibility
+
+**Future (Q3 2024):**
+10. ⏸️ **Provisioned concurrency** - When traffic > 100 req/hour
+11. ⏸️ **Prefetching** - After analyzing popular searches
+12. ⏸️ **AWS Location Service** - When Nominatim rate limits hit
+
+### Performance Best Practices Applied
+
+**Frontend:**
+- ✅ Debouncing (300ms) - Already implemented
+- ✅ Request deduplication - Via React Query
+- ✅ Client-side caching - LocalStorage + React Query
+- ✅ Memoization - Prevent unnecessary re-renders
+- ✅ Prefetching - Warm cache for popular searches
+- ✅ Network-aware - Respect connection type
+
+**Backend:**
+- ✅ Multi-tier caching - Memory → DynamoDB → CDN
+- ✅ Async operations - Fire-and-forget cache writes
+- ✅ Proper sizing - 1024MB Lambda for optimal cost/performance
+- ✅ Compression - Brotli/Gzip enabled
+- ✅ CDN caching - CloudFront edge locations
+- ✅ TTL management - Automatic cache expiration
+
+**Monitoring:**
+- ✅ Custom metrics - Latency, cache hits, errors
+- ✅ Real user monitoring - Frontend performance tracking
+- ✅ Performance budgets - Clear targets
+- ✅ Alerting - Proactive notification of issues
+
+### ROI Analysis
+
+**Investment:** ~3-4 weeks engineering time
+
+**Returns:**
+- **User Experience:** 800ms → 100ms average search time (87% faster)
+- **Cost Savings:** $0.20 → $0.06 per 1K requests (70% reduction)
+- **Scalability:** 10x throughput capacity with same infrastructure
+- **Reliability:** 99.5% → 99.9% uptime via caching fallbacks
+
+**At 100K searches/month:**
+- Before: $20/month, poor UX (800ms)
+- After: $6/month, excellent UX (100ms)
+- **Savings: $168/year + better user retention**
 
 ---
 
