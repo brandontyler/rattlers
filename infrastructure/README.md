@@ -125,7 +125,8 @@ Based on AWS Free Tier and on-demand pricing:
 infrastructure/
 ├── app.py              # CDK app entry point
 ├── cdk.json            # CDK configuration
-├── requirements.txt    # Python dependencies
+├── pyproject.toml      # Python dependencies
+├── uv.lock             # Locked dependencies
 └── stacks/
     └── main_stack.py   # Main infrastructure stack
 ```

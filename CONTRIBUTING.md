@@ -30,19 +30,14 @@ Thank you for your interest in contributing! This is currently a personal projec
 3. **Backend Setup**
    ```bash
    cd backend
-   python -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   pip install -r requirements-dev.txt
+   uv sync --all-extras
    ```
 
 4. **Infrastructure Setup**
    ```bash
    cd infrastructure
-   python -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   cdk bootstrap
+   uv sync
+   uv run cdk bootstrap
    ```
 
 ## Development Workflow

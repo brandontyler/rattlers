@@ -51,11 +51,11 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 ├── backend/            # Python Lambda functions
 │   ├── functions/
 │   ├── layers/
-│   └── requirements.txt
+│   └── pyproject.toml
 ├── infrastructure/     # AWS CDK (Python)
 │   ├── app.py
 │   ├── stacks/
-│   └── requirements.txt
+│   └── pyproject.toml
 ├── docs/              # Documentation
 └── scripts/           # Utility scripts
 ```

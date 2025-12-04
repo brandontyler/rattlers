@@ -21,7 +21,7 @@ from typing import List, Dict, Optional, Tuple
 from pathlib import Path
 import os
 
-# Install these with: pip install geopy boto3
+# Run with: uv run python import_locations.py
 try:
     from geopy.geocoders import Nominatim, GoogleV3
     from geopy.exc import GeocoderTimedOut, GeocoderServiceError
@@ -29,7 +29,7 @@ try:
     from boto3.dynamodb.conditions import Key
 except ImportError:
     print("ERROR: Missing required packages.")
-    print("Please install: pip install geopy boto3")
+    print("Run: uv sync")
     sys.exit(1)
 
 
