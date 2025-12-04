@@ -1,6 +1,8 @@
 # API Documentation
 
-Base URL: `https://api.christmaslights.example.com/v1`
+**Last Updated:** December 4, 2025
+
+Base URL: `https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1`
 
 ## Authentication
 
@@ -14,6 +16,14 @@ Authorization: Bearer {cognito-jwt-token}
 **Public endpoints** (no auth required):
 - `GET /locations`
 - `GET /locations/{id}`
+- `POST /locations/suggest-addresses`
+
+**Admin endpoints** (require Cognito `Admins` group):
+- `GET /suggestions`
+- `POST /suggestions/{id}/approve`
+- `POST /suggestions/{id}/reject`
+
+---
 
 ## Endpoints
 
@@ -27,12 +37,6 @@ GET /locations
 **Query Parameters:**
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| lat | number | No | Latitude for proximity search |
-| lng | number | No | Longitude for proximity search |
-| radius | number | No | Radius in miles (default: 10) |
-| search | string | No | Search by address or description |
-| status | string | No | Filter by status (active, inactive) |
-| minRating | number | No | Minimum average rating (1-5) |
 | page | number | No | Page number (default: 1) |
 | pageSize | number | No | Items per page (default: 50, max: 100) |
 
@@ -46,19 +50,21 @@ GET /locations
       "address": "123 Main St, Dallas, TX 75001",
       "lat": 32.7767,
       "lng": -96.7970,
-      "description": "Amazing synchronized lights display with music on 99.5 FM",
-      "photos": ["https://s3.amazonaws.com/..."],
+      "description": "Amazing synchronized lights display",
+      "photos": [],
       "status": "active",
-      "feedbackCount": 42,
-      "averageRating": 4.8,
-      "likeCount": 38,
-      "createdAt": "2024-11-01T00:00:00Z"
+      "feedbackCount": 0,
+      "averageRating": 0,
+      "likeCount": 0,
+      "reportCount": 0,
+      "createdAt": "2024-12-01T00:00:00Z",
+      "googleMapsUrl": "https://www.google.com/maps/place/..."
     }
   ],
   "pagination": {
     "page": 1,
     "pageSize": 50,
-    "total": 148,
+    "total": 147,
     "totalPages": 3
   }
 }
@@ -79,31 +85,28 @@ GET /locations/{id}
     "lat": 32.7767,
     "lng": -96.7970,
     "description": "Amazing synchronized lights display",
-    "photos": ["https://s3.amazonaws.com/..."],
+    "photos": [],
     "status": "active",
-    "feedbackCount": 42,
-    "averageRating": 4.8,
-    "likeCount": 38,
+    "feedbackCount": 0,
+    "averageRating": 0,
+    "likeCount": 0,
     "reportCount": 0,
-    "createdAt": "2024-11-01T00:00:00Z",
-    "updatedAt": "2024-11-15T00:00:00Z"
+    "createdAt": "2024-12-01T00:00:00Z"
   }
 }
 ```
 
-#### Create Location (Admin Only)
+#### Suggest Addresses (Geocoding)
 ```
-POST /locations
-Authorization: Required
-Admin: Required
+POST /locations/suggest-addresses
 ```
+
+Geocodes a partial address query and returns suggestions with coordinates.
 
 **Request Body:**
 ```json
 {
-  "address": "123 Main St, Dallas, TX 75001",
-  "description": "Beautiful display with Santa",
-  "photos": ["https://s3.amazonaws.com/..."]
+  "query": "424 Headlee St, Denton"
 }
 ```
 
@@ -112,162 +115,24 @@ Admin: Required
 {
   "success": true,
   "data": {
-    "id": "uuid",
-    "address": "123 Main St, Dallas, TX 75001",
-    "lat": 32.7767,
-    "lng": -96.7970,
-    "description": "Beautiful display with Santa",
-    "photos": ["https://s3.amazonaws.com/..."],
-    "status": "active",
-    "createdAt": "2024-11-30T00:00:00Z"
-  },
-  "message": "Location created successfully"
-}
-```
-
-#### Update Location (Admin Only)
-```
-PUT /locations/{id}
-Authorization: Required
-Admin: Required
-```
-
-**Request Body:**
-```json
-{
-  "description": "Updated description",
-  "status": "active",
-  "photos": ["https://s3.amazonaws.com/..."]
-}
-```
-
-#### Delete Location (Admin Only)
-```
-DELETE /locations/{id}
-Authorization: Required
-Admin: Required
-```
-
-Soft delete - sets status to 'inactive'.
-
----
-
-### Feedback
-
-#### Submit Feedback (Like/Unlike Toggle)
-```
-POST /locations/{id}/feedback
-Authorization: Required
-```
-
-**Request Body:**
-```json
-{
-  "type": "like|star",
-  "rating": 5
-}
-```
-
-**Validation:**
-- `type`: Required, must be "like" or "star"
-- `rating`: Required if type is "star", must be 1-5
-
-**Like Behavior (Toggle):**
-- If user hasn't liked: Creates like and returns `liked: true`
-- If user has already liked: Removes like and returns `liked: false`
-- Atomic operations prevent duplicate likes from race conditions
-- Location `likeCount` automatically increments/decrements
-
-**Response (Like):**
-```json
-{
-  "success": true,
-  "data": {
-    "liked": true,
-    "id": "uuid",
-    "locationId": "uuid"
-  },
-  "message": "Location liked!"
-}
-```
-
-**Response (Unlike):**
-```json
-{
-  "success": true,
-  "data": {
-    "liked": false,
-    "locationId": "uuid"
-  },
-  "message": "Like removed"
-}
-```
-
-**Response (Star Rating):**
-```json
-{
-  "success": true,
-  "data": {
-    "id": "uuid",
-    "locationId": "uuid",
-    "rating": 5
-  },
-  "message": "Rating submitted!"
-}
-```
-
-#### Get Feedback Status
-```
-GET /locations/{id}/feedback/status
-Authorization: Required
-```
-
-Returns the current user's feedback status for a location (whether they've liked/rated it).
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "locationId": "uuid",
-    "liked": true,
-    "rating": 5,
-    "likedAt": "2024-11-30T00:00:00Z",
-    "ratedAt": "2024-11-30T00:00:00Z"
+    "suggestions": [
+      {
+        "address": "424, Headlee Street, Denton, Denton County, Texas, 76201, United States",
+        "lat": 33.238452,
+        "lng": -97.1375457,
+        "displayName": "424, Headlee Street, Denton, Denton County, Texas, 76201, United States"
+      }
+    ],
+    "query": "424 Headlee St, Denton"
   }
 }
 ```
 
-**Use Cases:**
-- Display correct "Like"/"Unlike" button state on page load
-- Show user's existing rating when viewing location details
-- Prevent duplicate feedback submissions
-
-#### Report Inactive
-```
-POST /locations/{id}/report
-Authorization: Required
-```
-
-**Request Body:**
-```json
-{
-  "reason": "No lights this year"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Report submitted. Thank you for helping keep our data accurate!"
-}
-```
-
-**Business Logic:**
-- User can report once per location per day
-- After 3 unique user reports within 7 days, location is flagged for admin review
-- Admin receives notification
+**Notes:**
+- Minimum 3 characters required
+- Results filtered to North Texas area (DFW region)
+- Uses Nominatim (OpenStreetMap) for geocoding
+- 10 second timeout with retry logic
 
 ---
 
@@ -282,38 +147,39 @@ Authorization: Required
 **Request Body:**
 ```json
 {
-  "address": "456 Oak Ave, Plano, TX 75024",
-  "description": "Great light display",
-  "photos": ["https://s3.amazonaws.com/..."]
+  "address": "424, Headlee Street, Denton, TX 76201",
+  "description": "Beautiful display with synchronized lights and yard decorations",
+  "lat": 33.238452,
+  "lng": -97.1375457
 }
 ```
+
+**Validation:**
+- `address`: Required
+- `description`: Required, minimum 20 characters
+- `lat`, `lng`: Required (from geocoding)
 
 **Response:**
 ```json
 {
   "success": true,
   "data": {
-    "id": "uuid",
-    "address": "456 Oak Ave, Plano, TX 75024",
-    "description": "Great light display",
-    "status": "pending",
-    "createdAt": "2024-11-30T00:00:00Z"
+    "id": "uuid"
   },
-  "message": "Thank you! Your suggestion has been submitted for review."
+  "message": "Suggestion submitted successfully"
 }
 ```
 
-#### Get All Suggestions (Admin Only)
+#### Get Suggestions (Admin Only)
 ```
 GET /suggestions
-Authorization: Required
-Admin: Required
+Authorization: Required (Admin)
 ```
 
 **Query Parameters:**
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| status | string | No | pending, approved, rejected |
+| status | string | No | pending, approved, rejected (default: pending) |
 
 **Response:**
 ```json
@@ -322,13 +188,15 @@ Admin: Required
   "data": [
     {
       "id": "uuid",
-      "address": "456 Oak Ave, Plano, TX 75024",
-      "description": "Great light display",
-      "photos": ["https://s3.amazonaws.com/..."],
+      "address": "424, Headlee Street, Denton, TX 76201",
+      "description": "Beautiful display with synchronized lights",
+      "lat": 33.238452,
+      "lng": -97.1375457,
+      "photos": [],
       "status": "pending",
-      "submittedBy": "user-id",
+      "submittedBy": "cognito-user-id",
       "submittedByEmail": "user@example.com",
-      "createdAt": "2024-11-30T00:00:00Z"
+      "createdAt": "2025-12-04T17:56:21Z"
     }
   ]
 }
@@ -337,29 +205,31 @@ Admin: Required
 #### Approve Suggestion (Admin Only)
 ```
 POST /suggestions/{id}/approve
-Authorization: Required
-Admin: Required
+Authorization: Required (Admin)
 ```
 
-Creates a new location from the suggestion and marks suggestion as approved.
+Creates a new location from the suggestion.
 
 **Response:**
 ```json
 {
   "success": true,
   "data": {
-    "locationId": "uuid",
-    "suggestionId": "uuid"
+    "locationId": "uuid"
   },
-  "message": "Suggestion approved and location created"
+  "message": "Suggestion approved"
 }
 ```
+
+**Side Effects:**
+- Creates new location in locations table
+- Updates suggestion status to "approved"
+- Records reviewer and timestamp
 
 #### Reject Suggestion (Admin Only)
 ```
 POST /suggestions/{id}/reject
-Authorization: Required
-Admin: Required
+Authorization: Required (Admin)
 ```
 
 **Request Body:**
@@ -369,77 +239,67 @@ Admin: Required
 }
 ```
 
----
-
-### Photo Upload
-
-#### Get Upload URL
-```
-POST /photos/upload-url
-Authorization: Required
-```
-
-Returns a pre-signed S3 URL for uploading photos.
-
-**Request Body:**
-```json
-{
-  "fileName": "christmas-lights.jpg",
-  "contentType": "image/jpeg"
-}
-```
-
 **Response:**
 ```json
 {
   "success": true,
-  "data": {
-    "uploadUrl": "https://s3.amazonaws.com/...",
-    "photoUrl": "https://s3.amazonaws.com/...",
-    "expiresIn": 300
-  }
+  "message": "Suggestion rejected"
 }
 ```
-
-**Usage:**
-1. Client requests upload URL
-2. Client uploads file directly to S3 using the uploadUrl (PUT request)
-3. Client uses photoUrl in location/suggestion submission
 
 ---
 
-### User Profile
+### Feedback
 
-#### Get Current User
+#### Submit Feedback
 ```
-GET /users/me
-Authorization: Required
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": "cognito-sub",
-    "email": "user@example.com",
-    "name": "John Doe",
-    "isAdmin": false,
-    "createdAt": "2024-11-01T00:00:00Z"
-  }
-}
-```
-
-#### Update Profile
-```
-PUT /users/me
+POST /locations/{id}/feedback
 Authorization: Required
 ```
 
 **Request Body:**
 ```json
 {
-  "name": "John Doe"
+  "type": "like",
+  "rating": 5
+}
+```
+
+**Validation:**
+- `type`: Required, "like" or "star"
+- `rating`: Required if type is "star", 1-5
+
+#### Get Feedback Status
+```
+GET /locations/{id}/feedback/status
+Authorization: Required
+```
+
+Returns current user's feedback for a location.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "locationId": "uuid",
+    "liked": true,
+    "rating": null,
+    "reported": false
+  }
+}
+```
+
+#### Report Location
+```
+POST /locations/{id}/report
+Authorization: Required
+```
+
+**Request Body:**
+```json
+{
+  "reason": "Lights are no longer up"
 }
 ```
 
@@ -451,14 +311,7 @@ Authorization: Required
 ```json
 {
   "success": false,
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Validation failed",
-    "details": {
-      "address": "Address is required",
-      "rating": "Rating must be between 1 and 5"
-    }
-  }
+  "message": "Description must be at least 20 characters"
 }
 ```
 
@@ -466,21 +319,7 @@ Authorization: Required
 ```json
 {
   "success": false,
-  "error": {
-    "code": "UNAUTHORIZED",
-    "message": "Authentication required"
-  }
-}
-```
-
-### 403 Forbidden
-```json
-{
-  "success": false,
-  "error": {
-    "code": "FORBIDDEN",
-    "message": "Admin access required"
-  }
+  "message": "Unauthorized"
 }
 ```
 
@@ -488,52 +327,55 @@ Authorization: Required
 ```json
 {
   "success": false,
-  "error": {
-    "code": "NOT_FOUND",
-    "message": "Location not found"
-  }
+  "message": "Location with ID xyz not found"
 }
 ```
 
-### 429 Too Many Requests
+### 503 Service Unavailable
 ```json
 {
   "success": false,
-  "error": {
-    "code": "RATE_LIMIT_EXCEEDED",
-    "message": "Too many requests. Please try again later.",
-    "retryAfter": 60
-  }
+  "message": "Geocoding service timed out. Please try again."
 }
 ```
 
-### 500 Internal Server Error
-```json
-{
-  "success": false,
-  "error": {
-    "code": "INTERNAL_ERROR",
-    "message": "An unexpected error occurred"
-  }
-}
-```
-
-## Rate Limiting
-
-- Anonymous users: 100 requests per minute
-- Authenticated users: 300 requests per minute
-- Admin users: 1000 requests per minute
+---
 
 ## CORS
 
-Allowed origins:
-- `https://christmaslights.example.com`
-- `http://localhost:5173` (development)
+CORS headers are included on all responses, including error responses (4XX/5XX).
 
-Allowed methods: GET, POST, PUT, DELETE, OPTIONS
+**Allowed Origins:**
+- `https://d173b693cir3zc.cloudfront.net` (dev)
+- `http://localhost:5173` (local development)
 
-## Versioning
+**Allowed Methods:** GET, POST, PUT, DELETE, OPTIONS
 
-API versioned via URL path: `/v1/`
+**Allowed Headers:** Content-Type, Authorization
 
-Breaking changes will be released as new versions (`/v2/`).
+---
+
+## Rate Limiting
+
+- 100 requests per second
+- 200 burst capacity
+
+---
+
+## DynamoDB Schema
+
+### Locations Table
+- **PK:** `location#{id}`
+- **SK:** `metadata`
+- **Attributes:** id, address, description, lat, lng, photos, status, feedbackCount, averageRating, likeCount, reportCount, createdAt, createdBy, googleMapsUrl
+
+### Suggestions Table
+- **PK:** `SUGGESTION#{id}`
+- **SK:** `METADATA`
+- **Attributes:** id, address, description, lat, lng, photos, status, submittedBy, submittedByEmail, createdAt, reviewedAt, reviewedBy, rejectionReason
+
+### Feedback Table
+- **PK:** `feedback#{id}`
+- **SK:** `location#{locationId}`
+- **GSI:** userId-locationId-index
+- **Attributes:** id, locationId, userId, type, rating, createdAt

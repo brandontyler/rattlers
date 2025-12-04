@@ -4,18 +4,21 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 
 ## Features
 
-### MVP (Phase 1)
-- 🗺️ Interactive map displaying 148+ Christmas light locations
-- 📍 Search by address, zip code, or "near me"
-- ⭐ Community feedback system (likes/ratings)
-- 🚫 Report inactive displays
-- 🔐 User authentication for contributions
+### Current Features
+- 🗺️ Interactive map displaying 147+ Christmas light locations
+- 📍 Address autocomplete with geocoding (Nominatim/OpenStreetMap)
+- 🔐 User authentication (Cognito)
+- 📝 Submit new location suggestions
+- ✅ Admin dashboard for reviewing/approving suggestions
+- 🧭 Get Directions integration with Google Maps
 - 📱 Mobile-responsive design
+- 🔄 Login redirect (returns to previous page after login)
 
 ### Future Phases
-- 🚗 Optimized route planning with customizable parameters
 - 📸 User-submitted photos (with moderation)
-- 💬 Moderated comments and reviews
+- ⭐ Community feedback system (likes/ratings)
+- 🚫 Report inactive displays
+- 🚗 Optimized route planning
 - 📱 Native mobile apps (iOS/Android)
 
 ## Tech Stack
@@ -26,6 +29,7 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - Tailwind CSS
 - Leaflet (mapping library)
 - React Router v6
+- Axios (API client)
 
 ### Backend
 - Python 3.12
@@ -33,12 +37,13 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - API Gateway (REST API)
 - DynamoDB (NoSQL database)
 - Cognito (authentication)
-- S3 (image storage)
+- S3 (image storage - future)
 
 ### Infrastructure
 - AWS CDK (Infrastructure as Code)
 - CloudFront (CDN)
-- Route 53 (DNS)
+- Route 53 (DNS - for custom domain)
+- GitHub Actions (CI/CD)
 
 ## Project Structure
 
@@ -46,19 +51,44 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 .
 ├── frontend/           # React TypeScript application
 │   ├── src/
-│   ├── public/
+│   │   ├── components/ # Reusable UI components
+│   │   ├── pages/      # Page components
+│   │   ├── services/   # API service layer
+│   │   ├── contexts/   # React contexts (Auth)
+│   │   └── types/      # TypeScript types
 │   └── package.json
 ├── backend/            # Python Lambda functions
 │   ├── functions/
-│   ├── layers/
-│   └── pyproject.toml
+│   │   ├── locations/  # Location CRUD + geocoding
+│   │   ├── feedback/   # Likes, ratings, reports
+│   │   └── suggestions/# Suggestion submission + admin
+│   └── layers/
+│       └── common/     # Shared utilities (db, responses)
 ├── infrastructure/     # AWS CDK (Python)
 │   ├── app.py
-│   ├── stacks/
-│   └── pyproject.toml
+│   └── stacks/
+│       └── main_stack.py
 ├── docs/              # Documentation
 └── scripts/           # Utility scripts
 ```
+
+## API Endpoints
+
+### Public
+- `GET /v1/locations` - List all locations
+- `GET /v1/locations/{id}` - Get location details
+- `POST /v1/locations/suggest-addresses` - Geocode address query
+
+### Authenticated
+- `POST /v1/suggestions` - Submit new location suggestion
+- `POST /v1/locations/{id}/feedback` - Submit like/rating
+- `GET /v1/locations/{id}/feedback/status` - Get user's feedback status
+- `POST /v1/locations/{id}/report` - Report inactive location
+
+### Admin Only
+- `GET /v1/suggestions` - List pending suggestions
+- `POST /v1/suggestions/{id}/approve` - Approve suggestion (creates location)
+- `POST /v1/suggestions/{id}/reject` - Reject suggestion
 
 ## Getting Started
 
@@ -93,37 +123,61 @@ uv run cdk bootstrap  # First time only
 uv run cdk deploy
 ```
 
-#### Scripts
-```bash
-cd scripts
-uv sync
-uv run python import_locations.py --help
-```
-
 ## Environment Variables
-
-Create `.env` files in the respective directories:
 
 ### Frontend `.env`
 ```
-VITE_API_ENDPOINT=your-api-gateway-url
-VITE_COGNITO_USER_POOL_ID=your-user-pool-id
+VITE_API_ENDPOINT=https://your-api-gateway-url/dev/v1
+VITE_COGNITO_USER_POOL_ID=us-east-1_xxxxx
 VITE_COGNITO_CLIENT_ID=your-client-id
 VITE_AWS_REGION=us-east-1
 ```
 
 ### Backend
-Environment variables are managed through CDK and injected into Lambda functions.
+Environment variables are managed through CDK and injected into Lambda functions:
+- `LOCATIONS_TABLE_NAME`
+- `SUGGESTIONS_TABLE_NAME`
+- `FEEDBACK_TABLE_NAME`
+- `ALLOWED_ORIGIN`
 
 ## Development Workflow
 
 1. Create feature branch from `main`
 2. Make changes and test locally
-3. Run tests: `npm test` (frontend) or `pytest` (backend)
+3. Run tests: `npm run build` (frontend) or `pytest` (backend)
 4. Commit with descriptive message
 5. Push and create pull request
-6. Deploy to dev environment for testing
-7. Merge to main and deploy to production
+6. GitHub Actions deploys to dev on merge to main
+
+## Admin Access
+
+Admin users are managed via Cognito groups:
+1. Add user to `Admins` group in Cognito console
+2. User must log out and back in to get updated token
+3. Admin link appears in navigation
+4. Access `/admin` to review suggestions
+
+## Roadmap
+
+- [x] Project planning and architecture
+- [x] MVP development
+  - [x] Infrastructure setup (CDK deployed)
+  - [x] Frontend with map integration (Leaflet)
+  - [x] Backend API endpoints (Lambda)
+  - [x] Authentication (Cognito)
+  - [x] 147 locations imported and geocoded
+- [x] Community features
+  - [x] Location suggestion submission
+  - [x] Address autocomplete with geocoding
+  - [ ] Photo uploads for suggestions
+  - [ ] Likes/ratings on locations
+- [x] Admin dashboard
+  - [x] View pending suggestions
+  - [x] Approve suggestions (creates location)
+  - [x] Reject suggestions
+  - [x] Dynamic location count
+- [ ] Route optimization (Future)
+- [ ] Mobile apps (Future)
 
 ## Cost Estimates
 
@@ -131,40 +185,11 @@ Environment variables are managed through CDK and injected into Lambda functions
 - **Medium traffic** (10,000 users/month): $50-150/month
 - **High traffic** (100,000 users/month): $300-800/month
 
-AWS Free Tier covers most MVP costs initially.
-
-## Roadmap
-
-- [x] Project planning and architecture
-- [x] MVP development
-  - [x] Infrastructure setup (CDK deployed)
-  - [x] Frontend shell with map integration (Leaflet working)
-  - [x] Backend API endpoints (Lambda functions)
-  - [x] Authentication (Cognito)
-  - [x] Basic CRUD operations
-  - [x] 146 locations imported and geocoded
-- [ ] Community features
-  - [x] Location suggestion submission (address geocoding + DynamoDB)
-  - [ ] Photo uploads for suggestions
-  - [ ] Likes/ratings on locations
-- [ ] Admin dashboard
-  - [ ] View pending suggestions
-  - [ ] Approve/reject suggestions
-  - [ ] Manage locations
-- [ ] Route optimization (Future)
-- [ ] Mobile apps (Future)
-
-## Contributing
-
-This is currently a personal project. Contributions may be accepted in the future.
+AWS Free Tier covers most costs initially.
 
 ## License
 
 TBD
-
-## Contact
-
-For questions or suggestions, please open an issue.
 
 ---
 
