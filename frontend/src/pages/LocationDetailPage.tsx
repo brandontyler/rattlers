@@ -298,7 +298,7 @@ export default function LocationDetailPage() {
                     </svg>
                     <div>
                       <p className="font-medium text-forest-900">Coordinates</p>
-                      <p className="text-sm text-forest-600">{location.lat.toFixed(4)}, {location.lng.toFixed(4)}</p>
+                      <p className="text-sm text-forest-600">{Number(location.lat).toFixed(4)}, {Number(location.lng).toFixed(4)}</p>
                     </div>
                   </div>
 

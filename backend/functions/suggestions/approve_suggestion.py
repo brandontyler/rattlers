@@ -4,6 +4,7 @@ import json
 import os
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import boto3
 from botocore.exceptions import ClientError
@@ -71,8 +72,8 @@ def handler(event, context):
             "id": location_id,
             "address": suggestion.get("address"),
             "description": suggestion.get("description"),
-            "lat": suggestion.get("lat"),
-            "lng": suggestion.get("lng"),
+            "lat": Decimal(str(suggestion.get("lat"))),
+            "lng": Decimal(str(suggestion.get("lng"))),
             "photos": suggestion.get("photos", []),
             "status": "active",
             "feedbackCount": 0,
