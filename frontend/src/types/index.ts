@@ -83,7 +83,9 @@ export interface Suggestion {
 export interface SuggestionRequest {
   address: string;
   description: string;
-  photos: string[];
+  lat: number;
+  lng: number;
+  photos?: string[];
 }
 
 // User types
