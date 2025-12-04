@@ -6,18 +6,46 @@ Body: {"query": "123 Main St, Dallas"}
 """
 
 import json
+import time
 from typing import Dict, Any, List
 from responses import success_response, error_response, internal_error
 
 try:
     from geopy.geocoders import Nominatim
     from geopy.exc import GeocoderTimedOut, GeocoderServiceError
+    GEOPY_AVAILABLE = True
 except ImportError:
     print("ERROR: geopy not available in Lambda layer")
+    GEOPY_AVAILABLE = False
+
+
+def geocode_with_retry(geocoder, query: str, max_retries: int = 2) -> list:
+    """Attempt geocoding with retries on timeout."""
+    for attempt in range(max_retries + 1):
+        try:
+            return geocoder.geocode(
+                query,
+                exactly_one=False,
+                limit=5,
+                addressdetails=True
+            )
+        except GeocoderTimedOut:
+            if attempt < max_retries:
+                time.sleep(0.5)  # Brief pause before retry
+                continue
+            raise
+    return None
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Handle POST /locations/suggest-addresses request."""
+    if not GEOPY_AVAILABLE:
+        return error_response(
+            code="SERVICE_UNAVAILABLE",
+            message="Geocoding service not configured",
+            status_code=503,
+        )
+
     try:
         # Parse request body
         try:
@@ -51,39 +79,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if 'TX' not in query.upper() and 'TEXAS' not in query.upper():
             search_query = f"{query}, Texas, USA"
 
-        # Initialize geocoder
+        # Initialize geocoder with longer timeout
         geocoder = Nominatim(
             user_agent="dfw-christmas-lights-finder",
-            timeout=5
+            timeout=10
         )
 
         # Get suggestions from geocoder
         suggestions = []
 
         try:
-            # Use geocode to get multiple results
-            # For Nominatim, we can use exactly_one=False to get multiple results
-            locations = geocoder.geocode(
-                search_query,
-                exactly_one=False,
-                limit=5,
-                addressdetails=True
-            )
+            locations = geocode_with_retry(geocoder, search_query)
 
             if locations:
                 for location in locations:
-                    # Extract relevant address information
                     address = location.address
-
-                    # Filter to North Texas area (expanded to include surrounding cities)
-                    # Includes: Dallas, Fort Worth, Denton, McKinney, Plano, Frisco, Arlington
-                    # Also: Gainesville, Sherman, Denison, Waxahachie, Weatherford, Greenville
                     lat = location.latitude
                     lng = location.longitude
 
-                    # North Texas bounds (plus a few miles into southern Oklahoma)
-                    # Lat 31.5-34.2 covers south suburbs to just north of TX/OK border
-                    # Lng -98.5 to -95.5 covers Weatherford west to Greenville east
+                    # North Texas bounds
                     if 31.5 <= lat <= 34.2 and -98.5 <= lng <= -95.5:
                         suggestions.append({
                             "address": address,
@@ -106,7 +120,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 status_code=503,
             )
 
-        # Return suggestions
         return success_response(
             data={
                 "suggestions": suggestions,
