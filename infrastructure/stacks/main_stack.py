@@ -41,11 +41,11 @@ class ChristmasLightsStack(Stack):
         # Create Lambda functions
         self.create_lambda_functions()
 
-        # Create API Gateway
-        self.create_api_gateway()
-
         # Create CloudFront distribution for frontend
         self.create_cloudfront_distribution()
+
+        # Create API Gateway (after CloudFront so CORS can include CF domain)
+        self.create_api_gateway()
 
         # Create outputs
         self.create_outputs()
@@ -466,6 +466,28 @@ class ChristmasLightsStack(Stack):
                 ),
             ],
         )
+
+        # Update S3 CORS to include CloudFront domain (dev only)
+        if self.env_name == "dev":
+            cloudfront_origin = f"https://{self.distribution.distribution_domain_name}"
+
+            # Add CORS rule with CloudFront domain to photos bucket
+            cfn_photos_bucket = self.photos_bucket.node.default_child
+            cfn_photos_bucket.add_property_override(
+                "CorsConfiguration.CorsRules",
+                [
+                    {
+                        "AllowedMethods": ["GET", "PUT", "POST"],
+                        "AllowedOrigins": [
+                            "http://localhost:5173",
+                            "http://localhost:3000",
+                            cloudfront_origin,
+                        ],
+                        "AllowedHeaders": ["Content-Type", "Content-Length"],
+                        "MaxAge": 3000,
+                    }
+                ],
+            )
 
     def create_outputs(self):
         """Create CloudFormation outputs."""
