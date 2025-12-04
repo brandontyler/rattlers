@@ -143,8 +143,14 @@ AWS Free Tier covers most MVP costs initially.
   - [x] Authentication (Cognito)
   - [x] Basic CRUD operations
   - [x] 146 locations imported and geocoded
-- [ ] Admin dashboard (In Progress)
-- [ ] Community features (likes, ratings, suggestions)
+- [ ] Community features
+  - [x] Location suggestion submission (address geocoding + DynamoDB)
+  - [ ] Photo uploads for suggestions
+  - [ ] Likes/ratings on locations
+- [ ] Admin dashboard
+  - [ ] View pending suggestions
+  - [ ] Approve/reject suggestions
+  - [ ] Manage locations
 - [ ] Route optimization (Future)
 - [ ] Mobile apps (Future)
 
