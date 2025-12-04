@@ -35,14 +35,14 @@ class ChristmasLightsStack(Stack):
         # Create Cognito user pool
         self.create_cognito_pool()
 
+        # Create CloudFront distribution for frontend (before Lambda so CORS origin is available)
+        self.create_cloudfront_distribution()
+
         # Create Lambda layer with shared code
         self.create_lambda_layer()
 
-        # Create Lambda functions
+        # Create Lambda functions (after CloudFront so CORS can include CF domain)
         self.create_lambda_functions()
-
-        # Create CloudFront distribution for frontend
-        self.create_cloudfront_distribution()
 
         # Create API Gateway (after CloudFront so CORS can include CF domain)
         self.create_api_gateway()
@@ -238,7 +238,8 @@ class ChristmasLightsStack(Stack):
         if self.env_name == "prod":
             allowed_origin = "https://christmaslights.example.com"
         else:
-            allowed_origin = "http://localhost:5173"
+            # Use CloudFront domain for dev, fallback to localhost
+            allowed_origin = f"https://{self.distribution.distribution_domain_name}" if hasattr(self, 'distribution') else "http://localhost:5173"
 
         # Common environment variables
         common_env = {
