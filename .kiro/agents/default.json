@@ -1,0 +1,10 @@
+{
+  "description": "Default agent for DFW Christmas Lights Finder project",
+  "instructions": [
+    "Never push directly to main branch",
+    "Always create a descriptive feature branch (e.g., fix/admin-location-count, feat/photo-upload)",
+    "Commit with clear, detailed messages explaining what and why",
+    "Push to the feature branch and create a PR for review",
+    "Wait for approval before merging"
+  ]
+}
