@@ -13,7 +13,7 @@ s3_client = boto3.client("s3")
 table = dynamodb.Table(os.environ.get("SUGGESTIONS_TABLE_NAME", "christmas-lights-suggestions-dev"))
 PHOTOS_BUCKET = os.environ.get("PHOTOS_BUCKET_NAME", "christmas-lights-photos-dev")
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
-PRESIGNED_URL_EXPIRY = 3600  # 1 hour
+PRESIGNED_URL_EXPIRY = 86400  # 24 hours
 
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
