@@ -391,6 +391,49 @@ class ChristmasLightsStack(Stack):
         )
         self.suggestions_table.grant_write_data(self.submit_suggestion_fn)
 
+        # Get suggestions function (admin)
+        self.get_suggestions_fn = lambda_.Function(
+            self,
+            "GetSuggestionsFunction",
+            handler="get_suggestions.handler",
+            code=lambda_.Code.from_asset("../backend/functions/suggestions"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.suggestions_table.grant_read_data(self.get_suggestions_fn)
+
+        # Approve suggestion function (admin)
+        self.approve_suggestion_fn = lambda_.Function(
+            self,
+            "ApproveSuggestionFunction",
+            handler="approve_suggestion.handler",
+            code=lambda_.Code.from_asset("../backend/functions/suggestions"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.suggestions_table.grant_read_write_data(self.approve_suggestion_fn)
+        self.locations_table.grant_write_data(self.approve_suggestion_fn)
+
+        # Reject suggestion function (admin)
+        self.reject_suggestion_fn = lambda_.Function(
+            self,
+            "RejectSuggestionFunction",
+            handler="reject_suggestion.handler",
+            code=lambda_.Code.from_asset("../backend/functions/suggestions"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.suggestions_table.grant_read_write_data(self.reject_suggestion_fn)
+
         # Store functions for API Gateway integration
         self.lambda_functions = {
             "get_locations": self.get_locations_fn,
@@ -401,6 +444,9 @@ class ChristmasLightsStack(Stack):
             "get_feedback_status": self.get_feedback_status_fn,
             "suggest_addresses": self.suggest_addresses_fn,
             "submit_suggestion": self.submit_suggestion_fn,
+            "get_suggestions": self.get_suggestions_fn,
+            "approve_suggestion": self.approve_suggestion_fn,
+            "reject_suggestion": self.reject_suggestion_fn,
         }
 
     def create_api_gateway(self):
@@ -540,6 +586,31 @@ class ChristmasLightsStack(Stack):
         suggestions.add_method(
             "POST",
             apigw.LambdaIntegration(self.submit_suggestion_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+        suggestions.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.get_suggestions_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # /suggestions/{id}/approve endpoint
+        suggestion_by_id = suggestions.add_resource("{id}")
+        approve = suggestion_by_id.add_resource("approve")
+        approve.add_method(
+            "POST",
+            apigw.LambdaIntegration(self.approve_suggestion_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # /suggestions/{id}/reject endpoint
+        reject = suggestion_by_id.add_resource("reject")
+        reject.add_method(
+            "POST",
+            apigw.LambdaIntegration(self.reject_suggestion_fn),
             authorizer=authorizer,
             authorization_type=apigw.AuthorizationType.COGNITO,
         )
