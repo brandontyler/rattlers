@@ -54,53 +54,62 @@ cd backend && uv run pytest
 | Like/unlike locations | ✅ | ✅ | Fully implemented |
 | Report inactive | ✅ | ✅ | Fully implemented |
 | Photo uploads (suggestions) | ✅ | ✅ | Presigned S3 URLs, upload progress, 3 photo max |
+| Photo moderation (admin) | ✅ | ✅ | Review in admin dashboard, approve/reject with lightbox |
 
 ### 📋 Not Started
 
 | Feature | Notes |
 |---------|-------|
-| Photo moderation | Admin review queue for uploaded photos |
-| Photo gallery (detail page) | Display photos in carousel/lightbox |
+| Photo gallery (detail page) | Display approved photos in carousel/lightbox on public pages |
 | User profiles | Saved favorites, history |
 | Geographic expansion | Houston, Austin, etc. |
 | Native mobile apps | React Native or native |
 
 ---
 
-## Next Priority: Photo Moderation & Gallery
+## Next Priority: Photo Gallery on Location Detail Pages
 
-Photo uploads are fully implemented on the suggestion form. Next steps:
+Photo uploads AND moderation are fully implemented. Next step is displaying them publicly:
 
 ### What Exists ✅
-- **Photo upload on suggestions** - Users can upload up to 3 photos (JPEG, PNG, WebP, HEIC, 5MB max)
-- **S3 presigned URLs** - Secure upload with server-side validation
-- **Upload progress tracking** - Real-time feedback during upload
-- **Photo storage** - S3 bucket with CORS configured
-- **API endpoint** - `POST /photos/upload-url` (authenticated)
+- **Photo upload** - Users upload up to 3 photos with suggestions (JPEG/PNG/WebP/HEIC, 5MB max)
+- **Upload progress** - Real-time feedback during upload
+- **Photo moderation** - Admins review photos in AdminPage with thumbnails + lightbox
+- **Automated photo handling** - On approval, photos move from `pending/{suggestionId}/` to `approved/{locationId}/`
+- **CDN support** - CloudFront URL generation for approved photos
+- **S3 cleanup** - Rejected suggestions delete photos from S3
 
-### What's Needed
+### What's Needed ← Next Priority
 
-1. **Photo moderation queue (Admin)** ← Next Priority
-   - Admin dashboard tab to review uploaded photos
-   - Approve/reject photos before they appear publicly
-   - View photo metadata (uploader, timestamp, size)
-   - Move photos from `pending/` to public path after approval
-
-2. **Photo gallery on location detail page**
-   - Display approved photos in carousel/grid
+1. **Photo gallery on LocationDetailPage**
+   - Display approved photos from `location.photos[]` array
+   - Image carousel or grid layout
    - Lightbox for full-size viewing
-   - Photo attribution (optional)
    - Lazy loading for performance
+   - Mobile-responsive design
 
-3. **Photo reporting** (Future)
-   - Allow users to report inappropriate photos
-   - Admin queue for reported photos
+2. **Photo thumbnails on map popups** (optional)
+   - Show first photo thumbnail in LocationPopup
+   - Click to view detail page
 
-### Technical Notes
-- Photos stored in `pending/{suggestionId}/{photoId}.ext` until suggestion approved
-- Need to move photos to public path during approval process
-- Consider CloudFront CDN for optimized delivery
-- Add image lazy loading and optimization for galleries
+3. **Photo reporting** (future)
+   - Allow users to flag inappropriate photos
+   - Admin queue for reported content
+
+### Technical Implementation
+**Backend Flow (Complete):**
+```
+User uploads → pending/{suggestionId}/{photoId}.ext
+Admin approves → Copy to approved/{locationId}/{photoId}.ext
+                 Delete from pending/
+                 Add CDN URL to location.photos[]
+Admin rejects → Delete photos from pending/
+```
+
+**Frontend (Remaining):**
+- Add photo carousel/grid to `LocationDetailPage.tsx`
+- Use lightbox component (already exists in AdminPage)
+- Handle empty photo arrays gracefully
 
 ---
 
