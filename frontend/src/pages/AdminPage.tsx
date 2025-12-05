@@ -13,6 +13,10 @@ interface Suggestion {
   submittedBy: string;
   submittedByEmail?: string;
   createdAt: string;
+  detectedTags?: string[];
+  aiDescription?: string;
+  displayQuality?: 'minimal' | 'moderate' | 'impressive' | 'spectacular';
+  flaggedForReview?: boolean;
 }
 
 export default function AdminPage() {
@@ -22,6 +26,15 @@ export default function AdminPage() {
   const [error, setError] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
+  const flaggedCount = suggestions.filter(s => s.flaggedForReview).length;
+
+  const qualityColors: Record<string, string> = {
+    minimal: 'bg-gray-100 text-gray-700',
+    moderate: 'bg-blue-100 text-blue-700',
+    impressive: 'bg-gold-100 text-gold-700',
+    spectacular: 'bg-burgundy-100 text-burgundy-700',
+  };
 
   useEffect(() => {
     fetchSuggestions();
@@ -152,9 +165,10 @@ export default function AdminPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
                 </svg>
               </div>
+              {flaggedCount > 0 && <Badge variant="burgundy">Review</Badge>}
             </div>
-            <p className="text-4xl font-display font-bold text-forest-900 mb-1">0</p>
-            <p className="text-sm font-medium text-forest-600">Flagged Locations</p>
+            <p className="text-4xl font-display font-bold text-forest-900 mb-1">{isLoading ? '...' : flaggedCount}</p>
+            <p className="text-sm font-medium text-forest-600">Flagged for Review</p>
           </Card>
         </div>
 
@@ -197,15 +211,29 @@ export default function AdminPage() {
               {suggestions.map((suggestion) => (
                 <div
                   key={suggestion.id}
-                  className="border-2 border-forest-100 rounded-lg p-6 hover:border-forest-200 transition-colors duration-200"
+                  className={`border-2 rounded-lg p-6 transition-colors duration-200 ${
+                    suggestion.flaggedForReview 
+                      ? 'border-burgundy-300 bg-burgundy-50/50' 
+                      : 'border-forest-100 hover:border-forest-200'
+                  }`}
                 >
                   <div className="flex flex-col lg:flex-row gap-6">
                     <div className="flex-1">
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <h3 className="font-display text-lg font-semibold text-forest-900 mb-1">
-                            {suggestion.address}
-                          </h3>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-display text-lg font-semibold text-forest-900">
+                              {suggestion.address}
+                            </h3>
+                            {suggestion.flaggedForReview && (
+                              <Badge variant="burgundy">⚠️ Flagged</Badge>
+                            )}
+                            {suggestion.displayQuality && (
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${qualityColors[suggestion.displayQuality] || qualityColors.moderate}`}>
+                                {suggestion.displayQuality}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-4 text-sm text-forest-600">
                             <span className="flex items-center gap-1">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -236,7 +264,36 @@ export default function AdminPage() {
                           </div>
                         </div>
                       </div>
-                      <p className="text-forest-700 leading-relaxed mb-4">{suggestion.description}</p>
+                      
+                      {/* User Description */}
+                      <p className="text-forest-700 leading-relaxed mb-3">{suggestion.description}</p>
+                      
+                      {/* AI Description */}
+                      {suggestion.aiDescription && (
+                        <div className="bg-forest-50 border border-forest-200 rounded-lg p-3 mb-3">
+                          <p className="text-xs font-medium text-forest-500 mb-1 flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z" />
+                            </svg>
+                            AI-Generated Description
+                          </p>
+                          <p className="text-sm text-forest-700">{suggestion.aiDescription}</p>
+                        </div>
+                      )}
+                      
+                      {/* Detected Tags */}
+                      {suggestion.detectedTags && suggestion.detectedTags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-4">
+                          {suggestion.detectedTags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="text-xs bg-forest-100 text-forest-700 px-2 py-1 rounded-full"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       
                       {/* Photo Thumbnails */}
                       {suggestion.photos.length > 0 && (
