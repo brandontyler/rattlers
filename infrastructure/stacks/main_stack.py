@@ -7,6 +7,7 @@ from aws_cdk import (
     CfnOutput,
     aws_dynamodb as dynamodb,
     aws_lambda as lambda_,
+    aws_lambda_event_sources as lambda_events,
     aws_apigateway as apigw,
     aws_cognito as cognito,
     aws_s3 as s3,
@@ -488,6 +489,38 @@ class ChristmasLightsStack(Stack):
         )
         # Grant S3 permissions for PDF storage and presigned URL generation
         self.photos_bucket.grant_read_write(self.generate_route_pdf_fn)
+
+        # Photo analysis function (triggered by S3)
+        self.analyze_photo_fn = lambda_.Function(
+            self,
+            "AnalyzePhotoFunction",
+            handler="analyze_photo.handler",
+            code=lambda_.Code.from_asset("../backend/functions/photos"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(60),  # Vision analysis needs time
+            memory_size=512,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        # Grant S3 read for fetching photos
+        self.photos_bucket.grant_read(self.analyze_photo_fn)
+        # Grant DynamoDB write for updating suggestion tags
+        self.suggestions_table.grant_read_write_data(self.analyze_photo_fn)
+        # Grant Bedrock invoke for Claude vision
+        self.analyze_photo_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["bedrock:InvokeModel"],
+                resources=[f"arn:aws:bedrock:{self.region}::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0"],
+            )
+        )
+        # Add S3 trigger for pending/ prefix
+        self.analyze_photo_fn.add_event_source(
+            lambda_events.S3EventSource(
+                self.photos_bucket,
+                events=[s3.EventType.OBJECT_CREATED],
+                filters=[s3.NotificationKeyFilter(prefix="pending/")],
+            )
+        )
 
         # Store functions for API Gateway integration
         self.lambda_functions = {
