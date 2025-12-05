@@ -95,7 +95,6 @@ export function RouteProvider({ children }: { children: ReactNode }) {
           lng: stop.lng,
           description: stop.description,
           photos: stop.photos,
-          averageRating: stop.averageRating,
         })),
       });
 
