@@ -47,14 +47,13 @@ cd backend && uv run pytest
 | PDF route generation | ✅ | ✅ | ReportLab with page decorations, QR codes |
 | Mobile responsive | ✅ | - | Layout adapts |
 
-### ⏳ Backend Done, Frontend Not Wired Up
+### ✅ Implemented Features
 
-| Feature | Frontend | Backend | Priority |
-|---------|----------|---------|----------|
-| Like/unlike locations | ❌ | ✅ | **HIGH** |
-| Star ratings | ❌ | ✅ | **HIGH** |
-| Report inactive | ❌ | ✅ | Medium |
-| Photo upload URL | ❌ | ✅ | Low |
+| Feature | Frontend | Backend | Notes |
+|---------|----------|---------|-------|
+| Like/unlike locations | ✅ | ✅ | Fully implemented |
+| Report inactive | ✅ | ✅ | Fully implemented |
+| Photo upload URL | ❌ | ✅ | Backend ready, UI pending |
 
 ### 📋 Not Started
 
@@ -68,34 +67,33 @@ cd backend && uv run pytest
 
 ---
 
-## Next Priority: Wire Up Feedback UI
+## Next Priority: Photo Uploads UI
 
-The backend for likes/ratings is complete but the frontend doesn't use it yet. This is the highest-impact next step.
+The backend for photo uploads is complete (S3 presigned URLs), but the frontend UI needs to be built.
 
 ### What Exists (Backend)
-- `POST /locations/{id}/feedback` - Submit like or rating
-- `GET /locations/{id}/feedback/status` - Get user's current feedback
-- `POST /locations/{id}/report` - Report inactive location
-- DynamoDB table with GSI for efficient queries
-- Race condition prevention with atomic writes
+- `POST /locations/{id}/photos/upload-url` - Get presigned S3 upload URL
+- S3 bucket configured for photo storage
+- Photo URLs stored in location records
 
 ### What's Needed (Frontend)
-1. **Like button on location popup/detail page**
-   - Show filled/unfilled heart based on `feedback/status`
-   - Toggle on click, optimistic UI update
-   
-2. **Star rating on location detail page**
-   - 5-star clickable rating
-   - Show user's rating if exists
-   
-3. **Report button on location detail page**
-   - "Report as inactive" with confirmation
-   - Show if user already reported
+1. **Photo upload component on submit location page**
+   - File picker with image preview
+   - Upload to S3 using presigned URL
+   - Image optimization/resize before upload
+
+2. **Photo moderation queue (Admin)**
+   - Admin dashboard to review uploaded photos
+   - Approve/reject photos before they go live
+
+3. **Photo gallery on location detail page**
+   - Display approved photos in carousel/grid
+   - Lightbox for full-size viewing
 
 ### Implementation Notes
-- AuthContext already provides user token
-- API service has feedback methods (check `api.ts`)
-- Location popup already has "Add to Route" button - add Like next to it
+- Consider photo upload limits (size, count)
+- Add image validation (format, dimensions)
+- Implement photo reporting for inappropriate content
 
 ---
 
@@ -133,8 +131,8 @@ backend/functions/
 
 ### Authenticated
 - `POST /v1/suggestions` - Submit location suggestion
-- `POST /v1/locations/{id}/feedback` - Like/rate location
-- `GET /v1/locations/{id}/feedback/status` - Get user's feedback
+- `POST /v1/locations/{id}/feedback` - Like location
+- `GET /v1/locations/{id}/feedback/status` - Get user's like status
 - `POST /v1/locations/{id}/report` - Report inactive
 
 ### Admin Only
@@ -214,10 +212,10 @@ _Add notes, blockers, or decisions here:_
 - [x] Route planner + PDF
 
 ### Phase 2: Community Features (Current)
-- [ ] **Like/unlike UI** ← Next
-- [ ] **Star ratings UI** ← Next
-- [ ] Report inactive UI
-- [ ] Photo uploads
+- [x] **Like/unlike UI** ← Complete
+- [x] Report inactive UI ← Complete
+- [ ] Photo uploads UI ← Next
+- [ ] Photo moderation (admin)
 
 ### Phase 3: Growth
 - [ ] User profiles

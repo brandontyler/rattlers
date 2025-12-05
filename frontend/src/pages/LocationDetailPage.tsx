@@ -168,9 +168,6 @@ export default function LocationDetailPage() {
                   <Badge variant={location.status === 'active' ? 'forest' : 'burgundy'}>
                     {location.status === 'active' ? '✨ Active' : '❄️ Inactive'}
                   </Badge>
-                  {location.averageRating !== undefined && location.averageRating >= 4.5 && (
-                    <Badge variant="gold">⭐ Highly Rated</Badge>
-                  )}
                   {location.reportCount !== undefined && location.reportCount > 0 && (
                     <Badge variant="burgundy">⚠️ {location.reportCount} reports</Badge>
                   )}
@@ -179,14 +176,6 @@ export default function LocationDetailPage() {
                   {location.address}
                 </h1>
                 <div className="flex items-center gap-4 text-forest-600">
-                  <div className="flex items-center gap-1">
-                    <svg className="w-5 h-5 text-gold-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <span className="font-semibold">{location.averageRating?.toFixed(1) || 'N/A'}</span>
-                    <span className="text-sm">({location.feedbackCount || 0} reviews)</span>
-                  </div>
-                  <span className="text-forest-400">•</span>
                   <div className="flex items-center gap-1">
                     <svg className="w-5 h-5 text-burgundy-500" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
@@ -259,18 +248,10 @@ export default function LocationDetailPage() {
                 <h2 className="font-display text-2xl font-semibold text-forest-900 mb-4">
                   Community Stats
                 </h2>
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div>
-                    <div className="text-3xl font-bold text-gold-600">{location.averageRating?.toFixed(1) || '—'}</div>
-                    <div className="text-sm text-forest-600">Avg Rating</div>
-                  </div>
-                  <div>
+                <div className="flex justify-center">
+                  <div className="text-center">
                     <div className="text-3xl font-bold text-burgundy-600">{location.likeCount || 0}</div>
                     <div className="text-sm text-forest-600">Likes</div>
-                  </div>
-                  <div>
-                    <div className="text-3xl font-bold text-forest-600">{location.feedbackCount || 0}</div>
-                    <div className="text-sm text-forest-600">Reviews</div>
                   </div>
                 </div>
               </Card>

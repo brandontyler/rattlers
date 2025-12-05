@@ -16,9 +16,9 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - 🚗 **Route Planner** - Build custom routes with up to 15 stops
 - 📄 **PDF Generation** - Festive printable route guide with map and QR codes
 
-### In Progress
-- ⭐ Community feedback system (likes/ratings) - backend complete, UI pending
-- 🚫 Report inactive displays - backend complete, UI pending
+### Completed
+- ❤️ Like system - users can like their favorite displays
+- 🚫 Report inactive displays - flag displays that are no longer active
 
 ### Future Phases
 - 📸 User-submitted photos (with moderation)
@@ -86,8 +86,8 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 
 ### Authenticated
 - `POST /v1/suggestions` - Submit new location suggestion
-- `POST /v1/locations/{id}/feedback` - Submit like/rating
-- `GET /v1/locations/{id}/feedback/status` - Get user's feedback status
+- `POST /v1/locations/{id}/feedback` - Like/unlike location
+- `GET /v1/locations/{id}/feedback/status` - Get user's like status
 - `POST /v1/locations/{id}/report` - Report inactive location
 
 ### Admin Only
@@ -177,8 +177,9 @@ Admin users are managed via Cognito groups:
 - [x] Community features
   - [x] Location suggestion submission
   - [x] Address autocomplete with geocoding
-  - [ ] Photo uploads for suggestions
-  - [ ] Likes/ratings UI (backend complete)
+  - [x] Likes UI (fully implemented)
+  - [x] Report inactive displays (fully implemented)
+  - [ ] Photo uploads UI (backend ready)
 - [x] Admin dashboard
   - [x] View pending suggestions
   - [x] Approve suggestions (creates location)
@@ -192,10 +193,10 @@ Admin users are managed via Cognito groups:
   - [x] PDF generation with festive design
   - [x] Static map image in PDF
   - [x] QR codes for Google Maps navigation
-- [ ] Feedback UI (backend ready)
-  - [ ] Like/unlike button on locations
-  - [ ] Star ratings display and input
-  - [ ] Report inactive button
+- [ ] Photo uploads UI (backend ready)
+  - [ ] File picker with image preview
+  - [ ] Upload to S3 using presigned URLs
+  - [ ] Photo moderation (admin review queue)
 - [ ] Mobile apps (Future)
 
 ## Cost Estimates

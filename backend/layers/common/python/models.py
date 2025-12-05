@@ -17,7 +17,6 @@ class LocationStatus(str, Enum):
 class FeedbackType(str, Enum):
     """Feedback type enum."""
     LIKE = "like"
-    STAR = "star"
 
 
 class SuggestionStatus(str, Enum):
@@ -36,8 +35,6 @@ class Location(BaseModel):
     description: str
     photos: List[str] = Field(default_factory=list)
     status: LocationStatus = LocationStatus.ACTIVE
-    feedback_count: int = Field(default=0, alias="feedbackCount")
-    average_rating: float = Field(default=0.0, alias="averageRating")
     like_count: int = Field(default=0, alias="likeCount")
     report_count: int = Field(default=0, alias="reportCount")
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), alias="createdAt")
@@ -69,20 +66,11 @@ class Feedback(BaseModel):
     location_id: str = Field(alias="locationId")
     user_id: str = Field(alias="userId")
     type: FeedbackType
-    rating: Optional[int] = None
-    comment: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), alias="createdAt")
 
     class Config:
         populate_by_name = True
         use_enum_values = True
-
-    @field_validator('rating')
-    @classmethod
-    def validate_rating(cls, v: Optional[int]) -> Optional[int]:
-        if v is not None and not 1 <= v <= 5:
-            raise ValueError('Rating must be between 1 and 5')
-        return v
 
 
 class Suggestion(BaseModel):
