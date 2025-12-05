@@ -30,8 +30,33 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 s3_client = boto3.client("s3")
 
 PHOTOS_BUCKET = os.environ.get("PHOTOS_BUCKET_NAME", "christmas-lights-photos-dev")
-ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
 PDF_EXPIRATION_SECONDS = 3600
+
+
+def get_allowed_origins() -> list:
+    """Get list of allowed origins from environment."""
+    origins_str = os.environ.get("ALLOWED_ORIGINS", "")
+    if origins_str:
+        return [o.strip() for o in origins_str.split(",") if o.strip()]
+    # Fallback to single origin for backwards compatibility
+    single = os.environ.get("ALLOWED_ORIGIN", "")
+    return [single] if single else ["*"]
+
+
+def get_cors_headers(event: dict) -> dict:
+    """Get CORS headers based on request origin."""
+    origin = event.get("headers", {}).get("origin") or event.get("headers", {}).get("Origin", "")
+    allowed = get_allowed_origins()
+    
+    # Return matching origin, or first allowed origin as default
+    cors_origin = origin if origin in allowed else allowed[0]
+    
+    return {
+        "Access-Control-Allow-Origin": cors_origin,
+        "Access-Control-Allow-Headers": "Content-Type,Authorization",
+        "Access-Control-Allow-Methods": "POST,OPTIONS",
+    }
+
 
 # Festive Christmas colors
 DEEP_RED = colors.HexColor("#991b1b")
@@ -43,12 +68,6 @@ WARM_GOLD = colors.HexColor("#fbbf24")
 CREAM = colors.HexColor("#fef3c7")
 SNOW_WHITE = colors.HexColor("#fafafa")
 SOFT_GRAY = colors.HexColor("#6b7280")
-
-CORS_HEADERS = {
-    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-    "Access-Control-Allow-Headers": "Content-Type,Authorization",
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
-}
 
 
 def haversine_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -566,8 +585,10 @@ def create_pdf(stops: list) -> bytes:
 
 def handler(event, context):
     """Handle POST /routes/generate-pdf request."""
+    cors_headers = get_cors_headers(event)
+    
     if event.get("httpMethod") == "OPTIONS":
-        return {"statusCode": 200, "headers": CORS_HEADERS, "body": ""}
+        return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
     try:
         body = json.loads(event.get("body", "{}"))
@@ -576,14 +597,14 @@ def handler(event, context):
         if not stops:
             return {
                 "statusCode": 400,
-                "headers": CORS_HEADERS,
+                "headers": cors_headers,
                 "body": json.dumps({"success": False, "message": "At least one stop is required"}),
             }
 
         if len(stops) > 15:
             return {
                 "statusCode": 400,
-                "headers": CORS_HEADERS,
+                "headers": cors_headers,
                 "body": json.dumps({"success": False, "message": "Maximum 15 stops allowed"}),
             }
 
@@ -610,7 +631,7 @@ def handler(event, context):
 
         return {
             "statusCode": 200,
-            "headers": CORS_HEADERS,
+            "headers": cors_headers,
             "body": json.dumps({
                 "success": True,
                 "data": {"downloadUrl": download_url, "expiresIn": PDF_EXPIRATION_SECONDS},
@@ -620,20 +641,20 @@ def handler(event, context):
     except json.JSONDecodeError:
         return {
             "statusCode": 400,
-            "headers": CORS_HEADERS,
+            "headers": cors_headers,
             "body": json.dumps({"success": False, "message": "Invalid JSON body"}),
         }
     except ClientError as e:
         print(f"S3 error: {e}")
         return {
             "statusCode": 500,
-            "headers": CORS_HEADERS,
+            "headers": cors_headers,
             "body": json.dumps({"success": False, "message": "Failed to generate PDF"}),
         }
     except Exception as e:
         print(f"Unexpected error: {e}")
         return {
             "statusCode": 500,
-            "headers": CORS_HEADERS,
+            "headers": cors_headers,
             "body": json.dumps({"success": False, "message": "Internal server error"}),
         }

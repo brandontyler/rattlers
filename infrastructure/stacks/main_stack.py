@@ -276,12 +276,16 @@ class ChristmasLightsStack(Stack):
     def create_lambda_functions(self):
         """Create Lambda functions."""
 
-        # Determine allowed origin for CORS
+        # Determine allowed origins for CORS
         if self.env_name == "prod":
-            allowed_origin = "https://christmaslights.example.com"
+            allowed_origins = ["https://christmaslights.example.com"]
         else:
-            # Use CloudFront domain for dev, fallback to localhost
-            allowed_origin = f"https://{self.distribution.distribution_domain_name}" if hasattr(self, 'distribution') else "http://localhost:5173"
+            # Dev: CloudFront + localhost for local development
+            allowed_origins = [
+                f"https://{self.distribution.distribution_domain_name}",
+                "http://localhost:5173",
+                "http://localhost:3000",
+            ]
 
         # Common environment variables
         common_env = {
@@ -290,7 +294,8 @@ class ChristmasLightsStack(Stack):
             "SUGGESTIONS_TABLE_NAME": self.suggestions_table.table_name,
             "PHOTOS_BUCKET_NAME": self.photos_bucket.bucket_name,
             "PHOTOS_CDN_URL": f"https://{self.photos_distribution.distribution_domain_name}" if hasattr(self, 'photos_distribution') else "",
-            "ALLOWED_ORIGIN": allowed_origin,
+            "ALLOWED_ORIGINS": ",".join(allowed_origins),
+            "ALLOWED_ORIGIN": allowed_origins[0],  # Keep for backwards compatibility
             "ENV_NAME": self.env_name,
         }
 
