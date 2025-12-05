@@ -5,6 +5,11 @@ on:
     branches:
       - main
 
+# Prevent concurrent deployments - queue them instead
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false  # Don't cancel running deploys, queue them
+
 jobs:
   deploy:
     name: Deploy Infrastructure and Frontend
