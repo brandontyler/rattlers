@@ -168,9 +168,9 @@ export interface RouteStop {
   address: string;
   lat: number;
   lng: number;
-  description: string;
-  photos: string[];
-  averageRating: number;
+  description?: string;
+  photos?: string[];
+  averageRating?: number;
 }
 
 export interface RoutePdfRequest {
