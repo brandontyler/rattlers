@@ -1,9 +1,10 @@
-"""Lambda function to generate a festive PDF route guide."""
+"""Lambda function to generate a beautiful, festive PDF route guide using WeasyPrint."""
 
 import json
 import os
 import uuid
 import math
+import base64
 from datetime import datetime
 from io import BytesIO
 from urllib.request import urlopen
@@ -11,21 +12,7 @@ from urllib.parse import quote
 
 import boto3
 from botocore.exceptions import ClientError
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer,
-    Table,
-    TableStyle,
-    Image,
-    KeepTogether,
-    PageBreak,
-)
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from weasyprint import HTML, CSS
 
 s3_client = boto3.client("s3")
 
@@ -47,27 +34,15 @@ def get_cors_headers(event: dict) -> dict:
     """Get CORS headers based on request origin."""
     origin = event.get("headers", {}).get("origin") or event.get("headers", {}).get("Origin", "")
     allowed = get_allowed_origins()
-    
+
     # Return matching origin, or first allowed origin as default
     cors_origin = origin if origin in allowed else allowed[0]
-    
+
     return {
         "Access-Control-Allow-Origin": cors_origin,
         "Access-Control-Allow-Headers": "Content-Type,Authorization",
         "Access-Control-Allow-Methods": "POST,OPTIONS",
     }
-
-
-# Festive Christmas colors
-DEEP_RED = colors.HexColor("#991b1b")
-CHRISTMAS_RED = colors.HexColor("#dc2626")
-FOREST_GREEN = colors.HexColor("#166534")
-PINE_GREEN = colors.HexColor("#14532d")
-GOLD = colors.HexColor("#ca8a04")
-WARM_GOLD = colors.HexColor("#fbbf24")
-CREAM = colors.HexColor("#fef3c7")
-SNOW_WHITE = colors.HexColor("#fafafa")
-SOFT_GRAY = colors.HexColor("#6b7280")
 
 
 def haversine_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -84,7 +59,7 @@ def calculate_route_stats(stops: list) -> dict:
     """Calculate total distance and estimated time for the route."""
     if len(stops) < 2:
         return {"total_distance": 0, "total_time": len(stops) * 3}
-    
+
     total_distance = sum(
         haversine_distance(
             float(stops[i]["lat"]), float(stops[i]["lng"]),
@@ -115,25 +90,25 @@ def format_duration(minutes: int) -> str:
     return f"{hours}h {mins}m" if mins else f"{hours}h"
 
 
-def get_static_map_image(stops: list) -> BytesIO:
-    """Generate a static map image using free staticmap service."""
+def get_static_map_image_base64(stops: list) -> str:
+    """Generate a static map image and return as base64."""
     if not stops:
-        return None
-    
+        return ""
+
     lats = [float(s["lat"]) for s in stops]
     lngs = [float(s["lng"]) for s in stops]
-    
+
     min_lat, max_lat = min(lats), max(lats)
     min_lng, max_lng = min(lngs), max(lngs)
-    
+
     center_lat = (min_lat + max_lat) / 2
     center_lng = (min_lng + max_lng) / 2
-    
+
     # Calculate zoom based on bounding box
     lat_diff = max_lat - min_lat
     lng_diff = max_lng - min_lng
     max_diff = max(lat_diff, lng_diff)
-    
+
     if max_diff < 0.05:
         zoom = 14
     elif max_diff < 0.1:
@@ -144,20 +119,16 @@ def get_static_map_image(stops: list) -> BytesIO:
         zoom = 11
     else:
         zoom = 10
-    
-    width, height = 600, 350
-    
+
+    width, height = 800, 500
+
     try:
-        # Use staticmap.openstreetmap.de - free, no API key
-        # Build markers: color-label format
+        # Use staticmap.openstreetmap.de
         markers_param = "|".join([
             f"{s['lng']},{s['lat']},ol-marker-green"
             for s in stops
         ])
-        
-        # Build path for route line
-        path_param = "|".join([f"{s['lng']},{s['lat']}" for s in stops])
-        
+
         map_url = (
             f"https://staticmap.openstreetmap.de/staticmap.php"
             f"?center={center_lat},{center_lng}"
@@ -166,71 +137,54 @@ def get_static_map_image(stops: list) -> BytesIO:
             f"&maptype=mapnik"
             f"&markers={markers_param}"
         )
-        
+
         with urlopen(map_url, timeout=15) as response:
-            img_data = BytesIO(response.read())
-            img_data.seek(0)
-            return img_data
+            img_data = response.read()
+            return base64.b64encode(img_data).decode('utf-8')
     except Exception as e:
         print(f"Map generation failed: {e}")
-        # Try alternative: simple OSM tile approach
-        try:
-            # Fallback to a simpler static map
-            alt_url = (
-                f"https://www.openstreetmap.org/export/embed.html"
-                f"?bbox={min_lng-0.02},{min_lat-0.02},{max_lng+0.02},{max_lat+0.02}"
-                f"&layer=mapnik"
-            )
-            # This won't work as image, so return None
-            return None
-        except:
-            return None
+        return ""
 
 
 def generate_google_maps_url(stops: list) -> str:
     """Generate a Google Maps directions URL for a list of stops."""
     if len(stops) < 2:
         return f"https://www.google.com/maps/search/?api=1&query={stops[0]['lat']},{stops[0]['lng']}"
-    
+
     origin = f"{stops[0]['lat']},{stops[0]['lng']}"
     destination = f"{stops[-1]['lat']},{stops[-1]['lng']}"
-    
+
     if len(stops) > 2:
         waypoints = "|".join([f"{s['lat']},{s['lng']}" for s in stops[1:-1]])
         return f"https://www.google.com/maps/dir/?api=1&origin={origin}&destination={destination}&waypoints={quote(waypoints)}"
-    
+
     return f"https://www.google.com/maps/dir/?api=1&origin={origin}&destination={destination}"
 
 
 def chunk_stops_for_google_maps(stops: list, max_waypoints: int = 10) -> list:
-    """Split stops into chunks that fit Google Maps URL limits.
-    
-    Google Maps allows: origin + up to 10 waypoints + destination = 12 stops per URL.
-    We overlap by 1 stop so each chunk ends where the next begins.
-    """
-    if len(stops) <= max_waypoints + 2:  # Fits in one URL
+    """Split stops into chunks that fit Google Maps URL limits."""
+    if len(stops) <= max_waypoints + 2:
         return [stops]
-    
+
     chunks = []
-    chunk_size = max_waypoints + 2  # origin + 10 waypoints + destination
+    chunk_size = max_waypoints + 2
     i = 0
-    
+
     while i < len(stops):
         end = min(i + chunk_size, len(stops))
         chunks.append(stops[i:end])
-        
+
         if end >= len(stops):
             break
-        # Next chunk starts at current destination (overlap by 1)
         i = end - 1
-    
+
     return chunks
 
 
-def generate_qr_code(url: str) -> BytesIO:
-    """Generate a QR code image for the given URL."""
+def generate_qr_code_base64(url: str) -> str:
+    """Generate a QR code image and return as base64."""
     import qrcode
-    
+
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -239,354 +193,561 @@ def generate_qr_code(url: str) -> BytesIO:
     )
     qr.add_data(url)
     qr.make(fit=True)
-    
+
     img = qr.make_image(fill_color="black", back_color="white")
     buffer = BytesIO()
     img.save(buffer, format='PNG')
     buffer.seek(0)
-    return buffer
+    return base64.b64encode(buffer.getvalue()).decode('utf-8')
 
 
-def create_pdf(stops: list) -> bytes:
-    """Generate a festive, professional PDF route guide."""
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=letter,
-        rightMargin=0.6 * inch,
-        leftMargin=0.6 * inch,
-        topMargin=0.5 * inch,
-        bottomMargin=0.5 * inch,
-    )
+def get_snowflake_svg() -> str:
+    """Return an SVG snowflake pattern as data URI."""
+    svg = '''<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+  <g opacity="0.15" fill="#166534">
+    <path d="M50 10 L50 90 M10 50 L90 50 M20 20 L80 80 M80 20 L20 80" stroke="#166534" stroke-width="2"/>
+    <circle cx="50" cy="10" r="3"/>
+    <circle cx="50" cy="90" r="3"/>
+    <circle cx="10" cy="50" r="3"/>
+    <circle cx="90" cy="50" r="3"/>
+    <circle cx="20" cy="20" r="3"/>
+    <circle cx="80" cy="80" r="3"/>
+    <circle cx="80" cy="20" r="3"/>
+    <circle cx="20" cy="80" r="3"/>
+  </g>
+</svg>'''
+    return f"data:image/svg+xml;base64,{base64.b64encode(svg.encode()).decode()}"
 
-    # Styles
-    title_style = ParagraphStyle(
-        "Title", fontSize=32, textColor=DEEP_RED, alignment=TA_CENTER,
-        fontName="Helvetica-Bold", spaceAfter=4, leading=38,
-    )
-    subtitle_style = ParagraphStyle(
-        "Subtitle", fontSize=13, textColor=FOREST_GREEN, alignment=TA_CENTER,
-        fontName="Helvetica-Oblique", spaceAfter=12,
-    )
-    date_style = ParagraphStyle(
-        "Date", fontSize=11, textColor=SOFT_GRAY, alignment=TA_CENTER, spaceAfter=16,
-    )
-    section_header_style = ParagraphStyle(
-        "SectionHeader", fontSize=14, textColor=PINE_GREEN, fontName="Helvetica-Bold",
-        spaceBefore=16, spaceAfter=8, borderPadding=4,
-    )
-    stop_number_style = ParagraphStyle(
-        "StopNumber", fontSize=18, textColor=CHRISTMAS_RED, fontName="Helvetica-Bold",
-    )
-    address_style = ParagraphStyle(
-        "Address", fontSize=11, textColor=colors.black, fontName="Helvetica-Bold",
-        spaceAfter=3, leading=14,
-    )
-    description_style = ParagraphStyle(
-        "Description", fontSize=10, textColor=SOFT_GRAY, spaceAfter=2, leading=13,
-    )
-    distance_style = ParagraphStyle(
-        "Distance", fontSize=9, textColor=FOREST_GREEN, alignment=TA_CENTER,
-        spaceBefore=6, spaceAfter=6, fontName="Helvetica-Oblique",
-    )
-    tip_style = ParagraphStyle(
-        "Tip", fontSize=10, textColor=SOFT_GRAY, leftIndent=15, spaceAfter=4, leading=13,
-    )
-    footer_style = ParagraphStyle(
-        "Footer", fontSize=9, textColor=SOFT_GRAY, alignment=TA_CENTER, spaceBefore=20,
-    )
-    stats_style = ParagraphStyle(
-        "Stats", fontSize=11, textColor=colors.black, alignment=TA_CENTER,
-    )
 
+def create_pdf_html(stops: list) -> str:
+    """Generate beautiful HTML for the PDF."""
     stats = calculate_route_stats(stops)
     current_date = datetime.now().strftime("%A, %B %d, %Y")
-    
-    story = []
-
-    # ===== HEADER SECTION =====
-    # Decorative top border
-    story.append(Paragraph(
-        '<font color="#166534">✦</font> · '
-        '<font color="#dc2626">✦</font> · '
-        '<font color="#ca8a04">✦</font> · '
-        '<font color="#166534">✦</font> · '
-        '<font color="#dc2626">✦</font> · '
-        '<font color="#ca8a04">✦</font> · '
-        '<font color="#166534">✦</font> · '
-        '<font color="#dc2626">✦</font> · '
-        '<font color="#ca8a04">✦</font>',
-        ParagraphStyle("Decor", fontSize=16, alignment=TA_CENTER, spaceAfter=12)
-    ))
-    
-    # Title
-    story.append(Paragraph("Christmas Lights Adventure", title_style))
-    story.append(Paragraph("~ Your Family Route Guide ~", subtitle_style))
-    story.append(Paragraph(current_date, date_style))
-
-    # ===== STATS BOX =====
-    stats_data = [[
-        Paragraph(f'<font color="#166534"><b>{len(stops)}</b></font><br/><font size="9">Stops</font>', 
-                  ParagraphStyle("s", alignment=TA_CENTER, leading=14)),
-        Paragraph(f'<font color="#991b1b"><b>{stats["total_distance"]}</b></font><br/><font size="9">Miles</font>', 
-                  ParagraphStyle("s", alignment=TA_CENTER, leading=14)),
-        Paragraph(f'<font color="#ca8a04"><b>~{format_duration(stats["total_time"])}</b></font><br/><font size="9">Total Time</font>', 
-                  ParagraphStyle("s", alignment=TA_CENTER, leading=14)),
-    ]]
-    
-    stats_table = Table(stats_data, colWidths=[2.2*inch, 2.2*inch, 2.2*inch])
-    stats_table.setStyle(TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BACKGROUND', (0, 0), (-1, -1), CREAM),
-        ('BOX', (0, 0), (-1, -1), 1, GOLD),
-        ('TOPPADDING', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-    ]))
-    story.append(stats_table)
-    story.append(Spacer(1, 12))
-
-    # ===== MAP IMAGE =====
-    map_image = get_static_map_image(stops)
-    if map_image:
-        try:
-            img = Image(map_image, width=6.8*inch, height=3.5*inch)
-            img.hAlign = 'CENTER'
-            
-            # Wrap map in a table for border
-            map_table = Table([[img]], colWidths=[7*inch])
-            map_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('BOX', (0, 0), (-1, -1), 2, FOREST_GREEN),
-                ('BACKGROUND', (0, 0), (-1, -1), SNOW_WHITE),
-                ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                ('LEFTPADDING', (0, 0), (-1, -1), 4),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-            ]))
-            story.append(map_table)
-            story.append(Spacer(1, 8))
-        except Exception as e:
-            print(f"Failed to add map image: {e}")
-    
-    # ===== QR CODES FOR GOOGLE MAPS =====
+    map_base64 = get_static_map_image_base64(stops)
     route_chunks = chunk_stops_for_google_maps(stops)
-    
+
+    # Generate QR codes
+    qr_codes_html = ""
     if len(route_chunks) == 1:
-        # Single QR code for the whole route
-        story.append(Paragraph("Scan for Google Maps Directions", section_header_style))
-        qr_line = Table([[""]], colWidths=[6.8*inch])
-        qr_line.setStyle(TableStyle([('LINEABOVE', (0, 0), (-1, 0), 2, FOREST_GREEN)]))
-        story.append(qr_line)
-        story.append(Spacer(1, 8))
-        
         maps_url = generate_google_maps_url(stops)
-        try:
-            qr_img = Image(generate_qr_code(maps_url), width=1.5*inch, height=1.5*inch)
-            qr_table = Table([
-                [qr_img, Paragraph(
-                    f'<font color="#166534"><b>Scan with your phone</b></font><br/>'
-                    f'<font color="#6b7280" size="9">Opens Google Maps with<br/>turn-by-turn directions<br/>for all {len(stops)} stops</font>',
-                    ParagraphStyle("qr", alignment=TA_LEFT, leading=14)
-                )]
-            ], colWidths=[1.8*inch, 4.5*inch])
-            qr_table.setStyle(TableStyle([
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('LEFTPADDING', (1, 0), (1, 0), 15),
-            ]))
-            story.append(qr_table)
-        except Exception as e:
-            print(f"Failed to generate QR code: {e}")
-            story.append(Paragraph(
-                f'<font color="#6b7280" size="9">Google Maps: {maps_url[:60]}...</font>',
-                ParagraphStyle("url", alignment=TA_CENTER)
-            ))
+        qr_base64 = generate_qr_code_base64(maps_url)
+        qr_codes_html = f'''
+        <div class="qr-section single">
+            <div class="qr-container">
+                <img src="data:image/png;base64,{qr_base64}" alt="QR Code" class="qr-code">
+                <div class="qr-description">
+                    <h3>Scan with your phone</h3>
+                    <p>Opens Google Maps with turn-by-turn directions for all {len(stops)} stops</p>
+                </div>
+            </div>
+        </div>
+        '''
     else:
-        # Multiple QR codes for long routes
-        story.append(Paragraph("Scan for Google Maps Directions", section_header_style))
-        qr_line = Table([[""]], colWidths=[6.8*inch])
-        qr_line.setStyle(TableStyle([('LINEABOVE', (0, 0), (-1, 0), 2, FOREST_GREEN)]))
-        story.append(qr_line)
-        story.append(Spacer(1, 4))
-        
-        story.append(Paragraph(
-            f'<font color="#6b7280" size="9">Your route has {len(stops)} stops. '
-            f'Scan each QR code in order for turn-by-turn directions.</font>',
-            ParagraphStyle("note", alignment=TA_CENTER, spaceAfter=8)
-        ))
-        
-        # Build QR codes row
-        qr_cells = []
+        qr_codes_html = '<div class="qr-section multiple">'
+        qr_codes_html += f'<p class="qr-note">Your route has {len(stops)} stops. Scan each QR code in order for turn-by-turn directions.</p>'
+        qr_codes_html += '<div class="qr-grid">'
         for i, chunk in enumerate(route_chunks):
             maps_url = generate_google_maps_url(chunk)
+            qr_base64 = generate_qr_code_base64(maps_url)
             start_stop = sum(len(route_chunks[j]) - 1 for j in range(i)) + 1
             end_stop = start_stop + len(chunk) - 1
-            
-            try:
-                qr_img = Image(generate_qr_code(maps_url), width=1.2*inch, height=1.2*inch)
-                qr_cell = Table([
-                    [qr_img],
-                    [Paragraph(
-                        f'<font color="#166534" size="9"><b>Part {i+1}</b></font><br/>'
-                        f'<font color="#6b7280" size="8">Stops {start_stop}-{end_stop}</font>',
-                        ParagraphStyle("qrlabel", alignment=TA_CENTER, leading=11)
-                    )]
-                ])
-                qr_cell.setStyle(TableStyle([
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ]))
-                qr_cells.append(qr_cell)
-            except Exception as e:
-                print(f"Failed to generate QR code {i+1}: {e}")
-                qr_cells.append(Paragraph(f'Part {i+1}', ParagraphStyle("err", alignment=TA_CENTER)))
-        
-        # Arrange QR codes in a row (up to 4 per row)
-        if len(qr_cells) <= 4:
-            col_width = 6.8 * inch / len(qr_cells)
-            qr_row_table = Table([qr_cells], colWidths=[col_width] * len(qr_cells))
-            qr_row_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ]))
-            story.append(qr_row_table)
-        else:
-            # Two rows if more than 4 chunks
-            row1 = qr_cells[:4]
-            row2 = qr_cells[4:]
-            col_width = 6.8 * inch / 4
-            qr_table = Table([row1, row2 + [None] * (4 - len(row2))], colWidths=[col_width] * 4)
-            qr_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ]))
-            story.append(qr_table)
-    
-    story.append(Spacer(1, 12))
-    
-    # ===== ROUTE STOPS =====
-    story.append(Paragraph("Your Route", section_header_style))
-    
-    # Decorative line
-    line_table = Table([[""]], colWidths=[6.8*inch])
-    line_table.setStyle(TableStyle([
-        ('LINEABOVE', (0, 0), (-1, 0), 2, CHRISTMAS_RED),
-    ]))
-    story.append(line_table)
-    story.append(Spacer(1, 8))
+            qr_codes_html += f'''
+            <div class="qr-item">
+                <img src="data:image/png;base64,{qr_base64}" alt="QR Code Part {i+1}" class="qr-code-small">
+                <p class="qr-label"><strong>Part {i+1}</strong><br>Stops {start_stop}-{end_stop}</p>
+            </div>
+            '''
+        qr_codes_html += '</div></div>'
 
+    # Generate stops HTML
+    stops_html = ""
     for i, stop in enumerate(stops):
-        stop_elements = []
-        
-        # Stop number and address in a nice layout
         address = stop.get("address", "Unknown Address")
-        # Truncate long addresses
         if len(address) > 60:
             address = address[:57] + "..."
-        
-        # Rating stars
+
         rating = stop.get("averageRating", 0)
+        stars_html = ""
         if rating and rating > 0:
             full_stars = int(rating)
-            stars_display = '<font color="#ca8a04">' + "★" * full_stars + "☆" * (5 - full_stars) + '</font>'
-            rating_text = f'  {stars_display} <font size="9" color="#6b7280">({rating:.1f})</font>'
-        else:
-            rating_text = ""
-        
-        # Build stop row
-        stop_content = [
-            [
-                Paragraph(f'<font color="#dc2626" size="20"><b>{i + 1}</b></font>', 
-                          ParagraphStyle("num", alignment=TA_CENTER)),
-                Paragraph(
-                    f'<font size="11"><b>{address}</b></font>{rating_text}',
-                    ParagraphStyle("addr", leading=14)
-                ),
-            ]
-        ]
-        
-        stop_table = Table(stop_content, colWidths=[0.5*inch, 6.3*inch])
-        stop_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (0, 0), 0),
-            ('RIGHTPADDING', (0, 0), (0, 0), 8),
-        ]))
-        stop_elements.append(stop_table)
-        
-        # Description (if available)
+            empty_stars = 5 - full_stars
+            stars_html = f'''
+            <div class="rating">
+                <span class="stars">{"★" * full_stars}{"☆" * empty_stars}</span>
+                <span class="rating-number">({rating:.1f})</span>
+            </div>
+            '''
+
         description = stop.get("description", "")
         if description:
             if len(description) > 150:
                 description = description[:147] + "..."
-            stop_elements.append(Paragraph(
-                f'<font color="#6b7280">{description}</font>',
-                ParagraphStyle("desc", fontSize=10, leftIndent=36, spaceAfter=4, leading=13)
-            ))
-        
-        # Distance to next stop
+            description_html = f'<p class="stop-description">{description}</p>'
+        else:
+            description_html = ""
+
+        distance_html = ""
         if i < len(stops) - 1:
             dist = calculate_segment_distance(stop, stops[i + 1])
             drive_time = int((dist / 25) * 60) + 1
-            stop_elements.append(Spacer(1, 6))
-            stop_elements.append(Paragraph(
-                f'<font color="#166534">↓ {dist:.1f} mi · ~{drive_time} min drive</font>',
-                ParagraphStyle("dist", fontSize=9, alignment=TA_CENTER, textColor=FOREST_GREEN)
-            ))
-            stop_elements.append(Spacer(1, 6))
-        else:
-            stop_elements.append(Spacer(1, 8))
-        
-        # Keep stop together on same page
-        story.append(KeepTogether(stop_elements))
+            distance_html = f'''
+            <div class="distance-indicator">
+                <span class="arrow">↓</span>
+                <span class="distance-text">{dist:.1f} mi · ~{drive_time} min drive</span>
+            </div>
+            '''
 
-    # ===== TIPS SECTION =====
-    story.append(Spacer(1, 12))
-    story.append(Paragraph("Tips for Your Adventure", section_header_style))
-    
-    tips_line = Table([[""]], colWidths=[6.8*inch])
-    tips_line.setStyle(TableStyle([('LINEABOVE', (0, 0), (-1, 0), 2, GOLD)]))
-    story.append(tips_line)
-    story.append(Spacer(1, 8))
+        stops_html += f'''
+        <div class="stop-card">
+            <div class="stop-header">
+                <div class="stop-number">{i + 1}</div>
+                <div class="stop-info">
+                    <h3 class="stop-address">{address}</h3>
+                    {stars_html}
+                </div>
+            </div>
+            {description_html}
+        </div>
+        {distance_html}
+        '''
 
-    tips = [
-        ("🚗", "Drive slowly through neighborhoods — enjoy the view!"),
-        ("☕", "Bring hot cocoa and holiday music for the family"),
-        ("📸", "Capture memories — but stay safe, don't block traffic"),
-        ("🎵", "Tune to 100.3 FM for houses with synchronized music"),
-        ("⏰", "Best viewing is after 6 PM when it's fully dark"),
-    ]
-    
-    for emoji, tip in tips:
-        story.append(Paragraph(f'{emoji}  {tip}', tip_style))
+    html = f'''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Lora:ital,wght@0,400;0,600;1,400&family=Outfit:wght@300;400;600;700&display=swap');
 
-    # ===== FOOTER =====
-    story.append(Spacer(1, 16))
-    story.append(Paragraph(
-        '<font color="#166534">✦</font> · '
-        '<font color="#dc2626">✦</font> · '
-        '<font color="#ca8a04">✦</font> · '
-        '<font color="#166534">✦</font> · '
-        '<font color="#dc2626">✦</font>',
-        ParagraphStyle("FooterDecor", fontSize=12, alignment=TA_CENTER, spaceAfter=8)
-    ))
-    story.append(Paragraph(
-        "Have a magical Christmas lights adventure!",
-        ParagraphStyle("Magic", fontSize=12, textColor=DEEP_RED, alignment=TA_CENTER, 
-                       fontName="Helvetica-Oblique", spaceAfter=4)
-    ))
-    story.append(Paragraph(
-        "Created with DFW Christmas Lights Finder",
-        footer_style
-    ))
+            * {{
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }}
 
-    doc.build(story)
-    buffer.seek(0)
-    return buffer.getvalue()
+            @page {{
+                size: letter;
+                margin: 0.75in 0.6in;
+            }}
+
+            body {{
+                font-family: 'Outfit', 'Lato', sans-serif;
+                background: linear-gradient(135deg, #fef3c7 0%, #fafafa 50%, #e0f2fe 100%);
+                background-image:
+                    url("{get_snowflake_svg()}"),
+                    linear-gradient(135deg, #fef3c7 0%, #fafafa 50%, #e0f2fe 100%);
+                background-size: 100px 100px, 100% 100%;
+                background-repeat: repeat, no-repeat;
+                color: #1f2937;
+                line-height: 1.6;
+            }}
+
+            /* Header Section */
+            .header {{
+                text-align: center;
+                padding: 20px 0 30px 0;
+                position: relative;
+            }}
+
+            .ornament-border {{
+                font-size: 24px;
+                letter-spacing: 15px;
+                margin-bottom: 15px;
+                opacity: 0.8;
+            }}
+
+            .ornament-border .red {{ color: #dc2626; }}
+            .ornament-border .green {{ color: #166534; }}
+            .ornament-border .gold {{ color: #ca8a04; }}
+
+            .title {{
+                font-family: 'Playfair Display', serif;
+                font-size: 56px;
+                font-weight: 900;
+                background: linear-gradient(135deg, #991b1b 0%, #dc2626 50%, #ca8a04 100%);
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: transparent;
+                margin: 15px 0;
+                line-height: 1.2;
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            }}
+
+            .subtitle {{
+                font-family: 'Lora', serif;
+                font-size: 20px;
+                font-style: italic;
+                color: #166534;
+                margin: 10px 0;
+                font-weight: 400;
+            }}
+
+            .date {{
+                font-size: 14px;
+                color: #6b7280;
+                margin-top: 10px;
+            }}
+
+            /* Stats Section */
+            .stats {{
+                display: flex;
+                justify-content: space-around;
+                background: linear-gradient(135deg, #fef3c7 0%, #fbbf24 100%);
+                border: 3px solid #ca8a04;
+                border-radius: 15px;
+                padding: 25px 15px;
+                margin: 25px 0;
+                box-shadow: 0 4px 12px rgba(202, 138, 4, 0.3);
+            }}
+
+            .stat-item {{
+                text-align: center;
+                flex: 1;
+            }}
+
+            .stat-value {{
+                font-size: 32px;
+                font-weight: 700;
+                display: block;
+                margin-bottom: 5px;
+            }}
+
+            .stat-value.green {{ color: #166534; }}
+            .stat-value.red {{ color: #991b1b; }}
+            .stat-value.gold {{ color: #ca8a04; }}
+
+            .stat-label {{
+                font-size: 14px;
+                color: #4b5563;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                font-weight: 600;
+            }}
+
+            /* Map Section */
+            .map-container {{
+                margin: 30px 0;
+                text-align: center;
+                border: 4px solid #166534;
+                border-radius: 15px;
+                overflow: hidden;
+                box-shadow: 0 6px 20px rgba(22, 101, 52, 0.3);
+                background: white;
+            }}
+
+            .map-container img {{
+                width: 100%;
+                height: auto;
+                display: block;
+            }}
+
+            /* Section Headers */
+            .section-header {{
+                font-family: 'Playfair Display', serif;
+                font-size: 24px;
+                font-weight: 700;
+                color: #14532d;
+                margin: 30px 0 15px 0;
+                padding-bottom: 10px;
+                border-bottom: 3px solid #166534;
+                display: flex;
+                align-items: center;
+            }}
+
+            .section-header::before {{
+                content: "🎄";
+                margin-right: 10px;
+                font-size: 28px;
+            }}
+
+            /* QR Code Section */
+            .qr-section {{
+                background: white;
+                border: 2px solid #166534;
+                border-radius: 12px;
+                padding: 20px;
+                margin: 20px 0;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            }}
+
+            .qr-section.single .qr-container {{
+                display: flex;
+                align-items: center;
+                gap: 20px;
+            }}
+
+            .qr-code {{
+                width: 150px;
+                height: 150px;
+                border: 2px solid #e5e7eb;
+                border-radius: 8px;
+            }}
+
+            .qr-description h3 {{
+                font-size: 18px;
+                color: #166534;
+                margin-bottom: 8px;
+                font-weight: 600;
+            }}
+
+            .qr-description p {{
+                font-size: 14px;
+                color: #6b7280;
+                line-height: 1.5;
+            }}
+
+            .qr-note {{
+                text-align: center;
+                font-size: 13px;
+                color: #6b7280;
+                margin-bottom: 15px;
+            }}
+
+            .qr-grid {{
+                display: flex;
+                justify-content: space-around;
+                gap: 15px;
+                flex-wrap: wrap;
+            }}
+
+            .qr-item {{
+                text-align: center;
+                flex: 0 1 auto;
+            }}
+
+            .qr-code-small {{
+                width: 100px;
+                height: 100px;
+                border: 2px solid #e5e7eb;
+                border-radius: 8px;
+                margin-bottom: 8px;
+            }}
+
+            .qr-label {{
+                font-size: 12px;
+                color: #6b7280;
+            }}
+
+            .qr-label strong {{
+                color: #166534;
+                font-size: 13px;
+            }}
+
+            /* Stop Cards */
+            .stop-card {{
+                background: white;
+                border-left: 6px solid #dc2626;
+                border-radius: 10px;
+                padding: 20px;
+                margin: 15px 0;
+                box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+                page-break-inside: avoid;
+            }}
+
+            .stop-header {{
+                display: flex;
+                gap: 15px;
+                align-items: flex-start;
+            }}
+
+            .stop-number {{
+                font-size: 36px;
+                font-weight: 700;
+                color: #dc2626;
+                min-width: 50px;
+                text-align: center;
+                line-height: 1;
+            }}
+
+            .stop-info {{
+                flex: 1;
+            }}
+
+            .stop-address {{
+                font-size: 16px;
+                font-weight: 600;
+                color: #1f2937;
+                margin-bottom: 5px;
+            }}
+
+            .rating {{
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-top: 5px;
+            }}
+
+            .stars {{
+                color: #ca8a04;
+                font-size: 16px;
+                letter-spacing: 2px;
+            }}
+
+            .rating-number {{
+                font-size: 13px;
+                color: #6b7280;
+            }}
+
+            .stop-description {{
+                margin-top: 12px;
+                font-size: 14px;
+                color: #6b7280;
+                line-height: 1.5;
+                padding-left: 65px;
+            }}
+
+            .distance-indicator {{
+                text-align: center;
+                margin: 15px 0;
+                color: #166534;
+                font-size: 14px;
+                font-weight: 600;
+            }}
+
+            .arrow {{
+                display: block;
+                font-size: 24px;
+                margin-bottom: 5px;
+            }}
+
+            .distance-text {{
+                font-style: italic;
+            }}
+
+            /* Tips Section */
+            .tips-section {{
+                background: linear-gradient(135deg, #fef3c7 0%, #ffffff 100%);
+                border: 2px solid #ca8a04;
+                border-radius: 12px;
+                padding: 20px;
+                margin: 25px 0;
+            }}
+
+            .tip-item {{
+                display: flex;
+                align-items: flex-start;
+                gap: 12px;
+                margin: 10px 0;
+                font-size: 14px;
+                color: #4b5563;
+            }}
+
+            .tip-emoji {{
+                font-size: 20px;
+                min-width: 25px;
+            }}
+
+            /* Footer */
+            .footer {{
+                text-align: center;
+                margin-top: 40px;
+                padding-top: 20px;
+                border-top: 2px solid #e5e7eb;
+            }}
+
+            .footer-message {{
+                font-family: 'Lora', serif;
+                font-size: 18px;
+                font-style: italic;
+                color: #991b1b;
+                margin: 15px 0;
+            }}
+
+            .footer-credit {{
+                font-size: 12px;
+                color: #6b7280;
+            }}
+        </style>
+    </head>
+    <body>
+        <!-- Header -->
+        <div class="header">
+            <div class="ornament-border">
+                <span class="green">✦</span><span class="red">✦</span><span class="gold">✦</span><span class="green">✦</span><span class="red">✦</span><span class="gold">✦</span><span class="green">✦</span>
+            </div>
+            <h1 class="title">Christmas Lights Adventure</h1>
+            <p class="subtitle">~ Your Family Route Guide ~</p>
+            <p class="date">{current_date}</p>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats">
+            <div class="stat-item">
+                <span class="stat-value green">{len(stops)}</span>
+                <span class="stat-label">Stops</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value red">{stats["total_distance"]}</span>
+                <span class="stat-label">Miles</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value gold">~{format_duration(stats["total_time"])}</span>
+                <span class="stat-label">Total Time</span>
+            </div>
+        </div>
+
+        <!-- Map -->
+        {f'<div class="map-container"><img src="data:image/png;base64,{map_base64}" alt="Route Map"></div>' if map_base64 else ''}
+
+        <!-- QR Codes -->
+        <h2 class="section-header">Scan for Directions</h2>
+        {qr_codes_html}
+
+        <!-- Route Stops -->
+        <h2 class="section-header">Your Route</h2>
+        {stops_html}
+
+        <!-- Tips -->
+        <h2 class="section-header">Tips for Your Adventure</h2>
+        <div class="tips-section">
+            <div class="tip-item">
+                <span class="tip-emoji">🚗</span>
+                <span>Drive slowly through neighborhoods — enjoy the view!</span>
+            </div>
+            <div class="tip-item">
+                <span class="tip-emoji">☕</span>
+                <span>Bring hot cocoa and holiday music for the family</span>
+            </div>
+            <div class="tip-item">
+                <span class="tip-emoji">📸</span>
+                <span>Capture memories — but stay safe, don't block traffic</span>
+            </div>
+            <div class="tip-item">
+                <span class="tip-emoji">🎵</span>
+                <span>Tune to 100.3 FM for houses with synchronized music</span>
+            </div>
+            <div class="tip-item">
+                <span class="tip-emoji">⏰</span>
+                <span>Best viewing is after 6 PM when it's fully dark</span>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div class="ornament-border">
+                <span class="green">✦</span><span class="red">✦</span><span class="gold">✦</span><span class="green">✦</span><span class="red">✦</span>
+            </div>
+            <p class="footer-message">Have a magical Christmas lights adventure!</p>
+            <p class="footer-credit">Created with DFW Christmas Lights Finder</p>
+        </div>
+    </body>
+    </html>
+    '''
+
+    return html
+
+
+def create_pdf(stops: list) -> bytes:
+    """Generate a beautiful, festive PDF route guide using WeasyPrint."""
+    html_content = create_pdf_html(stops)
+    pdf_bytes = HTML(string=html_content).write_pdf()
+    return pdf_bytes
 
 
 def handler(event, context):
     """Handle POST /routes/generate-pdf request."""
     cors_headers = get_cors_headers(event)
-    
+
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
