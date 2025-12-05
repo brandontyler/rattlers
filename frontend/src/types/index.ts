@@ -7,8 +7,6 @@ export interface Location {
   description: string;
   photos: string[];
   status: 'active' | 'inactive' | 'flagged';
-  feedbackCount: number;
-  averageRating: number;
   likeCount: number;
   reportCount: number;
   createdAt: string;
@@ -34,36 +32,31 @@ export interface LocationDetailResponse {
 }
 
 // Feedback types
-export type FeedbackType = 'like' | 'star';
+export type FeedbackType = 'like';
 
 export interface Feedback {
   id: string;
   locationId: string;
   userId: string;
   type: FeedbackType;
-  rating?: number;
   createdAt: string;
 }
 
 export interface FeedbackRequest {
   type: FeedbackType;
-  rating?: number;
 }
 
 export interface FeedbackResponse {
   liked?: boolean;
   id?: string;
   locationId: string;
-  rating?: number;
 }
 
 export interface FeedbackStatusResponse {
   locationId: string;
   liked: boolean;
-  rating: number | null;
   reported: boolean;
   likedAt?: string;
-  ratedAt?: string;
 }
 
 // Suggestion types

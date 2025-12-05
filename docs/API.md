@@ -53,8 +53,6 @@ GET /locations
       "description": "Amazing synchronized lights display",
       "photos": [],
       "status": "active",
-      "feedbackCount": 0,
-      "averageRating": 0,
       "likeCount": 0,
       "reportCount": 0,
       "createdAt": "2024-12-01T00:00:00Z",
@@ -87,8 +85,6 @@ GET /locations/{id}
     "description": "Amazing synchronized lights display",
     "photos": [],
     "status": "active",
-    "feedbackCount": 0,
-    "averageRating": 0,
     "likeCount": 0,
     "reportCount": 0,
     "createdAt": "2024-12-01T00:00:00Z"
@@ -251,7 +247,7 @@ Authorization: Required (Admin)
 
 ### Feedback
 
-#### Submit Feedback
+#### Submit Feedback (Like/Unlike)
 ```
 POST /locations/{id}/feedback
 Authorization: Required
@@ -260,14 +256,13 @@ Authorization: Required
 **Request Body:**
 ```json
 {
-  "type": "like",
-  "rating": 5
+  "type": "like"
 }
 ```
 
 **Validation:**
-- `type`: Required, "like" or "star"
-- `rating`: Required if type is "star", 1-5
+- `type`: Required, must be "like"
+- Toggles like on/off (unlike if already liked)
 
 #### Get Feedback Status
 ```
@@ -284,7 +279,6 @@ Returns current user's feedback for a location.
   "data": {
     "locationId": "uuid",
     "liked": true,
-    "rating": null,
     "reported": false
   }
 }
@@ -378,4 +372,4 @@ CORS headers are included on all responses, including error responses (4XX/5XX).
 - **PK:** `feedback#{id}`
 - **SK:** `location#{locationId}`
 - **GSI:** userId-locationId-index
-- **Attributes:** id, locationId, userId, type, rating, createdAt
+- **Attributes:** id, locationId, userId, type, createdAt

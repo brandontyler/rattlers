@@ -101,7 +101,6 @@ class LocationsTable:
         self,
         status: Optional[str] = "active",
         limit: int = 500,  # Increase default to support map view
-        sort_by_rating: bool = False,
     ) -> List[Dict]:
         """
         List all locations using GSI query (optimized).
@@ -109,7 +108,6 @@ class LocationsTable:
         Args:
             status: Status to filter by (default: active)
             limit: Maximum number of items to return (default: 500)
-            sort_by_rating: If True, sort by rating (descending), else by createdAt
 
         Returns:
             List of location dictionaries
@@ -117,42 +115,17 @@ class LocationsTable:
         if not status:
             status = "active"
 
-        # Choose GSI based on sort preference
-        if sort_by_rating:
-            # Use rating index to get top-rated displays
-            index_name = "status-averageRating-index"
-            response = self.table.query(
-                IndexName=index_name,
-                KeyConditionExpression=Key("status").eq(status),
-                Limit=limit,
-                ScanIndexForward=False,  # Descending order (highest rating first)
-            )
-        else:
-            # Use createdAt index for newest first
-            index_name = "status-createdAt-index"
-            response = self.table.query(
-                IndexName=index_name,
-                KeyConditionExpression=Key("status").eq(status),
-                Limit=limit,
-                ScanIndexForward=False,  # Descending order (newest first)
-            )
+        # Use createdAt index for newest first
+        index_name = "status-createdAt-index"
+        response = self.table.query(
+            IndexName=index_name,
+            KeyConditionExpression=Key("status").eq(status),
+            Limit=limit,
+            ScanIndexForward=False,  # Descending order (newest first)
+        )
 
         items = response.get("Items", [])
         return [decimal_to_float(item) for item in items]
-
-    def increment_feedback_count(self, location_id: str) -> None:
-        """Increment feedback count for a location."""
-        self.table.update_item(
-            Key={
-                "PK": f"location#{location_id}",
-                "SK": "metadata",
-            },
-            UpdateExpression="SET feedbackCount = if_not_exists(feedbackCount, :zero) + :inc",
-            ExpressionAttributeValues={
-                ":zero": 0,
-                ":inc": 1,
-            },
-        )
 
     def increment_like_count(self, location_id: str) -> None:
         """Increment like count for a location."""
@@ -202,19 +175,6 @@ class LocationsTable:
             ReturnValues="ALL_NEW",
         )
         return int(response["Attributes"].get("reportCount", 0))
-
-    def update_rating(self, location_id: str, new_average: float) -> None:
-        """Update average rating for a location."""
-        self.table.update_item(
-            Key={
-                "PK": f"location#{location_id}",
-                "SK": "metadata",
-            },
-            UpdateExpression="SET averageRating = :rating",
-            ExpressionAttributeValues={
-                ":rating": Decimal(str(new_average)),
-            },
-        )
 
 
 class FeedbackTable:
@@ -298,17 +258,6 @@ class FeedbackTable:
         items = response.get("Items", [])
         return decimal_to_float(items[0]) if items else None
 
-    def update_rating_value(self, feedback_id: str, location_id: str, rating: int) -> None:
-        """Update the rating value of an existing feedback."""
-        self.table.update_item(
-            Key={
-                "PK": f"feedback#{feedback_id}",
-                "SK": f"location#{location_id}",
-            },
-            UpdateExpression="SET rating = :r",
-            ExpressionAttributeValues={":r": rating},
-        )
-
     def get_by_location(self, location_id: str, limit: int = 100) -> List[Dict]:
         """Get all feedback for a location."""
         response = self.table.scan(
@@ -318,16 +267,6 @@ class FeedbackTable:
 
         items = response.get("Items", [])
         return [decimal_to_float(item) for item in items]
-
-    def calculate_average_rating(self, location_id: str) -> float:
-        """Calculate average rating for a location."""
-        feedbacks = self.get_by_location(location_id)
-        ratings = [f.get("rating") for f in feedbacks if f.get("rating") is not None]
-
-        if not ratings:
-            return 0.0
-
-        return sum(ratings) / len(ratings)
 
 
 class SuggestionsTable:
