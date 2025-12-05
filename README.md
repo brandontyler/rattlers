@@ -20,10 +20,10 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - ❤️ Like system - users can like their favorite displays
 - 🚫 Report inactive displays - flag displays that are no longer active
 - 📸 Photo uploads - users can upload up to 3 photos with location suggestions
+- 🔍 Photo moderation - admins review and approve/reject photos before publishing
 
 ### Future Phases
-- 🔍 Photo moderation queue - admin review of uploaded photos
-- 🖼️ Photo gallery - display photos on location detail pages
+- 🖼️ Photo gallery - display approved photos on location detail pages
 - 📱 Native mobile apps (iOS/Android)
 - 🌎 Geographic expansion (Houston, Austin)
 
@@ -198,8 +198,9 @@ Admin users are managed via Cognito groups:
 - [ ] Photo features (in progress)
   - [x] Photo uploads on suggestion form (S3 presigned URLs)
   - [x] Upload progress tracking
-  - [ ] Photo moderation queue (admin review)
-  - [ ] Photo gallery on location detail pages
+  - [x] Photo moderation in admin dashboard (thumbnails + lightbox)
+  - [x] Automated photo handling (pending → approved/{locationId}/)
+  - [ ] Photo gallery on location detail pages (public display)
 - [ ] Mobile apps (Future)
 
 ## Cost Estimates
