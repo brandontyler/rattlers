@@ -81,6 +81,10 @@ def handler(event, context):
                 "submittedBy": item.get("submittedBy"),
                 "submittedByEmail": item.get("submittedByEmail"),
                 "createdAt": item.get("createdAt"),
+                "detectedTags": item.get("detectedTags", []),
+                "aiDescription": item.get("aiDescription"),
+                "displayQuality": item.get("displayQuality"),
+                "flaggedForReview": item.get("flaggedForReview", False),
             })
 
         suggestions.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
