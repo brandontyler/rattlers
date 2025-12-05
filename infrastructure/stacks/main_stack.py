@@ -511,8 +511,8 @@ class ChristmasLightsStack(Stack):
             iam.PolicyStatement(
                 actions=["bedrock:InvokeModel"],
                 resources=[
-                    f"arn:aws:bedrock:{self.region}::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0",
-                    f"arn:aws:bedrock:{self.region}:*:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+                    "arn:aws:bedrock:*::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0",
+                    "arn:aws:bedrock:*:*:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0",
                 ],
             )
         )
