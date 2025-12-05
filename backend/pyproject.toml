@@ -8,8 +8,8 @@ dependencies = [
     "pydantic>=2.5.0",
     "python-dateutil>=2.8.2",
     "geopy>=2.4.1",
-    "weasyprint>=62.0",
-    "qrcode[pil]>=8.2",
+    "reportlab>=4.4.5",
+    "qrcode>=8.2",
 ]
 
 [project.optional-dependencies]
