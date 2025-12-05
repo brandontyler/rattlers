@@ -7,7 +7,18 @@ import type { AddressSuggestion } from '@/types';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const MAX_PHOTOS = 3;
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+
+// Check if file is an image (fallback for when MIME type is empty/wrong)
+const isImageFile = (file: File): boolean => {
+  // Check MIME type first
+  if (file.type && ALLOWED_TYPES.includes(file.type.toLowerCase())) {
+    return true;
+  }
+  // Fallback: check file extension for iOS edge cases
+  const ext = file.name.toLowerCase().split('.').pop();
+  return ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'].includes(ext || '');
+};
 
 export default function SubmitLocationPage() {
   const [description, setDescription] = useState('');
@@ -29,6 +40,13 @@ export default function SubmitLocationPage() {
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    
+    console.log('Photo selection:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
+
+    if (files.length === 0) {
+      console.log('No files selected');
+      return;
+    }
 
     // Limit to MAX_PHOTOS
     if (files.length + photos.length > MAX_PHOTOS) {
@@ -38,15 +56,17 @@ export default function SubmitLocationPage() {
 
     // Validate each file
     for (const file of files) {
-      // Check file type
-      if (!ALLOWED_TYPES.includes(file.type)) {
-        setError('Only JPEG, PNG, WebP, and HEIC images are allowed');
+      // Check file type (with fallback for iOS)
+      if (!isImageFile(file)) {
+        console.log('Invalid file type:', file.type, file.name);
+        setError(`Invalid file type: ${file.type || 'unknown'}. Only JPEG, PNG, WebP, and HEIC images are allowed.`);
         return;
       }
 
       // Check file size
       if (file.size > MAX_FILE_SIZE) {
-        setError(`Each photo must be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
+        console.log('File too large:', file.size);
+        setError(`Photo "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB.`);
         return;
       }
     }
@@ -57,6 +77,7 @@ export default function SubmitLocationPage() {
     setPhotos([...photos, ...files]);
     setPhotoPreviewUrls([...photoPreviewUrls, ...newPreviewUrls]);
     setError('');
+    console.log('Photos added successfully:', files.length);
   };
 
   const uploadPhotos = async (suggestionId?: string): Promise<string[]> => {

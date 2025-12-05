@@ -17,7 +17,7 @@ ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 MAX_PHOTOS_PER_SUGGESTION = 3
 URL_EXPIRATION_SECONDS = 900  # 15 minutes
-ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic"]
+ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]
 
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
@@ -177,5 +177,6 @@ def _get_extension_from_content_type(content_type: str) -> str:
         "image/png": "png",
         "image/webp": "webp",
         "image/heic": "heic",
+        "image/heif": "heif",
     }
     return mapping.get(content_type, "jpg")
