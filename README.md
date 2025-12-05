@@ -13,12 +13,13 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - 🧭 Get Directions integration with Google Maps
 - 📱 Mobile-responsive design
 - 🔄 Login redirect (returns to previous page after login)
+- 🚗 **Route Planner** - Build custom routes with up to 15 stops
+- 📄 **PDF Generation** - Festive printable route guide with map and QR codes
 
 ### Future Phases
 - 📸 User-submitted photos (with moderation)
 - ⭐ Community feedback system (likes/ratings)
 - 🚫 Report inactive displays
-- 🚗 Optimized route planning
 - 📱 Native mobile apps (iOS/Android)
 
 ## Tech Stack
@@ -61,7 +62,8 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 │   ├── functions/
 │   │   ├── locations/  # Location CRUD + geocoding
 │   │   ├── feedback/   # Likes, ratings, reports
-│   │   └── suggestions/# Suggestion submission + admin
+│   │   ├── suggestions/# Suggestion submission + admin
+│   │   └── routes/     # Route PDF generation
 │   └── layers/
 │       └── common/     # Shared utilities (db, responses)
 ├── infrastructure/     # AWS CDK (Python)
@@ -89,6 +91,9 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - `GET /v1/suggestions` - List pending suggestions
 - `POST /v1/suggestions/{id}/approve` - Approve suggestion (creates location)
 - `POST /v1/suggestions/{id}/reject` - Reject suggestion
+
+### Routes
+- `POST /v1/routes/generate-pdf` - Generate PDF route guide with map and QR codes
 
 ## Getting Started
 
@@ -176,7 +181,14 @@ Admin users are managed via Cognito groups:
   - [x] Approve suggestions (creates location)
   - [x] Reject suggestions
   - [x] Dynamic location count
-- [ ] Route optimization (Future)
+- [x] Route Planner
+  - [x] Add/remove locations to route (up to 15 stops)
+  - [x] Reorder stops manually
+  - [x] Optimize route (nearest neighbor algorithm)
+  - [x] Route visualization on map (numbered markers + polyline)
+  - [x] PDF generation with festive design
+  - [x] Static map image in PDF
+  - [x] QR codes for Google Maps navigation
 - [ ] Mobile apps (Future)
 
 ## Cost Estimates
