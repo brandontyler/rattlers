@@ -55,9 +55,12 @@ src/
 - ✅ "Near me" geolocation
 - ✅ Loading states
 - ✅ Real API data fetching
-- ⏳ Location search and filtering - Partial (UI exists, needs wiring)
-- ⏳ User feedback system - Coming soon
-- ⏳ Route planning - Coming soon
+- ✅ Location detail page with Get Directions
+- ✅ Submit location suggestions with address autocomplete
+- ✅ Admin dashboard (approve/reject suggestions)
+- ✅ Route planner (up to 15 stops, optimize, reorder)
+- ✅ PDF route generation with QR codes
+- ⏳ User feedback system (likes/ratings) - Backend ready, UI pending
 
 ## Tech Stack
 

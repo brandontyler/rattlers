@@ -1,5 +1,7 @@
 # Architecture Documentation
 
+**Last Updated:** December 5, 2025
+
 ## System Overview
 
 DFW Christmas Lights Finder is a serverless web application built entirely on AWS, designed to scale efficiently with variable traffic patterns.

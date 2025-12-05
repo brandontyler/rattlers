@@ -16,11 +16,14 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - 🚗 **Route Planner** - Build custom routes with up to 15 stops
 - 📄 **PDF Generation** - Festive printable route guide with map and QR codes
 
+### In Progress
+- ⭐ Community feedback system (likes/ratings) - backend complete, UI pending
+- 🚫 Report inactive displays - backend complete, UI pending
+
 ### Future Phases
 - 📸 User-submitted photos (with moderation)
-- ⭐ Community feedback system (likes/ratings)
-- 🚫 Report inactive displays
 - 📱 Native mobile apps (iOS/Android)
+- 🌎 Geographic expansion (Houston, Austin)
 
 ## Tech Stack
 
@@ -175,7 +178,7 @@ Admin users are managed via Cognito groups:
   - [x] Location suggestion submission
   - [x] Address autocomplete with geocoding
   - [ ] Photo uploads for suggestions
-  - [ ] Likes/ratings on locations
+  - [ ] Likes/ratings UI (backend complete)
 - [x] Admin dashboard
   - [x] View pending suggestions
   - [x] Approve suggestions (creates location)
@@ -189,6 +192,10 @@ Admin users are managed via Cognito groups:
   - [x] PDF generation with festive design
   - [x] Static map image in PDF
   - [x] QR codes for Google Maps navigation
+- [ ] Feedback UI (backend ready)
+  - [ ] Like/unlike button on locations
+  - [ ] Star ratings display and input
+  - [ ] Report inactive button
 - [ ] Mobile apps (Future)
 
 ## Cost Estimates
