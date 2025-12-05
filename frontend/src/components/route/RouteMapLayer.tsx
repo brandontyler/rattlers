@@ -1,5 +1,5 @@
 import { Marker, Polyline, Tooltip } from 'react-leaflet';
-import { Icon, DivIcon, LatLngTuple } from 'leaflet';
+import { DivIcon, LatLngTuple } from 'leaflet';
 import { useRoute } from '@/contexts/RouteContext';
 
 // Create a numbered marker icon
