@@ -26,28 +26,27 @@ backend/
 ## Lambda Functions
 
 ### Locations
-- **get_locations.py** - `GET /locations` - List all locations with filtering
+- **get_locations.py** - `GET /locations` - List all locations with pagination
 - **get_location_by_id.py** - `GET /locations/{id}` - Get single location
+- **suggest_addresses.py** - `POST /locations/suggest-addresses` - Geocode address query
 - **create_location.py** - `POST /locations` - Create location (admin only)
-- **update_location.py** - `PUT /locations/{id}` - Update location (admin only)
-- **delete_location.py** - `DELETE /locations/{id}` - Delete location (admin only)
 
 ### Feedback
-- **submit_feedback.py** - `POST /locations/{id}/feedback` - Submit feedback (auth required)
+- **submit_feedback.py** - `POST /locations/{id}/feedback` - Like/rate location (auth required)
+- **get_feedback_status.py** - `GET /locations/{id}/feedback/status` - Get user's feedback (auth required)
 - **report_inactive.py** - `POST /locations/{id}/report` - Report inactive (auth required)
 
 ### Suggestions
 - **submit_suggestion.py** - `POST /suggestions` - Submit suggestion (auth required)
-- **get_suggestions.py** - `GET /suggestions` - List suggestions (admin only)
-- **approve_suggestion.py** - `POST /suggestions/{id}/approve` - Approve (admin only)
-- **reject_suggestion.py** - `POST /suggestions/{id}/reject` - Reject (admin only)
+- **get_suggestions.py** - `GET /suggestions` - List pending suggestions (admin only)
+- **approve_suggestion.py** - `POST /suggestions/{id}/approve` - Approve → creates location (admin only)
+- **reject_suggestion.py** - `POST /suggestions/{id}/reject` - Reject suggestion (admin only)
+
+### Routes
+- **generate_pdf.py** - `POST /routes/generate-pdf` - Generate PDF route guide with map and QR codes
 
 ### Photos
-- **get_upload_url.py** - `POST /photos/upload-url` - Get S3 presigned URL
-
-### Users
-- **get_current_user.py** - `GET /users/me` - Get current user profile
-- **update_profile.py** - `PUT /users/me` - Update user profile
+- **get_upload_url.py** - `POST /photos/upload-url` - Get S3 presigned URL (auth required)
 
 ## Local Development
 
@@ -154,10 +153,8 @@ See `/docs/ARCHITECTURE.md` for detailed DynamoDB schema.
 
 ## Future Enhancements
 
-- [ ] Implement geocoding service (address → lat/lng)
 - [ ] Add geospatial queries for proximity search
 - [ ] Implement rate limiting per user
 - [ ] Add caching layer (DynamoDB DAX)
 - [ ] Image processing Lambda (resize, optimize)
 - [ ] Email notifications for admin actions
-- [ ] Webhooks for suggestion approvals
