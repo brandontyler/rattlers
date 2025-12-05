@@ -510,7 +510,10 @@ class ChristmasLightsStack(Stack):
         self.analyze_photo_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["bedrock:InvokeModel"],
-                resources=[f"arn:aws:bedrock:{self.region}::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0"],
+                resources=[
+                    f"arn:aws:bedrock:{self.region}::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0",
+                    f"arn:aws:bedrock:{self.region}:*:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+                ],
             )
         )
         # Add S3 trigger for pending/ prefix
