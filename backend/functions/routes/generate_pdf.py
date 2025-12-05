@@ -1,4 +1,4 @@
-"""Lambda function to generate a stunning, festive PDF route guide using ReportLab best practices."""
+"""Lambda function to generate an elegant PDF route guide."""
 
 import json
 import os
@@ -6,7 +6,7 @@ import uuid
 import math
 from datetime import datetime
 from io import BytesIO
-from urllib.request import urlopen
+from urllib.request import urlopen, Request
 from urllib.parse import quote
 
 import boto3
@@ -23,12 +23,9 @@ from reportlab.platypus import (
     TableStyle,
     Image,
     KeepTogether,
-    BaseDocTemplate,
-    PageTemplate,
-    Frame,
+    HRFlowable,
 )
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
-from reportlab.pdfgen import canvas
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 s3_client = boto3.client("s3")
 
@@ -37,7 +34,6 @@ PDF_EXPIRATION_SECONDS = 3600
 
 
 def get_allowed_origins() -> list:
-    """Get list of allowed origins from environment."""
     origins_str = os.environ.get("ALLOWED_ORIGINS", "")
     if origins_str:
         return [o.strip() for o in origins_str.split(",") if o.strip()]
@@ -46,7 +42,6 @@ def get_allowed_origins() -> list:
 
 
 def get_cors_headers(event: dict) -> dict:
-    """Get CORS headers based on request origin."""
     origin = event.get("headers", {}).get("origin") or event.get("headers", {}).get("Origin", "")
     allowed = get_allowed_origins()
     cors_origin = origin if origin in allowed else allowed[0]
@@ -57,22 +52,17 @@ def get_cors_headers(event: dict) -> dict:
     }
 
 
-# Festive Christmas colors
-DEEP_RED = colors.HexColor("#991b1b")
-CHRISTMAS_RED = colors.HexColor("#dc2626")
-FOREST_GREEN = colors.HexColor("#166534")
-PINE_GREEN = colors.HexColor("#14532d")
-GOLD = colors.HexColor("#ca8a04")
-WARM_GOLD = colors.HexColor("#fbbf24")
-CREAM = colors.HexColor("#fef3c7")
-SNOW_WHITE = colors.HexColor("#fafafa")
-SOFT_GRAY = colors.HexColor("#6b7280")
-LIGHT_GREEN = colors.HexColor("#dcfce7")
-LIGHT_RED = colors.HexColor("#fee2e2")
+# Elegant color palette
+DARK_GREEN = colors.HexColor("#15803d")
+RICH_RED = colors.HexColor("#b91c1c")
+WARM_GOLD = colors.HexColor("#b45309")
+CHARCOAL = colors.HexColor("#374151")
+MEDIUM_GRAY = colors.HexColor("#6b7280")
+LIGHT_GRAY = colors.HexColor("#e5e7eb")
+OFF_WHITE = colors.HexColor("#f9fafb")
 
 
 def haversine_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
-    """Calculate distance between two points in miles."""
     R = 3959
     lat1_rad, lat2_rad = math.radians(lat1), math.radians(lat2)
     delta_lat = math.radians(lat2 - lat1)
@@ -82,69 +72,85 @@ def haversine_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> fl
 
 
 def calculate_route_stats(stops: list) -> dict:
-    """Calculate total distance and estimated time for the route."""
     if len(stops) < 2:
-        return {"total_distance": 0, "total_time": len(stops) * 3}
+        return {"total_distance": 0, "total_time": len(stops) * 5}
     total_distance = sum(
         haversine_distance(
             float(stops[i]["lat"]), float(stops[i]["lng"]),
             float(stops[i + 1]["lat"]), float(stops[i + 1]["lng"])
-        ) * 1.4
+        ) * 1.3
         for i in range(len(stops) - 1)
     )
-    driving_time = (total_distance / 25) * 60
+    driving_time = (total_distance / 20) * 60  # Slower speed for neighborhoods
     return {
         "total_distance": round(total_distance, 1),
-        "total_time": int(driving_time + len(stops) * 3),
+        "total_time": int(driving_time + len(stops) * 5),  # 5 min per stop to enjoy
     }
 
 
 def calculate_segment_distance(stop1: dict, stop2: dict) -> float:
-    """Calculate distance between two consecutive stops."""
     return haversine_distance(
         float(stop1["lat"]), float(stop1["lng"]),
         float(stop2["lat"]), float(stop2["lng"])
-    ) * 1.4
+    ) * 1.3
 
 
 def format_duration(minutes: int) -> str:
-    """Format minutes into a readable string."""
     if minutes < 60:
         return f"{minutes} min"
     hours, mins = divmod(minutes, 60)
     return f"{hours}h {mins}m" if mins else f"{hours}h"
 
 
-def get_static_map_image(stops: list) -> BytesIO:
-    """Generate a static map image using free staticmap service."""
+def get_static_map_url(stops: list) -> str:
+    """Generate a static map URL using OpenStreetMap."""
     if not stops:
         return None
     
     lats = [float(s["lat"]) for s in stops]
     lngs = [float(s["lng"]) for s in stops]
+    
     center_lat = (min(lats) + max(lats)) / 2
     center_lng = (min(lngs) + max(lngs)) / 2
     
     max_diff = max(max(lats) - min(lats), max(lngs) - min(lngs))
-    zoom = 14 if max_diff < 0.05 else 13 if max_diff < 0.1 else 12 if max_diff < 0.2 else 11 if max_diff < 0.5 else 10
+    zoom = 14 if max_diff < 0.03 else 13 if max_diff < 0.08 else 12 if max_diff < 0.15 else 11 if max_diff < 0.4 else 10
+    
+    # Build marker string for each stop with numbers
+    markers = []
+    for i, s in enumerate(stops):
+        markers.append(f"{s['lng']},{s['lat']},lightblue{i+1}")
+    
+    markers_param = "|".join(markers)
+    
+    return (
+        f"https://staticmap.openstreetmap.de/staticmap.php"
+        f"?center={center_lat},{center_lng}"
+        f"&zoom={zoom}"
+        f"&size=640x360"
+        f"&maptype=mapnik"
+        f"&markers={markers_param}"
+    )
+
+
+def fetch_map_image(stops: list) -> BytesIO:
+    """Fetch static map image with proper headers."""
+    url = get_static_map_url(stops)
+    if not url:
+        return None
     
     try:
-        markers_param = "|".join([f"{s['lng']},{s['lat']},ol-marker-green" for s in stops])
-        map_url = (
-            f"https://staticmap.openstreetmap.de/staticmap.php"
-            f"?center={center_lat},{center_lng}&zoom={zoom}&size=600x350&maptype=mapnik&markers={markers_param}"
-        )
-        with urlopen(map_url, timeout=15) as response:
+        req = Request(url, headers={'User-Agent': 'DFWChristmasLights/1.0'})
+        with urlopen(req, timeout=10) as response:
             img_data = BytesIO(response.read())
             img_data.seek(0)
             return img_data
     except Exception as e:
-        print(f"Map generation failed: {e}")
+        print(f"Map fetch failed: {e}")
         return None
 
 
 def generate_google_maps_url(stops: list) -> str:
-    """Generate a Google Maps directions URL for a list of stops."""
     if len(stops) < 2:
         return f"https://www.google.com/maps/search/?api=1&query={stops[0]['lat']},{stops[0]['lng']}"
     origin = f"{stops[0]['lat']},{stops[0]['lng']}"
@@ -156,7 +162,6 @@ def generate_google_maps_url(stops: list) -> str:
 
 
 def chunk_stops_for_google_maps(stops: list, max_waypoints: int = 10) -> list:
-    """Split stops into chunks that fit Google Maps URL limits."""
     if len(stops) <= max_waypoints + 2:
         return [stops]
     chunks = []
@@ -172,342 +177,217 @@ def chunk_stops_for_google_maps(stops: list, max_waypoints: int = 10) -> list:
 
 
 def generate_qr_code(url: str) -> BytesIO:
-    """Generate a QR code image for the given URL."""
     import qrcode
-    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=2)
+    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=8, border=2)
     qr.add_data(url)
     qr.make(fit=True)
-    img = qr.make_image(fill_color="#14532d", back_color="white")
+    img = qr.make_image(fill_color="#1f2937", back_color="white")
     buffer = BytesIO()
     img.save(buffer, format='PNG')
     buffer.seek(0)
     return buffer
 
 
-class FestiveDocTemplate(BaseDocTemplate):
-    """Custom document template with decorative headers, footers, and page numbers."""
-    
-    def __init__(self, filename, **kwargs):
-        self.num_stops = kwargs.pop('num_stops', 0)
-        self.total_miles = kwargs.pop('total_miles', 0)
-        super().__init__(filename, **kwargs)
-        
-        # Define frame with margins for decorative borders
-        frame = Frame(
-            0.75 * inch, 0.9 * inch,  # x, y from bottom-left
-            7 * inch, 9.2 * inch,  # width, height
-            id='main'
-        )
-        template = PageTemplate(id='festive', frames=[frame], onPage=self._draw_page_decorations)
-        self.addPageTemplates([template])
-    
-    def _draw_page_decorations(self, canvas, doc):
-        """Draw decorative elements on each page."""
-        canvas.saveState()
-        width, height = letter
-        
-        # Decorative corner ornaments
-        self._draw_corner_ornament(canvas, 30, height - 30, "tl")
-        self._draw_corner_ornament(canvas, width - 30, height - 30, "tr")
-        self._draw_corner_ornament(canvas, 30, 30, "bl")
-        self._draw_corner_ornament(canvas, width - 30, 30, "br")
-        
-        # Subtle border lines
-        canvas.setStrokeColor(GOLD)
-        canvas.setLineWidth(0.5)
-        canvas.line(40, height - 45, width - 40, height - 45)  # Top
-        canvas.line(40, 45, width - 40, 45)  # Bottom
-        
-        # Page number footer
-        canvas.setFont("Helvetica", 9)
-        canvas.setFillColor(SOFT_GRAY)
-        page_num = canvas.getPageNumber()
-        canvas.drawCentredString(width / 2, 28, f"— {page_num} —")
-        
-        # Footer branding
-        canvas.setFont("Helvetica-Oblique", 8)
-        canvas.drawCentredString(width / 2, 18, "DFW Christmas Lights Finder")
-        
-        canvas.restoreState()
-    
-    def _draw_corner_ornament(self, canvas, x, y, corner):
-        """Draw a small festive ornament at corners."""
-        canvas.saveState()
-        size = 12
-        
-        # Draw a small star/snowflake pattern
-        canvas.setStrokeColor(GOLD)
-        canvas.setFillColor(GOLD)
-        canvas.setLineWidth(1)
-        
-        if corner == "tl":
-            canvas.line(x, y, x + size, y)
-            canvas.line(x, y, x, y - size)
-            canvas.circle(x + 3, y - 3, 2, fill=1)
-        elif corner == "tr":
-            canvas.line(x, y, x - size, y)
-            canvas.line(x, y, x, y - size)
-            canvas.circle(x - 3, y - 3, 2, fill=1)
-        elif corner == "bl":
-            canvas.line(x, y, x + size, y)
-            canvas.line(x, y, x, y + size)
-            canvas.circle(x + 3, y + 3, 2, fill=1)
-        elif corner == "br":
-            canvas.line(x, y, x - size, y)
-            canvas.line(x, y, x, y + size)
-            canvas.circle(x - 3, y + 3, 2, fill=1)
-        
-        canvas.restoreState()
-
-
 def create_pdf(stops: list) -> bytes:
-    """Generate a stunning, festive PDF route guide with ReportLab best practices."""
+    """Generate an elegant, clean PDF route guide."""
     buffer = BytesIO()
     stats = calculate_route_stats(stops)
     
-    # Use custom template with page decorations
-    doc = FestiveDocTemplate(
+    doc = SimpleDocTemplate(
         buffer,
         pagesize=letter,
-        rightMargin=0.75 * inch,
-        leftMargin=0.75 * inch,
+        rightMargin=0.7 * inch,
+        leftMargin=0.7 * inch,
         topMargin=0.6 * inch,
-        bottomMargin=0.9 * inch,
-        num_stops=len(stops),
-        total_miles=stats["total_distance"],
+        bottomMargin=0.6 * inch,
     )
 
-    # Styles
+    # Clean, professional styles
     title_style = ParagraphStyle(
-        "Title", fontSize=28, textColor=DEEP_RED, alignment=TA_CENTER,
-        fontName="Helvetica-Bold", spaceAfter=2, leading=34,
+        "Title", fontSize=26, textColor=CHARCOAL, alignment=TA_CENTER,
+        fontName="Helvetica-Bold", spaceAfter=4,
     )
     subtitle_style = ParagraphStyle(
-        "Subtitle", fontSize=12, textColor=FOREST_GREEN, alignment=TA_CENTER,
-        fontName="Helvetica-Oblique", spaceAfter=8,
+        "Subtitle", fontSize=11, textColor=MEDIUM_GRAY, alignment=TA_CENTER,
+        fontName="Helvetica", spaceAfter=16,
     )
-    date_style = ParagraphStyle(
-        "Date", fontSize=10, textColor=SOFT_GRAY, alignment=TA_CENTER, spaceAfter=12,
+    section_style = ParagraphStyle(
+        "Section", fontSize=14, textColor=DARK_GREEN, fontName="Helvetica-Bold",
+        spaceBefore=16, spaceAfter=8,
     )
-    section_header_style = ParagraphStyle(
-        "SectionHeader", fontSize=13, textColor=PINE_GREEN, fontName="Helvetica-Bold",
-        spaceBefore=14, spaceAfter=6,
+    body_style = ParagraphStyle(
+        "Body", fontSize=10, textColor=CHARCOAL, leading=14,
     )
-    tip_style = ParagraphStyle(
-        "Tip", fontSize=10, textColor=SOFT_GRAY, leftIndent=15, spaceAfter=4, leading=13,
+    small_style = ParagraphStyle(
+        "Small", fontSize=9, textColor=MEDIUM_GRAY, leading=12,
+    )
+    footer_style = ParagraphStyle(
+        "Footer", fontSize=8, textColor=MEDIUM_GRAY, alignment=TA_CENTER,
     )
 
-    current_date = datetime.now().strftime("%A, %B %d, %Y")
+    current_date = datetime.now().strftime("%B %d, %Y")
     story = []
 
-    # ===== DECORATIVE HEADER =====
-    story.append(Paragraph(
-        '<font color="#ca8a04">❄</font>  '
-        '<font color="#dc2626">✦</font>  '
-        '<font color="#166534">❄</font>  '
-        '<font color="#ca8a04">✦</font>  '
-        '<font color="#dc2626">❄</font>  '
-        '<font color="#166534">✦</font>  '
-        '<font color="#ca8a04">❄</font>',
-        ParagraphStyle("Decor", fontSize=14, alignment=TA_CENTER, spaceAfter=10)
-    ))
-    
-    story.append(Paragraph("Christmas Lights Adventure", title_style))
-    story.append(Paragraph("Your Personalized Route Guide", subtitle_style))
-    story.append(Paragraph(current_date, date_style))
+    # === HEADER ===
+    story.append(Paragraph("Your Christmas Lights Route", title_style))
+    story.append(Paragraph(f"{len(stops)} stops · {stats['total_distance']} miles · ~{format_duration(stats['total_time'])}", subtitle_style))
 
-    # ===== STATS BOX WITH GRADIENT EFFECT =====
-    stats_data = [[
-        Paragraph(f'<font color="#166534" size="22"><b>{len(stops)}</b></font><br/><font size="9" color="#6b7280">Stops</font>', 
-                  ParagraphStyle("s", alignment=TA_CENTER, leading=16)),
-        Paragraph(f'<font color="#991b1b" size="22"><b>{stats["total_distance"]}</b></font><br/><font size="9" color="#6b7280">Miles</font>', 
-                  ParagraphStyle("s", alignment=TA_CENTER, leading=16)),
-        Paragraph(f'<font color="#ca8a04" size="22"><b>~{format_duration(stats["total_time"])}</b></font><br/><font size="9" color="#6b7280">Est. Time</font>', 
-                  ParagraphStyle("s", alignment=TA_CENTER, leading=16)),
-    ]]
-    
-    stats_table = Table(stats_data, colWidths=[2.1*inch, 2.1*inch, 2.1*inch])
-    stats_table.setStyle(TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BACKGROUND', (0, 0), (0, 0), LIGHT_GREEN),
-        ('BACKGROUND', (1, 0), (1, 0), LIGHT_RED),
-        ('BACKGROUND', (2, 0), (2, 0), CREAM),
-        ('BOX', (0, 0), (-1, -1), 1.5, GOLD),
-        ('LINEAFTER', (0, 0), (1, 0), 0.5, GOLD),
-        ('TOPPADDING', (0, 0), (-1, -1), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-    ]))
-    story.append(stats_table)
-    story.append(Spacer(1, 10))
-
-    # ===== MAP IMAGE =====
-    map_image = get_static_map_image(stops)
-    if map_image:
+    # === ROUTE OVERVIEW ===
+    # Try to fetch map
+    map_img_data = fetch_map_image(stops)
+    if map_img_data:
         try:
-            img = Image(map_image, width=6.5*inch, height=3.3*inch)
-            img.hAlign = 'CENTER'
-            map_table = Table([[img]], colWidths=[6.7*inch])
-            map_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('BOX', (0, 0), (-1, -1), 2, FOREST_GREEN),
-                ('TOPPADDING', (0, 0), (-1, -1), 3),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-                ('LEFTPADDING', (0, 0), (-1, -1), 3),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-            ]))
-            story.append(map_table)
-            story.append(Spacer(1, 8))
+            map_img = Image(map_img_data, width=6.8*inch, height=3.6*inch)
+            map_img.hAlign = 'CENTER'
+            story.append(map_img)
+            story.append(Spacer(1, 12))
         except Exception as e:
-            print(f"Failed to add map image: {e}")
-    
-    # ===== QR CODES =====
+            print(f"Map image failed: {e}")
+
+    # === QR CODE SECTION ===
     route_chunks = chunk_stops_for_google_maps(stops)
-    story.append(Paragraph("📱 Scan for Turn-by-Turn Directions", section_header_style))
+    
+    story.append(Paragraph("Open in Google Maps", section_style))
+    story.append(HRFlowable(width="100%", thickness=1, color=LIGHT_GRAY, spaceAfter=10))
     
     if len(route_chunks) == 1:
         maps_url = generate_google_maps_url(stops)
         try:
-            qr_img = Image(generate_qr_code(maps_url), width=1.4*inch, height=1.4*inch)
+            qr_img = Image(generate_qr_code(maps_url), width=1.3*inch, height=1.3*inch)
+            
+            # Make QR code clickable by wrapping in a link
+            qr_with_link = Paragraph(
+                f'<a href="{maps_url}" color="#15803d"><u>Open route in Google Maps →</u></a>',
+                ParagraphStyle("link", fontSize=10, textColor=DARK_GREEN, alignment=TA_LEFT)
+            )
+            
             qr_table = Table([
-                [qr_img, Paragraph(
-                    f'<font color="#166534"><b>Scan with your phone camera</b></font><br/><br/>'
-                    f'<font color="#6b7280" size="9">Opens Google Maps with complete<br/>'
-                    f'turn-by-turn navigation for all {len(stops)} stops</font>',
-                    ParagraphStyle("qr", alignment=TA_LEFT, leading=13)
-                )]
-            ], colWidths=[1.7*inch, 4.5*inch])
+                [qr_img, 
+                 Table([
+                     [Paragraph("Scan with your phone camera", ParagraphStyle("qr", fontSize=11, textColor=CHARCOAL, fontName="Helvetica-Bold"))],
+                     [Paragraph("or", small_style)],
+                     [qr_with_link],
+                 ], colWidths=[4*inch])
+                ]
+            ], colWidths=[1.6*inch, 4.5*inch])
             qr_table.setStyle(TableStyle([
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('LEFTPADDING', (1, 0), (1, 0), 12),
-                ('BACKGROUND', (0, 0), (-1, -1), SNOW_WHITE),
-                ('BOX', (0, 0), (-1, -1), 0.5, SOFT_GRAY),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('LEFTPADDING', (1, 0), (1, 0), 16),
             ]))
             story.append(qr_table)
         except Exception as e:
-            print(f"Failed to generate QR code: {e}")
+            print(f"QR generation failed: {e}")
+            story.append(Paragraph(f'<a href="{maps_url}">Open in Google Maps</a>', body_style))
     else:
         story.append(Paragraph(
-            f'<font color="#6b7280" size="9">Route split into {len(route_chunks)} parts for Google Maps. Scan in order.</font>',
-            ParagraphStyle("note", alignment=TA_CENTER, spaceAfter=6)
+            f"Your route has {len(stops)} stops and is split into {len(route_chunks)} parts for Google Maps navigation.",
+            small_style
         ))
+        story.append(Spacer(1, 8))
+        
         qr_cells = []
         for i, chunk in enumerate(route_chunks):
             maps_url = generate_google_maps_url(chunk)
-            start_stop = sum(len(route_chunks[j]) - 1 for j in range(i)) + 1
-            end_stop = start_stop + len(chunk) - 1
+            start_idx = sum(len(route_chunks[j]) - 1 for j in range(i)) + 1
+            end_idx = start_idx + len(chunk) - 1
+            
             try:
                 qr_img = Image(generate_qr_code(maps_url), width=1.1*inch, height=1.1*inch)
-                qr_cell = Table([
+                cell_content = Table([
                     [qr_img],
-                    [Paragraph(f'<font color="#166534" size="9"><b>Part {i+1}</b></font><br/>'
-                               f'<font color="#6b7280" size="8">Stops {start_stop}-{end_stop}</font>',
-                               ParagraphStyle("qrlabel", alignment=TA_CENTER, leading=11))]
+                    [Paragraph(f'<b>Part {i+1}</b><br/><font size="8">Stops {start_idx}–{end_idx}</font>', 
+                               ParagraphStyle("qrlabel", fontSize=9, alignment=TA_CENTER, textColor=CHARCOAL, leading=11))]
                 ])
-                qr_cells.append(qr_cell)
+                qr_cells.append(cell_content)
             except:
-                qr_cells.append(Paragraph(f'Part {i+1}', ParagraphStyle("err", alignment=TA_CENTER)))
+                qr_cells.append(Paragraph(f"Part {i+1}", small_style))
         
-        col_width = 6.3 * inch / min(len(qr_cells), 4)
-        for row_start in range(0, len(qr_cells), 4):
-            row = qr_cells[row_start:row_start + 4]
-            qr_row_table = Table([row], colWidths=[col_width] * len(row))
-            qr_row_table.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER'), ('VALIGN', (0, 0), (-1, -1), 'TOP')]))
-            story.append(qr_row_table)
-    
-    story.append(Spacer(1, 10))
-    
-    # ===== ROUTE STOPS WITH ALTERNATING COLORS =====
-    story.append(Paragraph("🗺️ Your Route", section_header_style))
-    
+        col_width = 6.6 * inch / min(len(qr_cells), 4)
+        qr_row = Table([qr_cells[:4]], colWidths=[col_width] * min(len(qr_cells), 4))
+        qr_row.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
+        story.append(qr_row)
+        
+        if len(qr_cells) > 4:
+            story.append(Spacer(1, 8))
+            qr_row2 = Table([qr_cells[4:]], colWidths=[col_width] * len(qr_cells[4:]))
+            qr_row2.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
+            story.append(qr_row2)
+
+    story.append(Spacer(1, 16))
+
+    # === STOP LIST ===
+    story.append(Paragraph("Route Details", section_style))
+    story.append(HRFlowable(width="100%", thickness=1, color=LIGHT_GRAY, spaceAfter=12))
+
     for i, stop in enumerate(stops):
         stop_elements = []
+        
         address = stop.get("address", "Unknown Address")
-        if len(address) > 55:
-            address = address[:52] + "..."
+        if len(address) > 60:
+            address = address[:57] + "..."
         
-        # Rating display
+        # Stop number circle + address
+        num_style = ParagraphStyle("num", fontSize=12, textColor=colors.white, alignment=TA_CENTER, fontName="Helvetica-Bold")
+        
+        # Create a colored circle with number
+        num_table = Table(
+            [[Paragraph(str(i + 1), num_style)]],
+            colWidths=[0.32*inch],
+            rowHeights=[0.32*inch]
+        )
+        num_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, 0), DARK_GREEN if i % 2 == 0 else RICH_RED),
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+            ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
+            ('ROUNDEDCORNERS', [6, 6, 6, 6]),
+        ]))
+        
+        # Rating stars
         rating = stop.get("averageRating", 0)
-        rating_text = ""
+        rating_str = ""
         if rating and rating > 0:
-            full_stars = int(rating)
-            rating_text = f'  <font color="#ca8a04">{"★" * full_stars}{"☆" * (5 - full_stars)}</font>'
+            full = int(round(rating))
+            rating_str = f'<font color="#b45309">{"★" * full}{"☆" * (5-full)}</font> '
         
-        # Alternating row background
-        row_bg = LIGHT_GREEN if i % 2 == 0 else SNOW_WHITE
+        addr_para = Paragraph(
+            f'<b>{address}</b><br/>{rating_str}<font color="#6b7280" size="9">{stop.get("description", "")[:80] if stop.get("description") else ""}</font>',
+            ParagraphStyle("addr", fontSize=10, textColor=CHARCOAL, leading=13)
+        )
         
-        stop_content = [[
-            Paragraph(f'<font color="#dc2626" size="18"><b>{i + 1}</b></font>', 
-                      ParagraphStyle("num", alignment=TA_CENTER)),
-            Paragraph(f'<font size="11"><b>{address}</b></font>{rating_text}',
-                      ParagraphStyle("addr", leading=14)),
-        ]]
-        
-        stop_table = Table(stop_content, colWidths=[0.45*inch, 5.85*inch])
-        stop_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BACKGROUND', (0, 0), (-1, -1), row_bg),
-            ('LEFTPADDING', (0, 0), (0, 0), 6),
-            ('RIGHTPADDING', (0, 0), (0, 0), 6),
+        row = Table([[num_table, addr_para]], colWidths=[0.5*inch, 6.1*inch])
+        row.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (1, 0), (1, 0), 10),
             ('TOPPADDING', (0, 0), (-1, -1), 6),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
         ]))
-        stop_elements.append(stop_table)
+        stop_elements.append(row)
         
-        # Description
-        description = stop.get("description", "")
-        if description:
-            if len(description) > 120:
-                description = description[:117] + "..."
-            stop_elements.append(Paragraph(
-                f'<font color="#6b7280" size="9">{description}</font>',
-                ParagraphStyle("desc", leftIndent=32, spaceAfter=2, leading=12)
-            ))
-        
-        # Distance to next
+        # Distance to next stop
         if i < len(stops) - 1:
             dist = calculate_segment_distance(stop, stops[i + 1])
-            drive_time = int((dist / 25) * 60) + 1
-            stop_elements.append(Paragraph(
-                f'<font color="#166534" size="9">↓ {dist:.1f} mi · ~{drive_time} min</font>',
-                ParagraphStyle("dist", alignment=TA_CENTER, spaceBefore=4, spaceAfter=4)
-            ))
+            drive_min = max(1, int((dist / 20) * 60))
+            stop_elements.append(
+                Paragraph(
+                    f'<font color="#9ca3af">│</font>  <font color="#6b7280" size="8">{dist:.1f} mi · ~{drive_min} min drive</font>',
+                    ParagraphStyle("dist", leftIndent=12, spaceBefore=2, spaceAfter=6)
+                )
+            )
         
         story.append(KeepTogether(stop_elements))
 
-    # ===== TIPS =====
-    story.append(Spacer(1, 10))
-    story.append(Paragraph("💡 Tips for Your Adventure", section_header_style))
-    
-    tips = [
-        ("🚗", "Drive slowly through neighborhoods — enjoy the view!"),
-        ("☕", "Bring hot cocoa and holiday music for the family"),
-        ("📸", "Capture memories — but stay safe, don't block traffic"),
-        ("🎵", "Tune to 100.3 FM for synchronized music displays"),
-        ("⏰", "Best viewing after 6 PM when fully dark"),
-    ]
-    for emoji, tip in tips:
-        story.append(Paragraph(f'{emoji}  {tip}', tip_style))
-
-    # ===== FOOTER =====
-    story.append(Spacer(1, 14))
+    # === FOOTER ===
+    story.append(Spacer(1, 24))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=LIGHT_GRAY, spaceAfter=12))
     story.append(Paragraph(
-        '<font color="#ca8a04">❄</font>  '
-        '<font color="#dc2626">✦</font>  '
-        '<font color="#166534">❄</font>  '
-        '<font color="#ca8a04">✦</font>  '
-        '<font color="#dc2626">❄</font>',
-        ParagraphStyle("FooterDecor", fontSize=12, alignment=TA_CENTER, spaceAfter=6)
+        f"Generated {current_date} · DFW Christmas Lights Finder",
+        footer_style
     ))
     story.append(Paragraph(
-        "Have a magical Christmas lights adventure!",
-        ParagraphStyle("Magic", fontSize=11, textColor=DEEP_RED, alignment=TA_CENTER, 
-                       fontName="Helvetica-Oblique")
+        "Drive safely and enjoy the lights!",
+        ParagraphStyle("bye", fontSize=9, textColor=DARK_GREEN, alignment=TA_CENTER, fontName="Helvetica-Oblique", spaceBefore=4)
     ))
 
-    # Build with compression enabled
     doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()
