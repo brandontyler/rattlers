@@ -521,11 +521,11 @@ class ChristmasLightsStack(Stack):
             # TODO: Replace with your actual production domain
             allowed_origins = ["https://christmaslights.example.com"]
         else:
-            # Development: allow localhost
+            # Development: CloudFront first (primary), then localhost for local dev
             allowed_origins = [
+                f"https://{self.distribution.distribution_domain_name}",
                 "http://localhost:5173",
                 "http://localhost:3000",
-                f"https://{self.distribution.distribution_domain_name}" if hasattr(self, 'distribution') else "http://localhost:5173"
             ]
 
         # Create API with rate limiting
