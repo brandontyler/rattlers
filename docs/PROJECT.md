@@ -44,7 +44,7 @@ cd backend && uv run pytest
 | Admin dashboard | ✅ | ✅ | View/approve/reject suggestions |
 | Route planner | ✅ | - | Up to 15 stops, optimize |
 | Route visualization | ✅ | - | Numbered markers + polyline |
-| PDF route generation | ✅ | ✅ | Festive design, static map, QR codes |
+| PDF route generation | ✅ | ✅ | ReportLab with page decorations, QR codes |
 | Mobile responsive | ✅ | - | Layout adapts |
 
 ### ⏳ Backend Done, Frontend Not Wired Up
@@ -195,7 +195,8 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
-- **Dec 5, 2025:** Documentation consolidated. Next priority: wire up feedback UI (likes/ratings)
+- **Dec 5, 2025 (PM):** Enhanced PDF with ReportLab best practices - custom page template with corner ornaments, page numbers, alternating row colors, gradient-style stats box
+- **Dec 5, 2025 (AM):** Documentation consolidated. Reverted WeasyPrint (requires native libs not in Lambda). Next priority: wire up feedback UI
 - **Dec 4, 2025:** Route planner + PDF generation complete with QR codes
 - **Dec 3, 2025:** Fixed like/unlike toggle, added feedback status endpoint
 - **Dec 2, 2025:** MVP complete - map, locations, auth working
