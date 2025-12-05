@@ -4,6 +4,7 @@ import type { Location } from '@/types';
 import Badge from '../ui/Badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api';
+import { AddToRouteButton } from '@/components/route';
 
 interface LocationPopupProps {
   location: Location;
@@ -176,6 +177,11 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
             </svg>
             <span className="text-forest-600">{optimisticLikeCount}</span>
           </div>
+        </div>
+
+        {/* Add to Route button */}
+        <div className="mb-3">
+          <AddToRouteButton location={location} variant="compact" className="w-full justify-center" />
         </div>
 
         {/* Action buttons */}

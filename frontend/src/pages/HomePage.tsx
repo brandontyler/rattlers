@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MapView } from '@/components/map';
 import { Button, Card, Input, Select, Badge } from '@/components/ui';
+import { RoutePanel } from '@/components/route';
 import type { Location } from '@/types';
 import { apiService } from '@/services/api';
 
@@ -258,6 +259,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Route Panel (floating) */}
+      <RoutePanel />
     </div>
   );
 }

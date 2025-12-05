@@ -15,6 +15,8 @@ import type {
   Location,
   AddressSuggestionsRequest,
   AddressSuggestionsResponse,
+  RoutePdfRequest,
+  RoutePdfResponse,
 } from '@/types';
 
 const MAX_RETRIES = 3;
@@ -206,6 +208,15 @@ class ApiService {
 
   async updateProfile(updates: Partial<UserProfile>): Promise<ApiResponse<UserProfile>> {
     const { data } = await this.api.put<ApiResponse<UserProfile>>('/users/me', updates);
+    return data;
+  }
+
+  // Route PDF endpoints
+  async generateRoutePdf(request: RoutePdfRequest): Promise<ApiResponse<RoutePdfResponse>> {
+    const { data } = await this.api.post<ApiResponse<RoutePdfResponse>>(
+      '/routes/generate-pdf',
+      request
+    );
     return data;
   }
 }

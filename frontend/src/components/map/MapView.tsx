@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { Icon, LatLngTuple } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import LocationPopup from './LocationPopup';
+import { RouteMapLayer } from '@/components/route';
 import type { Location } from '@/types';
 
 // Fix for default marker icons in React Leaflet
@@ -191,6 +192,9 @@ export default function MapView({
               </Popup>
             </Marker>
           ))}
+
+          {/* Route visualization layer */}
+          <RouteMapLayer />
         </MapContainer>
       </div>
     </div>

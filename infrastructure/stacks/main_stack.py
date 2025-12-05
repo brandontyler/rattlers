@@ -171,6 +171,12 @@ class ChristmasLightsStack(Stack):
                     prefix="pending/",
                     expiration=Duration.days(2),
                 ),
+                # Clean up generated PDFs after 1 day (they're temporary)
+                s3.LifecycleRule(
+                    id="cleanup-pdfs",
+                    prefix="pdfs/",
+                    expiration=Duration.days(1),
+                ),
                 s3.LifecycleRule(
                     id="cleanup-multipart",
                     abort_incomplete_multipart_upload_after=Duration.days(1),
@@ -463,6 +469,21 @@ class ChristmasLightsStack(Stack):
         # Grant S3 permissions for presigned URL generation
         self.photos_bucket.grant_put(self.get_upload_url_fn)
 
+        # Route PDF generation function
+        self.generate_route_pdf_fn = lambda_.Function(
+            self,
+            "GenerateRoutePdfFunction",
+            handler="generate_pdf.handler",
+            code=lambda_.Code.from_asset("../backend/functions/routes"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(30),  # PDF generation needs more time
+            memory_size=512,  # More memory for PDF generation
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        # Grant S3 permissions for PDF storage and presigned URL generation
+        self.photos_bucket.grant_read_write(self.generate_route_pdf_fn)
+
         # Store functions for API Gateway integration
         self.lambda_functions = {
             "get_locations": self.get_locations_fn,
@@ -477,6 +498,7 @@ class ChristmasLightsStack(Stack):
             "approve_suggestion": self.approve_suggestion_fn,
             "reject_suggestion": self.reject_suggestion_fn,
             "get_upload_url": self.get_upload_url_fn,
+            "generate_route_pdf": self.generate_route_pdf_fn,
         }
 
     def create_api_gateway(self):
@@ -655,6 +677,16 @@ class ChristmasLightsStack(Stack):
             apigw.LambdaIntegration(self.get_upload_url_fn),
             authorizer=authorizer,
             authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # /routes endpoints
+        routes = v1.add_resource("routes")
+
+        # /routes/generate-pdf endpoint (no auth required for now)
+        generate_pdf = routes.add_resource("generate-pdf")
+        generate_pdf.add_method(
+            "POST",
+            apigw.LambdaIntegration(self.generate_route_pdf_fn),
         )
 
     def create_cloudfront_distribution(self):
