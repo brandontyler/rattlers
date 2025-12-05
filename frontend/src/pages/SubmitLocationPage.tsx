@@ -8,16 +8,51 @@ import type { AddressSuggestion } from '@/types';
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const MAX_PHOTOS = 3;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
 
-// Check if file is an image (fallback for when MIME type is empty/wrong)
+// Check if file is an image (robust validation for iOS Safari edge cases)
 const isImageFile = (file: File): boolean => {
-  // Check MIME type first
-  if (file.type && ALLOWED_TYPES.includes(file.type.toLowerCase())) {
-    return true;
+  console.log('Validating file:', { name: file.name, type: file.type, size: file.size });
+
+  // Check MIME type first (if provided)
+  if (file.type) {
+    const mimeType = file.type.toLowerCase().trim();
+    if (ALLOWED_TYPES.includes(mimeType)) {
+      console.log('✓ File validated by MIME type:', mimeType);
+      return true;
+    }
+    // Handle edge case: iOS might provide partial MIME like "image/" without subtype
+    if (mimeType.startsWith('image/')) {
+      console.log('⚠ Partial MIME type detected, checking extension:', mimeType);
+      // Fall through to extension check
+    }
   }
-  // Fallback: check file extension for iOS edge cases
-  const ext = file.name.toLowerCase().split('.').pop();
-  return ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'].includes(ext || '');
+
+  // Fallback: check file extension (critical for iOS Safari)
+  const fileName = file.name.toLowerCase();
+
+  // Extract extension - handle both "image.jpg" and potential blob URLs
+  const lastDotIndex = fileName.lastIndexOf('.');
+  if (lastDotIndex === -1) {
+    console.log('✗ No file extension found in:', file.name);
+    // For iOS, if MIME type starts with "image/" but no extension, accept it
+    if (file.type && file.type.toLowerCase().startsWith('image/')) {
+      console.log('✓ Accepting file with image MIME but no extension (iOS edge case)');
+      return true;
+    }
+    return false;
+  }
+
+  const ext = fileName.substring(lastDotIndex + 1);
+  const isValid = ALLOWED_EXTENSIONS.includes(ext);
+
+  if (isValid) {
+    console.log('✓ File validated by extension:', ext);
+  } else {
+    console.log('✗ Invalid file extension:', ext);
+  }
+
+  return isValid;
 };
 
 export default function SubmitLocationPage() {
@@ -30,6 +65,7 @@ export default function SubmitLocationPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const addressRef = useRef<AddressAutocompleteRef>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Cleanup preview URLs on unmount to prevent memory leaks
   useEffect(() => {
@@ -40,17 +76,24 @@ export default function SubmitLocationPage() {
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    
-    console.log('Photo selection:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
+
+    console.log('=== Photo Selection Event ===');
+    console.log('Files selected:', files.length);
+    console.log('File details:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
 
     if (files.length === 0) {
-      console.log('No files selected');
+      console.log('No files selected, returning early');
       return;
     }
 
     // Limit to MAX_PHOTOS
     if (files.length + photos.length > MAX_PHOTOS) {
+      console.log(`Too many photos: ${files.length} new + ${photos.length} existing > ${MAX_PHOTOS} max`);
       setError(`You can upload a maximum of ${MAX_PHOTOS} photos`);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       return;
     }
 
@@ -58,26 +101,49 @@ export default function SubmitLocationPage() {
     for (const file of files) {
       // Check file type (with fallback for iOS)
       if (!isImageFile(file)) {
-        console.log('Invalid file type:', file.type, file.name);
+        console.log('❌ Validation failed for file:', file.name);
         setError(`Invalid file type: ${file.type || 'unknown'}. Only JPEG, PNG, WebP, and HEIC images are allowed.`);
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
         return;
       }
 
       // Check file size
       if (file.size > MAX_FILE_SIZE) {
-        console.log('File too large:', file.size);
+        console.log('❌ File too large:', file.size, 'bytes');
         setError(`Photo "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB.`);
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
         return;
       }
     }
 
-    // Create preview URLs
-    const newPreviewUrls = files.map(file => URL.createObjectURL(file));
+    console.log('✅ All files validated successfully');
 
+    // Create preview URLs
+    console.log('Creating preview URLs...');
+    const newPreviewUrls = files.map(file => {
+      const url = URL.createObjectURL(file);
+      console.log('Created preview URL for:', file.name, '→', url);
+      return url;
+    });
+
+    console.log('Updating state with new photos and previews');
     setPhotos([...photos, ...files]);
     setPhotoPreviewUrls([...photoPreviewUrls, ...newPreviewUrls]);
     setError('');
-    console.log('Photos added successfully:', files.length);
+
+    // Reset file input to allow selecting the same file again if needed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+
+    console.log(`✅ Successfully added ${files.length} photo(s). Total: ${photos.length + files.length}`);
+    console.log('=== End Photo Selection ===');
   };
 
   const uploadPhotos = async (suggestionId?: string): Promise<string[]> => {
@@ -363,13 +429,17 @@ export default function SubmitLocationPage() {
                               <span className="font-semibold">Click to upload</span> or drag and drop
                             </p>
                             <p className="text-xs text-forest-500">
-                              PNG, JPG or WEBP, max 5MB each (up to {MAX_PHOTOS - photos.length} {photos.length === MAX_PHOTOS - 1 ? 'photo' : 'photos'} remaining)
+                              PNG, JPG, WEBP, or HEIC (iPhone), max 5MB each
+                            </p>
+                            <p className="text-xs text-forest-400 mt-1">
+                              Up to {MAX_PHOTOS - photos.length} {photos.length === MAX_PHOTOS - 1 ? 'photo' : 'photos'} remaining
                             </p>
                           </div>
                           <input
+                            ref={fileInputRef}
                             id="photo-upload"
                             type="file"
-                            accept="image/*"
+                            accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
                             multiple
                             onChange={handlePhotoChange}
                             className="hidden"
