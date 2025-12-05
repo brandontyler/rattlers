@@ -4,14 +4,16 @@ import json
 import os
 import uuid
 import math
-from datetime import datetime, timezone
+from datetime import datetime
 from io import BytesIO
+from urllib.request import urlopen
+from urllib.parse import quote
 
 import boto3
 from botocore.exceptions import ClientError
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import (
     SimpleDocTemplate,
@@ -20,21 +22,27 @@ from reportlab.platypus import (
     Table,
     TableStyle,
     Image,
-    HRFlowable,
+    KeepTogether,
+    PageBreak,
 )
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 s3_client = boto3.client("s3")
 
 PHOTOS_BUCKET = os.environ.get("PHOTOS_BUCKET_NAME", "christmas-lights-photos-dev")
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
-PDF_EXPIRATION_SECONDS = 3600  # 1 hour
+PDF_EXPIRATION_SECONDS = 3600
 
-# Christmas colors
-BURGUNDY = colors.HexColor("#7f1d1d")
+# Festive Christmas colors
+DEEP_RED = colors.HexColor("#991b1b")
+CHRISTMAS_RED = colors.HexColor("#dc2626")
 FOREST_GREEN = colors.HexColor("#166534")
+PINE_GREEN = colors.HexColor("#14532d")
 GOLD = colors.HexColor("#ca8a04")
-CREAM = colors.HexColor("#fefce8")
+WARM_GOLD = colors.HexColor("#fbbf24")
+CREAM = colors.HexColor("#fef3c7")
+SNOW_WHITE = colors.HexColor("#fafafa")
+SOFT_GRAY = colors.HexColor("#6b7280")
 
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
@@ -45,261 +53,381 @@ CORS_HEADERS = {
 
 def haversine_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     """Calculate distance between two points in miles."""
-    R = 3959  # Earth's radius in miles
-    lat1_rad = math.radians(lat1)
-    lat2_rad = math.radians(lat2)
+    R = 3959
+    lat1_rad, lat2_rad = math.radians(lat1), math.radians(lat2)
     delta_lat = math.radians(lat2 - lat1)
     delta_lng = math.radians(lng2 - lng1)
-
-    a = (
-        math.sin(delta_lat / 2) ** 2
-        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lng / 2) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R * c
+    a = math.sin(delta_lat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lng / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
 def calculate_route_stats(stops: list) -> dict:
     """Calculate total distance and estimated time for the route."""
     if len(stops) < 2:
-        return {"total_distance": 0, "total_time": 0}
-
-    total_distance = 0
-    for i in range(len(stops) - 1):
-        current = stops[i]
-        next_stop = stops[i + 1]
-        straight_line = haversine_distance(
-            float(current["lat"]),
-            float(current["lng"]),
-            float(next_stop["lat"]),
-            float(next_stop["lng"]),
-        )
-        # Apply road factor (roads aren't straight)
-        total_distance += straight_line * 1.4
-
-    # Estimate time: 25 mph average + 3 min viewing per stop
+        return {"total_distance": 0, "total_time": len(stops) * 3}
+    
+    total_distance = sum(
+        haversine_distance(
+            float(stops[i]["lat"]), float(stops[i]["lng"]),
+            float(stops[i + 1]["lat"]), float(stops[i + 1]["lng"])
+        ) * 1.4
+        for i in range(len(stops) - 1)
+    )
     driving_time = (total_distance / 25) * 60
-    viewing_time = len(stops) * 3
-    total_time = int(driving_time + viewing_time)
-
     return {
         "total_distance": round(total_distance, 1),
-        "total_time": total_time,
+        "total_time": int(driving_time + len(stops) * 3),
     }
+
+
+def calculate_segment_distance(stop1: dict, stop2: dict) -> float:
+    """Calculate distance between two consecutive stops."""
+    return haversine_distance(
+        float(stop1["lat"]), float(stop1["lng"]),
+        float(stop2["lat"]), float(stop2["lng"])
+    ) * 1.4
 
 
 def format_duration(minutes: int) -> str:
     """Format minutes into a readable string."""
     if minutes < 60:
         return f"{minutes} min"
-    hours = minutes // 60
-    mins = minutes % 60
-    if mins == 0:
-        return f"{hours} hr"
-    return f"{hours} hr {mins} min"
+    hours, mins = divmod(minutes, 60)
+    return f"{hours}h {mins}m" if mins else f"{hours}h"
+
+
+def get_static_map_image(stops: list) -> BytesIO:
+    """Generate a static map image using free staticmap service."""
+    if not stops:
+        return None
+    
+    lats = [float(s["lat"]) for s in stops]
+    lngs = [float(s["lng"]) for s in stops]
+    
+    min_lat, max_lat = min(lats), max(lats)
+    min_lng, max_lng = min(lngs), max(lngs)
+    
+    center_lat = (min_lat + max_lat) / 2
+    center_lng = (min_lng + max_lng) / 2
+    
+    # Calculate zoom based on bounding box
+    lat_diff = max_lat - min_lat
+    lng_diff = max_lng - min_lng
+    max_diff = max(lat_diff, lng_diff)
+    
+    if max_diff < 0.05:
+        zoom = 14
+    elif max_diff < 0.1:
+        zoom = 13
+    elif max_diff < 0.2:
+        zoom = 12
+    elif max_diff < 0.5:
+        zoom = 11
+    else:
+        zoom = 10
+    
+    width, height = 600, 350
+    
+    try:
+        # Use staticmap.openstreetmap.de - free, no API key
+        # Build markers: color-label format
+        markers_param = "|".join([
+            f"{s['lng']},{s['lat']},ol-marker-green"
+            for s in stops
+        ])
+        
+        # Build path for route line
+        path_param = "|".join([f"{s['lng']},{s['lat']}" for s in stops])
+        
+        map_url = (
+            f"https://staticmap.openstreetmap.de/staticmap.php"
+            f"?center={center_lat},{center_lng}"
+            f"&zoom={zoom}"
+            f"&size={width}x{height}"
+            f"&maptype=mapnik"
+            f"&markers={markers_param}"
+        )
+        
+        with urlopen(map_url, timeout=15) as response:
+            img_data = BytesIO(response.read())
+            img_data.seek(0)
+            return img_data
+    except Exception as e:
+        print(f"Map generation failed: {e}")
+        # Try alternative: simple OSM tile approach
+        try:
+            # Fallback to a simpler static map
+            alt_url = (
+                f"https://www.openstreetmap.org/export/embed.html"
+                f"?bbox={min_lng-0.02},{min_lat-0.02},{max_lng+0.02},{max_lat+0.02}"
+                f"&layer=mapnik"
+            )
+            # This won't work as image, so return None
+            return None
+        except:
+            return None
+
+
+def generate_google_maps_url(stops: list) -> str:
+    """Generate a Google Maps directions URL for the route."""
+    if len(stops) < 2:
+        return f"https://www.google.com/maps/search/?api=1&query={stops[0]['lat']},{stops[0]['lng']}"
+    
+    origin = f"{stops[0]['lat']},{stops[0]['lng']}"
+    destination = f"{stops[-1]['lat']},{stops[-1]['lng']}"
+    
+    if len(stops) > 2:
+        waypoints = "|".join([f"{s['lat']},{s['lng']}" for s in stops[1:-1]])
+        return f"https://www.google.com/maps/dir/?api=1&origin={origin}&destination={destination}&waypoints={quote(waypoints)}"
+    
+    return f"https://www.google.com/maps/dir/?api=1&origin={origin}&destination={destination}"
 
 
 def create_pdf(stops: list) -> bytes:
-    """Generate a festive PDF route guide."""
+    """Generate a festive, professional PDF route guide."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer,
         pagesize=letter,
-        rightMargin=0.75 * inch,
-        leftMargin=0.75 * inch,
-        topMargin=0.75 * inch,
-        bottomMargin=0.75 * inch,
+        rightMargin=0.6 * inch,
+        leftMargin=0.6 * inch,
+        topMargin=0.5 * inch,
+        bottomMargin=0.5 * inch,
     )
 
-    # Custom styles
-    styles = getSampleStyleSheet()
-
+    # Styles
     title_style = ParagraphStyle(
-        "Title",
-        parent=styles["Heading1"],
-        fontSize=28,
-        textColor=BURGUNDY,
-        alignment=TA_CENTER,
-        spaceAfter=6,
-        fontName="Helvetica-Bold",
+        "Title", fontSize=32, textColor=DEEP_RED, alignment=TA_CENTER,
+        fontName="Helvetica-Bold", spaceAfter=4, leading=38,
     )
-
     subtitle_style = ParagraphStyle(
-        "Subtitle",
-        parent=styles["Normal"],
-        fontSize=14,
-        textColor=FOREST_GREEN,
-        alignment=TA_CENTER,
-        spaceAfter=20,
+        "Subtitle", fontSize=13, textColor=FOREST_GREEN, alignment=TA_CENTER,
+        fontName="Helvetica-Oblique", spaceAfter=12,
     )
-
-    stats_style = ParagraphStyle(
-        "Stats",
-        parent=styles["Normal"],
-        fontSize=12,
-        textColor=colors.gray,
-        alignment=TA_CENTER,
-        spaceAfter=20,
+    date_style = ParagraphStyle(
+        "Date", fontSize=11, textColor=SOFT_GRAY, alignment=TA_CENTER, spaceAfter=16,
     )
-
-    stop_title_style = ParagraphStyle(
-        "StopTitle",
-        parent=styles["Heading2"],
-        fontSize=16,
-        textColor=FOREST_GREEN,
-        spaceBefore=15,
-        spaceAfter=8,
-        fontName="Helvetica-Bold",
+    section_header_style = ParagraphStyle(
+        "SectionHeader", fontSize=14, textColor=PINE_GREEN, fontName="Helvetica-Bold",
+        spaceBefore=16, spaceAfter=8, borderPadding=4,
     )
-
+    stop_number_style = ParagraphStyle(
+        "StopNumber", fontSize=18, textColor=CHRISTMAS_RED, fontName="Helvetica-Bold",
+    )
     address_style = ParagraphStyle(
-        "Address",
-        parent=styles["Normal"],
-        fontSize=11,
-        textColor=BURGUNDY,
-        spaceAfter=6,
-        fontName="Helvetica-Bold",
+        "Address", fontSize=11, textColor=colors.black, fontName="Helvetica-Bold",
+        spaceAfter=3, leading=14,
     )
-
     description_style = ParagraphStyle(
-        "Description",
-        parent=styles["Normal"],
-        fontSize=10,
-        textColor=colors.black,
-        spaceAfter=10,
-        leading=14,
+        "Description", fontSize=10, textColor=SOFT_GRAY, spaceAfter=2, leading=13,
     )
-
-    tips_title_style = ParagraphStyle(
-        "TipsTitle",
-        parent=styles["Heading3"],
-        fontSize=12,
-        textColor=GOLD,
-        spaceBefore=20,
-        spaceAfter=8,
-        fontName="Helvetica-Bold",
+    distance_style = ParagraphStyle(
+        "Distance", fontSize=9, textColor=FOREST_GREEN, alignment=TA_CENTER,
+        spaceBefore=6, spaceAfter=6, fontName="Helvetica-Oblique",
     )
-
-    tips_style = ParagraphStyle(
-        "Tips",
-        parent=styles["Normal"],
-        fontSize=10,
-        textColor=colors.gray,
-        spaceAfter=4,
-        leftIndent=15,
+    tip_style = ParagraphStyle(
+        "Tip", fontSize=10, textColor=SOFT_GRAY, leftIndent=15, spaceAfter=4, leading=13,
     )
-
     footer_style = ParagraphStyle(
-        "Footer",
-        parent=styles["Normal"],
-        fontSize=9,
-        textColor=colors.gray,
-        alignment=TA_CENTER,
-        spaceBefore=30,
+        "Footer", fontSize=9, textColor=SOFT_GRAY, alignment=TA_CENTER, spaceBefore=20,
+    )
+    stats_style = ParagraphStyle(
+        "Stats", fontSize=11, textColor=colors.black, alignment=TA_CENTER,
     )
 
-    # Calculate stats
     stats = calculate_route_stats(stops)
-    current_date = datetime.now().strftime("%B %d, %Y")
-
-    # Build document content
+    current_date = datetime.now().strftime("%A, %B %d, %Y")
+    
     story = []
 
-    # Header with decorative elements
-    story.append(Paragraph("❄️ ⭐ ❄️ ⭐ ❄️ ⭐ ❄️ ⭐ ❄️", stats_style))
-    story.append(Spacer(1, 10))
-
+    # ===== HEADER SECTION =====
+    # Decorative top border
+    story.append(Paragraph(
+        '<font color="#166534">✦</font> · '
+        '<font color="#dc2626">✦</font> · '
+        '<font color="#ca8a04">✦</font> · '
+        '<font color="#166534">✦</font> · '
+        '<font color="#dc2626">✦</font> · '
+        '<font color="#ca8a04">✦</font> · '
+        '<font color="#166534">✦</font> · '
+        '<font color="#dc2626">✦</font> · '
+        '<font color="#ca8a04">✦</font>',
+        ParagraphStyle("Decor", fontSize=16, alignment=TA_CENTER, spaceAfter=12)
+    ))
+    
     # Title
-    story.append(Paragraph("🎄 Christmas Lights Adventure 🎄", title_style))
-    story.append(Paragraph("Your Family Route Guide", subtitle_style))
+    story.append(Paragraph("Christmas Lights Adventure", title_style))
+    story.append(Paragraph("~ Your Family Route Guide ~", subtitle_style))
+    story.append(Paragraph(current_date, date_style))
 
-    # Stats line
-    stats_text = f"{current_date}  •  ~{format_duration(stats['total_time'])}  •  {len(stops)} stops  •  {stats['total_distance']} miles"
-    story.append(Paragraph(stats_text, stats_style))
+    # ===== STATS BOX =====
+    stats_data = [[
+        Paragraph(f'<font color="#166534"><b>{len(stops)}</b></font><br/><font size="9">Stops</font>', 
+                  ParagraphStyle("s", alignment=TA_CENTER, leading=14)),
+        Paragraph(f'<font color="#991b1b"><b>{stats["total_distance"]}</b></font><br/><font size="9">Miles</font>', 
+                  ParagraphStyle("s", alignment=TA_CENTER, leading=14)),
+        Paragraph(f'<font color="#ca8a04"><b>~{format_duration(stats["total_time"])}</b></font><br/><font size="9">Total Time</font>', 
+                  ParagraphStyle("s", alignment=TA_CENTER, leading=14)),
+    ]]
+    
+    stats_table = Table(stats_data, colWidths=[2.2*inch, 2.2*inch, 2.2*inch])
+    stats_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BACKGROUND', (0, 0), (-1, -1), CREAM),
+        ('BOX', (0, 0), (-1, -1), 1, GOLD),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+    ]))
+    story.append(stats_table)
+    story.append(Spacer(1, 12))
 
+    # ===== MAP IMAGE =====
+    map_image = get_static_map_image(stops)
+    if map_image:
+        try:
+            img = Image(map_image, width=6.8*inch, height=3.5*inch)
+            img.hAlign = 'CENTER'
+            
+            # Wrap map in a table for border
+            map_table = Table([[img]], colWidths=[7*inch])
+            map_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('BOX', (0, 0), (-1, -1), 2, FOREST_GREEN),
+                ('BACKGROUND', (0, 0), (-1, -1), SNOW_WHITE),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ]))
+            story.append(map_table)
+            story.append(Spacer(1, 8))
+            
+            # Google Maps link
+            maps_url = generate_google_maps_url(stops)
+            story.append(Paragraph(
+                f'<font color="#166534"><b>Open in Google Maps:</b></font> '
+                f'<font color="#6b7280" size="8">{maps_url[:80]}...</font>',
+                ParagraphStyle("MapLink", fontSize=9, alignment=TA_CENTER, spaceAfter=12)
+            ))
+        except Exception as e:
+            print(f"Failed to add map image: {e}")
+    
+    # ===== ROUTE STOPS =====
+    story.append(Paragraph("Your Route", section_header_style))
+    
     # Decorative line
-    story.append(
-        HRFlowable(
-            width="100%",
-            thickness=2,
-            color=BURGUNDY,
-            spaceBefore=10,
-            spaceAfter=20,
-        )
-    )
+    line_table = Table([[""]], colWidths=[6.8*inch])
+    line_table.setStyle(TableStyle([
+        ('LINEABOVE', (0, 0), (-1, 0), 2, CHRISTMAS_RED),
+    ]))
+    story.append(line_table)
+    story.append(Spacer(1, 8))
 
-    # Stops
     for i, stop in enumerate(stops):
-        # Stop header
-        story.append(Paragraph(f"⭐ Stop {i + 1}", stop_title_style))
-
-        # Address
+        stop_elements = []
+        
+        # Stop number and address in a nice layout
         address = stop.get("address", "Unknown Address")
-        story.append(Paragraph(f"📍 {address}", address_style))
-
-        # Rating (if available)
+        # Truncate long addresses
+        if len(address) > 60:
+            address = address[:57] + "..."
+        
+        # Rating stars
         rating = stop.get("averageRating", 0)
         if rating and rating > 0:
-            stars = "★" * int(rating) + "☆" * (5 - int(rating))
-            story.append(
-                Paragraph(f"{stars} ({rating:.1f})", description_style)
-            )
-
-        # Description
+            full_stars = int(rating)
+            stars_display = '<font color="#ca8a04">' + "★" * full_stars + "☆" * (5 - full_stars) + '</font>'
+            rating_text = f'  {stars_display} <font size="9" color="#6b7280">({rating:.1f})</font>'
+        else:
+            rating_text = ""
+        
+        # Build stop row
+        stop_content = [
+            [
+                Paragraph(f'<font color="#dc2626" size="20"><b>{i + 1}</b></font>', 
+                          ParagraphStyle("num", alignment=TA_CENTER)),
+                Paragraph(
+                    f'<font size="11"><b>{address}</b></font>{rating_text}',
+                    ParagraphStyle("addr", leading=14)
+                ),
+            ]
+        ]
+        
+        stop_table = Table(stop_content, colWidths=[0.5*inch, 6.3*inch])
+        stop_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (0, 0), 0),
+            ('RIGHTPADDING', (0, 0), (0, 0), 8),
+        ]))
+        stop_elements.append(stop_table)
+        
+        # Description (if available)
         description = stop.get("description", "")
         if description:
-            # Truncate long descriptions
-            if len(description) > 300:
-                description = description[:297] + "..."
-            story.append(Paragraph(description, description_style))
-
-        # Add separator between stops (except last)
+            if len(description) > 150:
+                description = description[:147] + "..."
+            stop_elements.append(Paragraph(
+                f'<font color="#6b7280">{description}</font>',
+                ParagraphStyle("desc", fontSize=10, leftIndent=36, spaceAfter=4, leading=13)
+            ))
+        
+        # Distance to next stop
         if i < len(stops) - 1:
-            story.append(
-                HRFlowable(
-                    width="80%",
-                    thickness=1,
-                    color=colors.lightgrey,
-                    spaceBefore=10,
-                    spaceAfter=5,
-                )
-            )
+            dist = calculate_segment_distance(stop, stops[i + 1])
+            drive_time = int((dist / 25) * 60) + 1
+            stop_elements.append(Spacer(1, 6))
+            stop_elements.append(Paragraph(
+                f'<font color="#166534">↓ {dist:.1f} mi · ~{drive_time} min drive</font>',
+                ParagraphStyle("dist", fontSize=9, alignment=TA_CENTER, textColor=FOREST_GREEN)
+            ))
+            stop_elements.append(Spacer(1, 6))
+        else:
+            stop_elements.append(Spacer(1, 8))
+        
+        # Keep stop together on same page
+        story.append(KeepTogether(stop_elements))
 
-    # Tips section
-    story.append(
-        HRFlowable(
-            width="100%",
-            thickness=2,
-            color=FOREST_GREEN,
-            spaceBefore=25,
-            spaceAfter=15,
-        )
-    )
-
-    story.append(Paragraph("💡 Tips for Your Trip", tips_title_style))
+    # ===== TIPS SECTION =====
+    story.append(Spacer(1, 12))
+    story.append(Paragraph("Tips for Your Adventure", section_header_style))
+    
+    tips_line = Table([[""]], colWidths=[6.8*inch])
+    tips_line.setStyle(TableStyle([('LINEABOVE', (0, 0), (-1, 0), 2, GOLD)]))
+    story.append(tips_line)
+    story.append(Spacer(1, 8))
 
     tips = [
-        "• Drive slowly through residential neighborhoods",
-        "• Keep your headlights on low beam when viewing",
-        "• Bring hot cocoa and holiday music for the family!",
-        "• Respect private property and don't block driveways",
-        "• Check local radio stations for synchronized music displays",
+        ("🚗", "Drive slowly through neighborhoods — enjoy the view!"),
+        ("☕", "Bring hot cocoa and holiday music for the family"),
+        ("📸", "Capture memories — but stay safe, don't block traffic"),
+        ("🎵", "Tune to 100.3 FM for houses with synchronized music"),
+        ("⏰", "Best viewing is after 6 PM when it's fully dark"),
     ]
+    
+    for emoji, tip in tips:
+        story.append(Paragraph(f'{emoji}  {tip}', tip_style))
 
-    for tip in tips:
-        story.append(Paragraph(tip, tips_style))
+    # ===== FOOTER =====
+    story.append(Spacer(1, 16))
+    story.append(Paragraph(
+        '<font color="#166534">✦</font> · '
+        '<font color="#dc2626">✦</font> · '
+        '<font color="#ca8a04">✦</font> · '
+        '<font color="#166534">✦</font> · '
+        '<font color="#dc2626">✦</font>',
+        ParagraphStyle("FooterDecor", fontSize=12, alignment=TA_CENTER, spaceAfter=8)
+    ))
+    story.append(Paragraph(
+        "Have a magical Christmas lights adventure!",
+        ParagraphStyle("Magic", fontSize=12, textColor=DEEP_RED, alignment=TA_CENTER, 
+                       fontName="Helvetica-Oblique", spaceAfter=4)
+    ))
+    story.append(Paragraph(
+        "Created with DFW Christmas Lights Finder",
+        footer_style
+    ))
 
-    # Footer
-    story.append(Spacer(1, 20))
-    story.append(Paragraph("❄️ ⭐ ❄️ ⭐ ❄️ ⭐ ❄️ ⭐ ❄️", stats_style))
-    story.append(
-        Paragraph(
-            "Created with DFW Christmas Lights Finder • christmaslights.example.com",
-            footer_style,
-        )
-    )
-
-    # Build the PDF
     doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()
@@ -307,18 +435,14 @@ def create_pdf(stops: list) -> bytes:
 
 def handler(event, context):
     """Handle POST /routes/generate-pdf request."""
-
-    # Handle preflight
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS_HEADERS, "body": ""}
 
     try:
-        # Parse request body
         body = json.loads(event.get("body", "{}"))
         stops = body.get("stops", [])
 
-        # Validate
-        if not stops or len(stops) == 0:
+        if not stops:
             return {
                 "statusCode": 400,
                 "headers": CORS_HEADERS,
@@ -332,10 +456,8 @@ def handler(event, context):
                 "body": json.dumps({"success": False, "message": "Maximum 15 stops allowed"}),
             }
 
-        # Generate PDF
         pdf_bytes = create_pdf(stops)
 
-        # Upload to S3
         pdf_key = f"pdfs/{uuid.uuid4()}.pdf"
         s3_client.put_object(
             Bucket=PHOTOS_BUCKET,
@@ -345,7 +467,6 @@ def handler(event, context):
             ContentDisposition='attachment; filename="christmas-lights-route.pdf"',
         )
 
-        # Generate presigned download URL
         download_url = s3_client.generate_presigned_url(
             "get_object",
             Params={
@@ -361,10 +482,7 @@ def handler(event, context):
             "headers": CORS_HEADERS,
             "body": json.dumps({
                 "success": True,
-                "data": {
-                    "downloadUrl": download_url,
-                    "expiresIn": PDF_EXPIRATION_SECONDS,
-                },
+                "data": {"downloadUrl": download_url, "expiresIn": PDF_EXPIRATION_SECONDS},
             }),
         }
 
