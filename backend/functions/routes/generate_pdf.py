@@ -169,7 +169,7 @@ def get_static_map_image(stops: list) -> BytesIO:
 
 
 def generate_google_maps_url(stops: list) -> str:
-    """Generate a Google Maps directions URL for the route."""
+    """Generate a Google Maps directions URL for a list of stops."""
     if len(stops) < 2:
         return f"https://www.google.com/maps/search/?api=1&query={stops[0]['lat']},{stops[0]['lng']}"
     
@@ -181,6 +181,51 @@ def generate_google_maps_url(stops: list) -> str:
         return f"https://www.google.com/maps/dir/?api=1&origin={origin}&destination={destination}&waypoints={quote(waypoints)}"
     
     return f"https://www.google.com/maps/dir/?api=1&origin={origin}&destination={destination}"
+
+
+def chunk_stops_for_google_maps(stops: list, max_waypoints: int = 10) -> list:
+    """Split stops into chunks that fit Google Maps URL limits.
+    
+    Google Maps allows: origin + up to 10 waypoints + destination = 12 stops per URL.
+    We overlap by 1 stop so each chunk ends where the next begins.
+    """
+    if len(stops) <= max_waypoints + 2:  # Fits in one URL
+        return [stops]
+    
+    chunks = []
+    chunk_size = max_waypoints + 2  # origin + 10 waypoints + destination
+    i = 0
+    
+    while i < len(stops):
+        end = min(i + chunk_size, len(stops))
+        chunks.append(stops[i:end])
+        
+        if end >= len(stops):
+            break
+        # Next chunk starts at current destination (overlap by 1)
+        i = end - 1
+    
+    return chunks
+
+
+def generate_qr_code(url: str) -> BytesIO:
+    """Generate a QR code image for the given URL."""
+    import qrcode
+    
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=2,
+    )
+    qr.add_data(url)
+    qr.make(fit=True)
+    
+    img = qr.make_image(fill_color="black", back_color="white")
+    buffer = BytesIO()
+    img.save(buffer, format='PNG')
+    buffer.seek(0)
+    return buffer
 
 
 def create_pdf(stops: list) -> bytes:
@@ -302,16 +347,102 @@ def create_pdf(stops: list) -> bytes:
             ]))
             story.append(map_table)
             story.append(Spacer(1, 8))
-            
-            # Google Maps link
-            maps_url = generate_google_maps_url(stops)
-            story.append(Paragraph(
-                f'<font color="#166534"><b>Open in Google Maps:</b></font> '
-                f'<font color="#6b7280" size="8">{maps_url[:80]}...</font>',
-                ParagraphStyle("MapLink", fontSize=9, alignment=TA_CENTER, spaceAfter=12)
-            ))
         except Exception as e:
             print(f"Failed to add map image: {e}")
+    
+    # ===== QR CODES FOR GOOGLE MAPS =====
+    route_chunks = chunk_stops_for_google_maps(stops)
+    
+    if len(route_chunks) == 1:
+        # Single QR code for the whole route
+        story.append(Paragraph("Scan for Google Maps Directions", section_header_style))
+        qr_line = Table([[""]], colWidths=[6.8*inch])
+        qr_line.setStyle(TableStyle([('LINEABOVE', (0, 0), (-1, 0), 2, FOREST_GREEN)]))
+        story.append(qr_line)
+        story.append(Spacer(1, 8))
+        
+        maps_url = generate_google_maps_url(stops)
+        try:
+            qr_img = Image(generate_qr_code(maps_url), width=1.5*inch, height=1.5*inch)
+            qr_table = Table([
+                [qr_img, Paragraph(
+                    f'<font color="#166534"><b>Scan with your phone</b></font><br/>'
+                    f'<font color="#6b7280" size="9">Opens Google Maps with<br/>turn-by-turn directions<br/>for all {len(stops)} stops</font>',
+                    ParagraphStyle("qr", alignment=TA_LEFT, leading=14)
+                )]
+            ], colWidths=[1.8*inch, 4.5*inch])
+            qr_table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (1, 0), (1, 0), 15),
+            ]))
+            story.append(qr_table)
+        except Exception as e:
+            print(f"Failed to generate QR code: {e}")
+            story.append(Paragraph(
+                f'<font color="#6b7280" size="9">Google Maps: {maps_url[:60]}...</font>',
+                ParagraphStyle("url", alignment=TA_CENTER)
+            ))
+    else:
+        # Multiple QR codes for long routes
+        story.append(Paragraph("Scan for Google Maps Directions", section_header_style))
+        qr_line = Table([[""]], colWidths=[6.8*inch])
+        qr_line.setStyle(TableStyle([('LINEABOVE', (0, 0), (-1, 0), 2, FOREST_GREEN)]))
+        story.append(qr_line)
+        story.append(Spacer(1, 4))
+        
+        story.append(Paragraph(
+            f'<font color="#6b7280" size="9">Your route has {len(stops)} stops. '
+            f'Scan each QR code in order for turn-by-turn directions.</font>',
+            ParagraphStyle("note", alignment=TA_CENTER, spaceAfter=8)
+        ))
+        
+        # Build QR codes row
+        qr_cells = []
+        for i, chunk in enumerate(route_chunks):
+            maps_url = generate_google_maps_url(chunk)
+            start_stop = sum(len(route_chunks[j]) - 1 for j in range(i)) + 1
+            end_stop = start_stop + len(chunk) - 1
+            
+            try:
+                qr_img = Image(generate_qr_code(maps_url), width=1.2*inch, height=1.2*inch)
+                qr_cell = Table([
+                    [qr_img],
+                    [Paragraph(
+                        f'<font color="#166534" size="9"><b>Part {i+1}</b></font><br/>'
+                        f'<font color="#6b7280" size="8">Stops {start_stop}-{end_stop}</font>',
+                        ParagraphStyle("qrlabel", alignment=TA_CENTER, leading=11)
+                    )]
+                ])
+                qr_cell.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ]))
+                qr_cells.append(qr_cell)
+            except Exception as e:
+                print(f"Failed to generate QR code {i+1}: {e}")
+                qr_cells.append(Paragraph(f'Part {i+1}', ParagraphStyle("err", alignment=TA_CENTER)))
+        
+        # Arrange QR codes in a row (up to 4 per row)
+        if len(qr_cells) <= 4:
+            col_width = 6.8 * inch / len(qr_cells)
+            qr_row_table = Table([qr_cells], colWidths=[col_width] * len(qr_cells))
+            qr_row_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            story.append(qr_row_table)
+        else:
+            # Two rows if more than 4 chunks
+            row1 = qr_cells[:4]
+            row2 = qr_cells[4:]
+            col_width = 6.8 * inch / 4
+            qr_table = Table([row1, row2 + [None] * (4 - len(row2))], colWidths=[col_width] * 4)
+            qr_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            story.append(qr_table)
+    
+    story.append(Spacer(1, 12))
     
     # ===== ROUTE STOPS =====
     story.append(Paragraph("Your Route", section_header_style))
