@@ -53,47 +53,54 @@ cd backend && uv run pytest
 |---------|----------|---------|-------|
 | Like/unlike locations | ✅ | ✅ | Fully implemented |
 | Report inactive | ✅ | ✅ | Fully implemented |
-| Photo upload URL | ❌ | ✅ | Backend ready, UI pending |
+| Photo uploads (suggestions) | ✅ | ✅ | Presigned S3 URLs, upload progress, 3 photo max |
 
 ### 📋 Not Started
 
 | Feature | Notes |
 |---------|-------|
-| Photo uploads UI | S3 presigned URLs ready, need UI |
-| Photo moderation | Admin review queue |
+| Photo moderation | Admin review queue for uploaded photos |
+| Photo gallery (detail page) | Display photos in carousel/lightbox |
 | User profiles | Saved favorites, history |
 | Geographic expansion | Houston, Austin, etc. |
 | Native mobile apps | React Native or native |
 
 ---
 
-## Next Priority: Photo Uploads UI
+## Next Priority: Photo Moderation & Gallery
 
-The backend for photo uploads is complete (S3 presigned URLs), but the frontend UI needs to be built.
+Photo uploads are fully implemented on the suggestion form. Next steps:
 
-### What Exists (Backend)
-- `POST /locations/{id}/photos/upload-url` - Get presigned S3 upload URL
-- S3 bucket configured for photo storage
-- Photo URLs stored in location records
+### What Exists ✅
+- **Photo upload on suggestions** - Users can upload up to 3 photos (JPEG, PNG, WebP, HEIC, 5MB max)
+- **S3 presigned URLs** - Secure upload with server-side validation
+- **Upload progress tracking** - Real-time feedback during upload
+- **Photo storage** - S3 bucket with CORS configured
+- **API endpoint** - `POST /photos/upload-url` (authenticated)
 
-### What's Needed (Frontend)
-1. **Photo upload component on submit location page**
-   - File picker with image preview
-   - Upload to S3 using presigned URL
-   - Image optimization/resize before upload
+### What's Needed
 
-2. **Photo moderation queue (Admin)**
-   - Admin dashboard to review uploaded photos
-   - Approve/reject photos before they go live
+1. **Photo moderation queue (Admin)** ← Next Priority
+   - Admin dashboard tab to review uploaded photos
+   - Approve/reject photos before they appear publicly
+   - View photo metadata (uploader, timestamp, size)
+   - Move photos from `pending/` to public path after approval
 
-3. **Photo gallery on location detail page**
+2. **Photo gallery on location detail page**
    - Display approved photos in carousel/grid
    - Lightbox for full-size viewing
+   - Photo attribution (optional)
+   - Lazy loading for performance
 
-### Implementation Notes
-- Consider photo upload limits (size, count)
-- Add image validation (format, dimensions)
-- Implement photo reporting for inappropriate content
+3. **Photo reporting** (Future)
+   - Allow users to report inappropriate photos
+   - Admin queue for reported photos
+
+### Technical Notes
+- Photos stored in `pending/{suggestionId}/{photoId}.ext` until suggestion approved
+- Need to move photos to public path during approval process
+- Consider CloudFront CDN for optimized delivery
+- Add image lazy loading and optimization for galleries
 
 ---
 
