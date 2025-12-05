@@ -205,11 +205,11 @@ def create_pdf(stops: list) -> bytes:
     # Clean, professional styles
     title_style = ParagraphStyle(
         "Title", fontSize=26, textColor=CHARCOAL, alignment=TA_CENTER,
-        fontName="Helvetica-Bold", spaceAfter=4,
+        fontName="Helvetica-Bold", spaceAfter=12, leading=32,
     )
     subtitle_style = ParagraphStyle(
         "Subtitle", fontSize=11, textColor=MEDIUM_GRAY, alignment=TA_CENTER,
-        fontName="Helvetica", spaceAfter=16,
+        fontName="Helvetica", spaceAfter=20,
     )
     section_style = ParagraphStyle(
         "Section", fontSize=14, textColor=DARK_GREEN, fontName="Helvetica-Bold",
