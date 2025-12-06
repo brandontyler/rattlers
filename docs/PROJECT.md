@@ -80,7 +80,7 @@ cd backend && uv run pytest
 
 | Feature | Notes |
 |---------|-------|
-| Saved favorites | Heart icon to bookmark locations, favorites list on profile |
+| "My Favorites" map filter | Filter map to show only saved favorites |
 | Geographic expansion | Houston, Austin, San Antonio |
 | Native mobile apps | React Native or native iOS/Android |
 | Photo reporting | Flag inappropriate photos |
@@ -174,8 +174,8 @@ Frontend (React)  →  API Gateway  →  Lambda  →  DynamoDB
 **Backend Functions:**
 ```
 backend/functions/
-├── locations/       # get_locations, get_location_by_id, suggest_addresses
-├── feedback/        # submit_feedback, get_feedback_status, report_inactive
+├── locations/       # get_locations, get_location_by_id, suggest_addresses, delete_location
+├── feedback/        # submit_feedback, get_feedback_status, report_inactive, toggle_favorite, get_favorites
 ├── suggestions/     # submit, get, approve, reject
 ├── routes/          # generate_pdf
 ├── photos/          # get_upload_url, analyze_photo
@@ -194,15 +194,18 @@ backend/functions/
 ### Authenticated
 - `POST /v1/suggestions` - Submit location suggestion
 - `POST /v1/locations/{id}/feedback` - Like location
-- `GET /v1/locations/{id}/feedback/status` - Get user's like status
+- `GET /v1/locations/{id}/feedback/status` - Get user's feedback status (like, report, favorite)
 - `POST /v1/locations/{id}/report` - Report inactive
+- `POST /v1/locations/{id}/favorite` - Toggle favorite
 - `GET /v1/users/profile` - Get user profile with stats
 - `GET /v1/users/submissions` - Get user's submission history
+- `GET /v1/users/favorites` - Get user's saved favorites
 
 ### Admin Only
 - `GET /v1/suggestions` - List pending suggestions
 - `POST /v1/suggestions/{id}/approve` - Approve → creates location
 - `POST /v1/suggestions/{id}/reject` - Reject suggestion
+- `DELETE /v1/locations/{id}` - Delete location (for testing)
 
 ### Routes
 - `POST /v1/routes/generate-pdf` - Generate PDF route guide
@@ -290,9 +293,10 @@ _Add notes, blockers, or decisions here:_
 
 ### Phase 3: Growth (Current)
 - [x] User profiles (MVP) - Profile page, activity stats, submission history
-- [ ] Saved favorites - Heart icon, favorites list
+- [x] Saved favorites - Bookmark icon, favorites list on profile
+- [x] Performance optimization - Code splitting, caching, map clustering
 - [ ] Geographic expansion (Houston, Austin, San Antonio)
-- [ ] Performance optimization (caching, lazy loading)
+- [ ] "My Favorites" map filter
 - [ ] Photo reporting/flagging
 - [ ] Social sharing features
 - [ ] Email notifications for submissions

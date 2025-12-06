@@ -287,8 +287,31 @@ Returns current user's feedback for a location.
   "data": {
     "locationId": "uuid",
     "liked": true,
-    "reported": false
+    "reported": false,
+    "favorited": true,
+    "likedAt": "2024-12-06T00:00:00Z",
+    "favoritedAt": "2024-12-06T00:00:00Z"
   }
+}
+```
+
+#### Toggle Favorite
+```
+POST /locations/{id}/favorite
+Authorization: Required
+```
+
+Toggles favorite status for a location (add/remove from favorites).
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "favorited": true,
+    "locationId": "uuid"
+  },
+  "message": "Added to favorites!"
 }
 ```
 
@@ -381,6 +404,38 @@ Returns authenticated user's submission history sorted by date (newest first).
 - Photos are returned as presigned S3 URLs (24-hour expiry)
 - `rejectionReason` only present for rejected submissions
 - `reviewedAt` only present after admin review
+
+#### Get User Favorites
+```
+GET /users/favorites
+Authorization: Required
+```
+
+Returns authenticated user's saved favorite locations.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "address": "123 Main St, Dallas, TX 75001",
+      "description": "Amazing synchronized lights display",
+      "lat": 32.7767,
+      "lng": -96.7970,
+      "photos": ["https://..."],
+      "status": "active",
+      "likeCount": 42,
+      "favoritedAt": "2024-12-06T00:00:00Z"
+    }
+  ]
+}
+```
+
+**Notes:**
+- Only returns active locations (inactive locations are filtered out)
+- `favoritedAt` indicates when user saved the location
 
 ---
 
