@@ -3,8 +3,10 @@
 import json
 import os
 import base64
+import io
 import boto3
 from botocore.exceptions import ClientError
+from PIL import Image
 
 bedrock = boto3.client("bedrock-runtime")
 s3 = boto3.client("s3")
@@ -68,31 +70,110 @@ ANALYSIS_TOOL = {
 
 def handler(event, context):
     """Handle S3 trigger for photo uploads in pending/ prefix."""
-    
+
     for record in event.get("Records", []):
         bucket = record["s3"]["bucket"]["name"]
         key = record["s3"]["object"]["key"]
-        
+
         # Only process pending photos
         if not key.startswith("pending/"):
             continue
-        
+
         # Extract suggestion ID from key: pending/{suggestionId}/{photoId}.ext
         parts = key.split("/")
         if len(parts) < 3:
             print(f"Unexpected key format: {key}")
             continue
-        
+
         suggestion_id = parts[1]
-        
+
         try:
+            # Compress photo if needed
+            compress_photo_if_needed(bucket, key)
+            # Analyze photo
             analysis = analyze_photo(bucket, key)
             update_suggestion_tags(suggestion_id, key, analysis)
         except Exception as e:
-            print(f"Error analyzing {key}: {e}")
+            print(f"Error processing {key}: {e}")
             continue
-    
+
     return {"statusCode": 200}
+
+
+def compress_photo_if_needed(bucket: str, key: str):
+    """Compress photo if it's too large or high resolution."""
+
+    # Target: max 2MB file size, max 2000px width/height
+    MAX_SIZE_BYTES = 2 * 1024 * 1024  # 2MB
+    MAX_DIMENSION = 2000  # pixels
+    JPEG_QUALITY = 85  # Good quality while reducing size
+
+    try:
+        # Get current object
+        obj = s3.get_object(Bucket=bucket, Key=key)
+        original_size = obj["ContentLength"]
+        image_bytes = obj["Body"].read()
+        content_type = obj.get("ContentType", "image/jpeg")
+
+        print(f"Original photo: {key}, size: {original_size / (1024*1024):.2f}MB, type: {content_type}")
+
+        # Skip if already small enough and not HEIC/HEIF
+        if original_size <= MAX_SIZE_BYTES and content_type not in ["image/heic", "image/heif"]:
+            print(f"Photo already optimal size, skipping compression")
+            return
+
+        # Open image with Pillow
+        image = Image.open(io.BytesIO(image_bytes))
+
+        # Convert RGBA to RGB if needed (for JPEG)
+        if image.mode in ("RGBA", "LA", "P"):
+            # Create white background
+            background = Image.new("RGB", image.size, (255, 255, 255))
+            if image.mode == "P":
+                image = image.convert("RGBA")
+            background.paste(image, mask=image.split()[-1] if image.mode in ("RGBA", "LA") else None)
+            image = background
+        elif image.mode != "RGB":
+            image = image.convert("RGB")
+
+        # Get original dimensions
+        width, height = image.size
+        print(f"Original dimensions: {width}x{height}")
+
+        # Resize if too large
+        if width > MAX_DIMENSION or height > MAX_DIMENSION:
+            ratio = min(MAX_DIMENSION / width, MAX_DIMENSION / height)
+            new_width = int(width * ratio)
+            new_height = int(height * ratio)
+            print(f"Resizing to: {new_width}x{new_height}")
+            image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+        # Compress to JPEG
+        output = io.BytesIO()
+        image.save(output, format="JPEG", quality=JPEG_QUALITY, optimize=True)
+        compressed_bytes = output.getvalue()
+        compressed_size = len(compressed_bytes)
+
+        print(f"Compressed size: {compressed_size / (1024*1024):.2f}MB (saved {(original_size - compressed_size) / (1024*1024):.2f}MB)")
+
+        # Only save if we actually reduced the size
+        if compressed_size < original_size:
+            # Upload compressed version back to S3
+            s3.put_object(
+                Bucket=bucket,
+                Key=key,
+                Body=compressed_bytes,
+                ContentType="image/jpeg",
+                Metadata=obj.get("Metadata", {}),
+            )
+            print(f"Successfully compressed and saved photo")
+        else:
+            print(f"Compression didn't reduce size, keeping original")
+
+    except Exception as e:
+        print(f"Error compressing photo {key}: {e}")
+        # Don't fail the whole process if compression fails
+        pass
 
 
 def analyze_photo(bucket: str, key: str) -> dict:

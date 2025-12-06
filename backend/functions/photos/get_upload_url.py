@@ -14,7 +14,7 @@ PHOTOS_BUCKET = os.environ.get("PHOTOS_BUCKET_NAME", "christmas-lights-photos-de
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
 
 # Configuration
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB (will be compressed on backend)
 MAX_PHOTOS_PER_SUGGESTION = 3
 URL_EXPIRATION_SECONDS = 900  # 15 minutes
 ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]

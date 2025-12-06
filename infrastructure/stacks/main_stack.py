@@ -502,8 +502,8 @@ class ChristmasLightsStack(Stack):
             environment=common_env,
             layers=[self.common_layer],
         )
-        # Grant S3 read for fetching photos
-        self.photos_bucket.grant_read(self.analyze_photo_fn)
+        # Grant S3 read/write for fetching and compressing photos
+        self.photos_bucket.grant_read_write(self.analyze_photo_fn)
         # Grant DynamoDB write for updating suggestion tags
         self.suggestions_table.grant_read_write_data(self.analyze_photo_fn)
         # Grant Bedrock invoke for Claude vision
