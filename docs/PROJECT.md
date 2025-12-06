@@ -27,16 +27,16 @@ cd backend && uv run pytest
 
 ---
 
-## Current Status (December 5, 2025)
+## Current Status (December 6, 2025)
 
 ### ✅ Complete & Working
 
 | Feature | Frontend | Backend | Notes |
 |---------|----------|---------|-------|
 | Interactive map | ✅ | ✅ | 147+ locations, Leaflet |
-| Location popups | ✅ | ✅ | Address, rating, directions |
+| Location popups | ✅ | ✅ | Address, rating, directions, photo preview |
 | "Near Me" geolocation | ✅ | - | Browser geolocation |
-| Location detail page | ✅ | ✅ | Full details, Get Directions |
+| Location detail page | ✅ | ✅ | Full details, Get Directions, photo gallery |
 | User authentication | ✅ | ✅ | Cognito login/signup |
 | Login redirect | ✅ | - | Returns to previous page |
 | Submit location suggestion | ✅ | ✅ | With address autocomplete |
@@ -46,70 +46,87 @@ cd backend && uv run pytest
 | Route visualization | ✅ | - | Numbered markers + polyline |
 | PDF route generation | ✅ | ✅ | ReportLab with page decorations, QR codes |
 | Mobile responsive | ✅ | - | Layout adapts |
+| Like/unlike locations | ✅ | ✅ | Optimistic UI updates |
+| Report inactive | ✅ | ✅ | Flag displays for review |
 
-### ✅ Implemented Features
+### ✅ Photo Features (Complete End-to-End)
 
 | Feature | Frontend | Backend | Notes |
 |---------|----------|---------|-------|
-| Like/unlike locations | ✅ | ✅ | Fully implemented |
-| Report inactive | ✅ | ✅ | Fully implemented |
-| Photo uploads (suggestions) | ✅ | ✅ | Presigned S3 URLs, upload progress, 3 photo max |
-| Photo moderation (admin) | ✅ | ✅ | Review in admin dashboard, approve/reject with lightbox |
+| Photo uploads | ✅ | ✅ | Up to 3 photos, 20MB max, HEIC support |
+| iPhone compatibility | ✅ | ✅ | Enhanced validation, HEIC/HEIF support |
+| Automatic compression | - | ✅ | Compress to ~2MB, 2000px max dimension |
+| Photo moderation | ✅ | ✅ | Admin review with lightbox |
+| AI photo analysis | - | ✅ | Bedrock Claude detects decorations, quality |
+| Photo gallery | ✅ | - | Carousel with thumbnails on detail pages |
+| Full-screen lightbox | ✅ | - | Keyboard navigation, click outside to close |
+| Photo count badges | ✅ | - | Shows "📸 3" on map popups |
 
-### 📋 Not Started
+### 📋 Future Enhancements
 
 | Feature | Notes |
 |---------|-------|
-| Photo gallery (detail page) | Display approved photos in carousel/lightbox on public pages |
-| User profiles | Saved favorites, history |
-| Geographic expansion | Houston, Austin, etc. |
-| Native mobile apps | React Native or native |
+| User profiles | Saved favorites, submission history |
+| Geographic expansion | Houston, Austin, San Antonio |
+| Native mobile apps | React Native or native iOS/Android |
+| Photo reporting | Flag inappropriate photos |
+| Social sharing | Share locations on social media |
 
 ---
 
-## Next Priority: Photo Gallery on Location Detail Pages
+## Next Priority: User Profiles & Favorites
 
-Photo uploads AND moderation are fully implemented. Next step is displaying them publicly:
+Photo features are now complete end-to-end! Next focus areas:
 
-### What Exists ✅
-- **Photo upload** - Users upload up to 3 photos with suggestions (JPEG/PNG/WebP/HEIC, 5MB max)
-- **Upload progress** - Real-time feedback during upload
-- **Photo moderation** - Admins review photos in AdminPage with thumbnails + lightbox
-- **Automated photo handling** - On approval, photos move from `pending/{suggestionId}/` to `approved/{locationId}/`
-- **CDN support** - CloudFront URL generation for approved photos
-- **S3 cleanup** - Rejected suggestions delete photos from S3
+### Option 1: User Profiles
+Allow users to save their favorite locations and view submission history:
+- **Saved favorites** - Heart icon to save locations to profile
+- **Submission history** - View status of user's submitted locations
+- **Profile page** - Display user info, stats, activity
+- **Email notifications** - Alert when submission is approved/rejected
 
-### What's Needed ← Next Priority
+### Option 2: Geographic Expansion
+Expand beyond DFW to other Texas cities:
+- **Houston area** - Import Houston Christmas light locations
+- **Austin area** - Add Austin/Round Rock displays
+- **San Antonio** - Include San Antonio locations
+- **Multi-region support** - Region selector in navigation
+- **Separate map views** - Per-region or combined view
 
-1. **Photo gallery on LocationDetailPage**
-   - Display approved photos from `location.photos[]` array
-   - Image carousel or grid layout
-   - Lightbox for full-size viewing
-   - Lazy loading for performance
-   - Mobile-responsive design
+### Option 3: Performance Optimization
+Improve app performance for better UX:
+- **Lazy loading** - Load photos and location data on-demand
+- **API caching** - Cache location data in browser
+- **Image optimization** - WebP format, responsive images
+- **Map clustering** - Group nearby markers at low zoom
+- **Bundle optimization** - Code splitting, tree shaking
 
-2. **Photo thumbnails on map popups** (optional)
-   - Show first photo thumbnail in LocationPopup
-   - Click to view detail page
+---
 
-3. **Photo reporting** (future)
-   - Allow users to flag inappropriate photos
-   - Admin queue for reported content
+## Photo Features - Implementation Complete ✅
 
-### Technical Implementation
-**Backend Flow (Complete):**
+### Full Photo Pipeline
 ```
-User uploads → pending/{suggestionId}/{photoId}.ext
-Admin approves → Copy to approved/{locationId}/{photoId}.ext
-                 Delete from pending/
-                 Add CDN URL to location.photos[]
-Admin rejects → Delete photos from pending/
+User uploads (iPhone) → Frontend validation (HEIC support)
+                     → S3 presigned upload (up to 20MB)
+                     → Lambda compression (~2MB, 2000px)
+                     → AI analysis (Bedrock Claude)
+                     → Admin moderation (approve/reject)
+                     → Public display (carousel + lightbox)
 ```
 
-**Frontend (Remaining):**
-- Add photo carousel/grid to `LocationDetailPage.tsx`
-- Use lightbox component (already exists in AdminPage)
-- Handle empty photo arrays gracefully
+### Components
+- **SubmitLocationPage** - Upload up to 3 photos with enhanced iPhone support
+- **AdminPage** - Moderate photos with thumbnail grid and lightbox
+- **LocationDetailPage** - Photo carousel with prev/next navigation
+- **LocationPopup** - Photo preview with count badge
+- **Lightbox** - Full-screen viewer with keyboard navigation
+
+### Backend
+- **get_upload_url.py** - Generate presigned S3 URLs (20MB max)
+- **analyze_photo.py** - Compress photos and run AI analysis
+- **approve_suggestion.py** - Move photos to approved folder
+- **reject_suggestion.py** - Delete photos from pending
 
 ---
 
@@ -209,6 +226,7 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
+- **Dec 6, 2025:** Photo features complete! Added full photo gallery with carousel + lightbox, automatic compression (20MB→2MB), enhanced iPhone HEIC support
 - **Dec 5, 2025 (PM):** Enhanced PDF with ReportLab best practices - custom page template with corner ornaments, page numbers, alternating row colors, gradient-style stats box
 - **Dec 5, 2025 (AM):** Documentation consolidated. Reverted WeasyPrint (requires native libs not in Lambda). Next priority: wire up feedback UI
 - **Dec 4, 2025:** Route planner + PDF generation complete with QR codes
@@ -219,7 +237,7 @@ _Add notes, blockers, or decisions here:_
 
 ## Roadmap
 
-### Phase 1: MVP ✅
+### Phase 1: MVP ✅ Complete
 - [x] Infrastructure (CDK)
 - [x] Map with 147 locations
 - [x] Authentication
@@ -227,17 +245,25 @@ _Add notes, blockers, or decisions here:_
 - [x] Admin dashboard
 - [x] Route planner + PDF
 
-### Phase 2: Community Features (Current)
-- [x] **Like/unlike UI** ← Complete
-- [x] Report inactive UI ← Complete
-- [ ] Photo uploads UI ← Next
-- [ ] Photo moderation (admin)
+### Phase 2: Community Features ✅ Complete
+- [x] Like/unlike UI with optimistic updates
+- [x] Report inactive displays
+- [x] Photo uploads (up to 3 photos, 20MB max)
+- [x] iPhone photo support (HEIC/HEIF)
+- [x] Automatic photo compression (→2MB)
+- [x] Photo moderation (admin)
+- [x] AI photo analysis (Bedrock Claude)
+- [x] Photo gallery with carousel
+- [x] Full-screen lightbox viewer
 
-### Phase 3: Growth
-- [ ] User profiles
-- [ ] Geographic expansion (Houston, Austin)
-- [ ] Performance optimization (caching)
+### Phase 3: Growth (Current)
+- [ ] User profiles & favorites
+- [ ] Geographic expansion (Houston, Austin, San Antonio)
+- [ ] Performance optimization (caching, lazy loading)
+- [ ] Photo reporting/flagging
+- [ ] Social sharing features
 
-### Phase 4: Mobile
-- [ ] Native mobile apps
+### Phase 4: Mobile (Future)
+- [ ] Native mobile apps (iOS/Android)
 - [ ] Push notifications
+- [ ] Offline support

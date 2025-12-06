@@ -1,6 +1,6 @@
 # Test Plan - DFW Christmas Lights Finder
 
-**Last Updated:** December 4, 2025
+**Last Updated:** December 6, 2025
 **Test Environment:** https://d173b693cir3zc.cloudfront.net (dev)
 **API Endpoint:** https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1
 
@@ -121,6 +121,76 @@
 | 7.6 | Location created | After approve, check map | New location appears on map | [ ] |
 | 7.7 | Reject suggestion | Click "Reject" on a suggestion | Suggestion removed from list | [ ] |
 | 7.8 | Refresh button | Click "Refresh" | Reloads suggestions list | [ ] |
+| 7.9 | Photo thumbnails | Check suggestions with photos | Shows thumbnail grid (up to 3 photos) | [ ] |
+| 7.10 | Photo lightbox | Click photo thumbnail | Opens full-size lightbox view | [ ] |
+| 7.11 | Lightbox navigation | Click next/prev in lightbox | Navigates between photos | [ ] |
+| 7.12 | Lightbox close | Press ESC or click outside | Lightbox closes | [ ] |
+
+---
+
+## 8. Photo Upload (User)
+
+| # | Test | Steps | Expected | Pass |
+|---|------|-------|----------|------|
+| 8.1 | Upload area visible | Go to `/submit` | Photo upload area shows below description | [ ] |
+| 8.2 | File limit text | Check upload area | Shows "max 20MB each" | [ ] |
+| 8.3 | Upload JPEG | Select JPEG photo (< 20MB) | Photo thumbnail appears immediately | [ ] |
+| 8.4 | Upload PNG | Select PNG photo | Photo thumbnail appears | [ ] |
+| 8.5 | Upload HEIC (iPhone) | Select HEIC photo from iPhone | Photo thumbnail appears | [ ] |
+| 8.6 | Large photo (6MB) | Upload 6MB iPhone photo | Accepts file, shows thumbnail | [ ] |
+| 8.7 | Too large (25MB) | Try uploading 25MB photo | Shows error: "exceeds 20MB" | [ ] |
+| 8.8 | Multiple photos | Upload 3 photos sequentially | All 3 thumbnails display | [ ] |
+| 8.9 | Photo limit | Try uploading 4th photo | Blocked with "maximum of 3 photos" error | [ ] |
+| 8.10 | Remove photo | Click X on photo thumbnail | Photo removed from list | [ ] |
+| 8.11 | Upload progress | Submit form with photos | Shows "Uploading photo 1 of 3..." | [ ] |
+| 8.12 | Invalid file type | Try uploading .txt file | Shows "Invalid file type" error | [ ] |
+
+---
+
+## 9. Photo Gallery (Public)
+
+| # | Test | Steps | Expected | Pass |
+|---|------|-------|----------|------|
+| 9.1 | Single photo display | View location with 1 photo | Shows single photo, no carousel controls | [ ] |
+| 9.2 | Multiple photos | View location with 3 photos | Shows carousel with prev/next buttons | [ ] |
+| 9.3 | Photo counter | Check top-right of photo | Shows "1 / 3" counter | [ ] |
+| 9.4 | Next photo | Click right arrow button | Advances to next photo, counter updates | [ ] |
+| 9.5 | Previous photo | Click left arrow button | Goes to previous photo | [ ] |
+| 9.6 | Thumbnail strip | Scroll below photo | Shows thumbnail strip of all photos | [ ] |
+| 9.7 | Thumbnail click | Click 3rd thumbnail | Jumps to 3rd photo immediately | [ ] |
+| 9.8 | Active thumbnail | Check thumbnail borders | Current photo has burgundy border | [ ] |
+| 9.9 | Hover hint | Hover over main photo | Shows "Click to view full size" message | [ ] |
+| 9.10 | Open lightbox | Click main photo | Opens full-screen lightbox | [ ] |
+
+---
+
+## 10. Lightbox Viewer
+
+| # | Test | Steps | Expected | Pass |
+|---|------|-------|----------|------|
+| 10.1 | Lightbox display | Click photo to open lightbox | Photo displays full-screen with dark overlay | [ ] |
+| 10.2 | Photo counter | Check top-left of lightbox | Shows "1 / 3" counter | [ ] |
+| 10.3 | Keyboard hint | Check bottom of lightbox | Shows "Use arrow keys • ESC to close" | [ ] |
+| 10.4 | Arrow key right | Press → key | Advances to next photo | [ ] |
+| 10.5 | Arrow key left | Press ← key | Goes to previous photo | [ ] |
+| 10.6 | ESC key | Press ESC | Closes lightbox | [ ] |
+| 10.7 | Click outside | Click dark overlay | Closes lightbox | [ ] |
+| 10.8 | Next button | Click right arrow button | Navigates to next photo | [ ] |
+| 10.9 | Previous button | Click left arrow button | Navigates to previous photo | [ ] |
+| 10.10 | Close button | Click X button (top-right) | Closes lightbox | [ ] |
+| 10.11 | Body scroll lock | Open lightbox, try scrolling | Page doesn't scroll while lightbox open | [ ] |
+| 10.12 | End of photos | At last photo, press → | Stays on last photo (doesn't wrap) | [ ] |
+
+---
+
+## 11. Map Popup Photos
+
+| # | Test | Steps | Expected | Pass |
+|---|------|-------|----------|------|
+| 11.1 | Photo thumbnail | Click marker with photo | Popup shows photo thumbnail at top | [ ] |
+| 11.2 | Photo count badge | Check popup with 3 photos | Shows "📸 3" badge in bottom-right | [ ] |
+| 11.3 | Single photo | Click marker with 1 photo | No photo count badge shown | [ ] |
+| 11.4 | No photos | Click marker without photos | No photo area shown | [ ] |
 
 ---
 
@@ -154,24 +224,28 @@ curl -s -X POST "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/s
 
 ---
 
-## 9. Error Handling
+## 12. Error Handling
 
 | # | Test | Steps | Expected | Pass |
 |---|------|-------|----------|------|
-| 9.1 | CORS on 401 | Make unauth request | Returns 401 with CORS headers | [ ] |
-| 9.2 | Geocoder timeout | Submit address during slow network | Shows "try again" message | [ ] |
-| 9.3 | PDF generation error | Send invalid stops data | Returns 400 with error message | [ ] |
+| 12.1 | CORS on 401 | Make unauth request | Returns 401 with CORS headers | [ ] |
+| 12.2 | Geocoder timeout | Submit address during slow network | Shows "try again" message | [ ] |
+| 12.3 | PDF generation error | Send invalid stops data | Returns 400 with error message | [ ] |
+| 12.4 | Photo upload failure | Disconnect network, upload photo | Shows error message | [ ] |
+| 12.5 | Photo too large | Upload 25MB file | Shows descriptive error with file size | [ ] |
 
 ---
 
-## 10. UI/UX
+## 13. UI/UX
 
 | # | Test | Steps | Expected | Pass |
 |---|------|-------|----------|------|
-| 10.1 | Mobile responsive | View on mobile device | Layout adapts, nav collapses | [ ] |
-| 10.2 | Route panel mobile | Add stops on mobile | Panel usable on small screen | [ ] |
-| 10.3 | Loading states | Slow network, submit form | Shows loading spinner | [ ] |
-| 10.4 | Error messages | Trigger validation error | Clear error message displayed | [ ] |
+| 13.1 | Mobile responsive | View on mobile device | Layout adapts, nav collapses | [ ] |
+| 13.2 | Route panel mobile | Add stops on mobile | Panel usable on small screen | [ ] |
+| 13.3 | Loading states | Slow network, submit form | Shows loading spinner | [ ] |
+| 13.4 | Error messages | Trigger validation error | Clear error message displayed | [ ] |
+| 13.5 | Photo gallery mobile | View photos on mobile | Carousel works with touch | [ ] |
+| 13.6 | Lightbox mobile | Open lightbox on mobile | Full-screen works, touch-friendly | [ ] |
 
 ---
 
@@ -185,11 +259,14 @@ curl -s -X POST "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/s
 | 4. PDF Generation | 12 | | |
 | 5. Authentication | 8 | | |
 | 6. Submit Location | 7 | | |
-| 7. Admin Dashboard | 8 | | |
-| 8. API Endpoints | 3 | | |
-| 9. Error Handling | 3 | | |
-| 10. UI/UX | 4 | | |
-| **TOTAL** | **70** | | |
+| 7. Admin Dashboard | 12 | | |
+| 8. Photo Upload | 12 | | |
+| 9. Photo Gallery | 10 | | |
+| 10. Lightbox Viewer | 12 | | |
+| 11. Map Popup Photos | 4 | | |
+| 12. Error Handling | 5 | | |
+| 13. UI/UX | 6 | | |
+| **TOTAL** | **113** | | |
 
 ---
 
@@ -206,6 +283,7 @@ curl -s -X POST "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/s
 
 | Date | Tester | Version | Result |
 |------|--------|---------|--------|
+| 2025-12-06 | - | v1.3 | Photo features complete - upload, compression, gallery, lightbox |
 | 2025-12-04 | Brandon | v1.0 | Initial testing - core flows working |
 | 2025-12-04 | - | v1.1 | Route planner + PDF generation added |
 
@@ -215,6 +293,7 @@ curl -s -X POST "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/s
 
 Quick smoke test checklist:
 
+### Core Features
 - [ ] Homepage loads with map and locations
 - [ ] Can click marker and see popup with "Add to Route" button
 - [ ] Can add locations to route and see numbered markers
@@ -224,5 +303,20 @@ Quick smoke test checklist:
 - [ ] Can view location detail page
 - [ ] Get Directions opens correct address in Google Maps
 - [ ] Can login and logout
-- [ ] Can submit a location suggestion (as logged-in user)
-- [ ] Admin can view and approve suggestions
+
+### Photo Features
+- [ ] Can upload photos with location suggestion (test with iPhone HEIC if available)
+- [ ] Photos show thumbnail preview immediately after selection
+- [ ] Can upload up to 3 photos (20MB max each)
+- [ ] Admin can view and approve suggestions with photos
+- [ ] Admin can click photo thumbnails to open lightbox
+- [ ] Approved photos appear on location detail page
+- [ ] Photo carousel works (prev/next buttons, thumbnails)
+- [ ] Can open full-screen lightbox from detail page
+- [ ] Lightbox keyboard navigation works (arrows, ESC)
+- [ ] Map popups show photo count badge for locations with multiple photos
+
+### User Features
+- [ ] Can like/unlike locations
+- [ ] Like count updates immediately (optimistic UI)
+- [ ] Can report inactive displays
