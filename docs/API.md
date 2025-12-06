@@ -1,6 +1,6 @@
 # API Documentation
 
-**Last Updated:** December 4, 2025
+**Last Updated:** December 6, 2025
 
 Base URL: `https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1`
 
@@ -17,6 +17,14 @@ Authorization: Bearer {cognito-jwt-token}
 - `GET /locations`
 - `GET /locations/{id}`
 - `POST /locations/suggest-addresses`
+
+**Authenticated endpoints** (require valid JWT):
+- `POST /suggestions`
+- `POST /locations/{id}/feedback`
+- `GET /locations/{id}/feedback/status`
+- `POST /locations/{id}/report`
+- `GET /users/profile`
+- `GET /users/submissions`
 
 **Admin endpoints** (require Cognito `Admins` group):
 - `GET /suggestions`
@@ -296,6 +304,83 @@ Authorization: Required
   "reason": "Lights are no longer up"
 }
 ```
+
+### Users
+
+#### Get User Profile
+```
+GET /users/profile
+Authorization: Required
+```
+
+Returns authenticated user's profile with submission statistics.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "isAdmin": false,
+    "joinDate": "2024-12-01T00:00:00Z",
+    "stats": {
+      "totalSubmissions": 5,
+      "approvedSubmissions": 3,
+      "pendingSubmissions": 1,
+      "rejectedSubmissions": 1
+    }
+  }
+}
+```
+
+#### Get User Submissions
+```
+GET /users/submissions
+Authorization: Required
+```
+
+Returns authenticated user's submission history sorted by date (newest first).
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "address": "123 Main St, Dallas, TX 75001",
+      "description": "Beautiful light display",
+      "photos": [
+        "https://presigned-s3-url-1.jpg",
+        "https://presigned-s3-url-2.jpg"
+      ],
+      "status": "approved",
+      "submittedAt": "2024-12-06T00:00:00Z",
+      "reviewedAt": "2024-12-06T12:00:00Z",
+      "lat": 32.7767,
+      "lng": -96.7970
+    },
+    {
+      "id": "uuid-2",
+      "address": "456 Oak Ave, Dallas, TX 75002",
+      "description": "Festive decorations",
+      "photos": [],
+      "status": "rejected",
+      "submittedAt": "2024-12-05T00:00:00Z",
+      "reviewedAt": "2024-12-05T18:00:00Z",
+      "rejectionReason": "Location already exists in database",
+      "lat": 32.7834,
+      "lng": -96.8001
+    }
+  ]
+}
+```
+
+**Notes:**
+- Photos are returned as presigned S3 URLs (24-hour expiry)
+- `rejectionReason` only present for rejected submissions
+- `reviewedAt` only present after admin review
 
 ---
 
