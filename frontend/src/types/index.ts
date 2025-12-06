@@ -56,7 +56,9 @@ export interface FeedbackStatusResponse {
   locationId: string;
   liked: boolean;
   reported: boolean;
+  favorited: boolean;
   likedAt?: string;
+  favoritedAt?: string;
 }
 
 // Suggestion types
