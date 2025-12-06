@@ -6,7 +6,7 @@ import type { UserProfile, UserSubmission } from '@/types';
 import Badge from '@/components/ui/Badge';
 
 export default function ProfilePage() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [submissions, setSubmissions] = useState<UserSubmission[]>([]);
   const [loading, setLoading] = useState(true);
