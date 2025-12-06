@@ -79,17 +79,18 @@ def handler(event, context):
         if not key.startswith("pending/"):
             continue
 
-        # Extract suggestion ID from key: pending/{suggestionId}/{photoId}.ext
-        parts = key.split("/")
-        if len(parts) < 3:
-            print(f"Unexpected key format: {key}")
-            continue
-
-        suggestion_id = parts[1]
-
         try:
             # Compress photo if needed
             compress_photo_if_needed(bucket, key)
+            
+            # Find suggestion that contains this photo key
+            suggestion = find_suggestion_by_photo_key(key)
+            if not suggestion:
+                print(f"No suggestion found containing photo: {key}")
+                continue
+            
+            suggestion_id = suggestion.get("id")
+            
             # Analyze photo
             analysis = analyze_photo(bucket, key)
             update_suggestion_tags(suggestion_id, key, analysis)
@@ -98,6 +99,23 @@ def handler(event, context):
             continue
 
     return {"statusCode": 200}
+
+
+def find_suggestion_by_photo_key(photo_key: str) -> dict | None:
+    """Find a suggestion that contains the given photo key."""
+    try:
+        # Scan for suggestions with this photo key
+        # Note: For production scale, consider a GSI on photo keys
+        response = suggestions_table.scan(
+            FilterExpression="contains(photos, :key) AND #status = :status",
+            ExpressionAttributeNames={"#status": "status"},
+            ExpressionAttributeValues={":key": photo_key, ":status": "pending"},
+        )
+        items = response.get("Items", [])
+        return items[0] if items else None
+    except Exception as e:
+        print(f"Error finding suggestion for {photo_key}: {e}")
+        return None
 
 
 def compress_photo_if_needed(bucket: str, key: str):
