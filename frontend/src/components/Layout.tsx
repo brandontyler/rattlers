@@ -46,6 +46,12 @@ export default function Layout() {
                   >
                     Submit Location
                   </Link>
+                  <Link
+                    to="/profile"
+                    className="text-cream-100 hover:text-gold-300 transition-colors font-medium"
+                  >
+                    Profile
+                  </Link>
                   {user?.isAdmin && (
                     <Link
                       to="/admin"
@@ -138,6 +144,13 @@ export default function Layout() {
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     Submit Location
+                  </Link>
+                  <Link
+                    to="/profile"
+                    className="block text-cream-100 hover:text-gold-300 transition-colors font-medium py-2"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Profile
                   </Link>
                   {user?.isAdmin && (
                     <Link
