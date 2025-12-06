@@ -115,12 +115,21 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
     <div className="min-w-[280px] max-w-[320px]">
       {/* Image if available */}
       {location.photos && location.photos.length > 0 && (
-        <div className="w-full h-40 overflow-hidden -mx-0 -mt-0 mb-3">
+        <div className="w-full h-40 overflow-hidden -mx-0 -mt-0 mb-3 relative">
           <img
             src={location.photos[0]}
             alt={location.address}
             className="w-full h-full object-cover"
           />
+          {/* Photo count badge */}
+          {location.photos.length > 1 && (
+            <div className="absolute bottom-2 right-2 px-2 py-1 bg-black bg-opacity-70 text-white text-xs rounded-full flex items-center gap-1">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+              </svg>
+              {location.photos.length}
+            </div>
+          )}
         </div>
       )}
 
