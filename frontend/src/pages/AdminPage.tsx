@@ -19,12 +19,23 @@ interface Suggestion {
   flaggedForReview?: boolean;
 }
 
+interface Location {
+  id: string;
+  address: string;
+  description?: string;
+  likeCount?: number;
+  createdAt?: string;
+}
+
 export default function AdminPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [showLocations, setShowLocations] = useState(false);
   const [locationCount, setLocationCount] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   const flaggedCount = suggestions.filter(s => s.flaggedForReview).length;
@@ -57,8 +68,25 @@ export default function AdminPage() {
     try {
       const response = await apiService.getLocations({ pageSize: 500 });
       setLocationCount(response.pagination?.total || response.data?.length || 0);
+      setLocations(response.data || []);
     } catch {
       // Silently fail - count is not critical
+    }
+  };
+
+  const handleDeleteLocation = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this location? This will also delete all likes and photos.')) {
+      return;
+    }
+    try {
+      setDeletingId(id);
+      await apiService.deleteLocation(id);
+      setLocations(locations.filter(l => l.id !== id));
+      setLocationCount(prev => (prev ?? 1) - 1);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to delete location');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -345,6 +373,59 @@ export default function AdminPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Manage Locations Section */}
+        <Card className="p-6 md:p-8 mt-8">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="font-display text-2xl font-bold text-forest-900 flex items-center gap-2">
+                <svg className="w-6 h-6 text-forest-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                </svg>
+                Manage Locations
+              </h2>
+              <p className="text-sm text-forest-600 mt-1">
+                Delete locations for testing purposes
+              </p>
+            </div>
+            <Button variant="secondary" size="sm" onClick={() => setShowLocations(!showLocations)}>
+              {showLocations ? 'Hide' : 'Show'} Locations
+            </Button>
+          </div>
+
+          {showLocations && (
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {locations.map((location) => (
+                <div
+                  key={location.id}
+                  className="flex items-center justify-between p-3 bg-forest-50 rounded-lg"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-forest-900 truncate">{location.address}</p>
+                    <p className="text-xs text-forest-500">
+                      {location.likeCount || 0} likes • ID: {location.id.slice(0, 8)}...
+                    </p>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleDeleteLocation(location.id)}
+                    loading={deletingId === location.id}
+                    disabled={deletingId !== null}
+                    className="ml-4 text-burgundy-600 hover:text-burgundy-700"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </Button>
+                </div>
+              ))}
+              {locations.length === 0 && (
+                <p className="text-center text-forest-500 py-4">No locations found</p>
+              )}
             </div>
           )}
         </Card>

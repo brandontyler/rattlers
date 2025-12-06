@@ -341,6 +341,22 @@ class ChristmasLightsStack(Stack):
         )
         self.locations_table.grant_read_write_data(self.create_location_fn)
 
+        # Delete location (admin only) - for testing
+        self.delete_location_fn = lambda_.Function(
+            self,
+            "DeleteLocationFunction",
+            handler="delete_location.handler",
+            code=lambda_.Code.from_asset("../backend/functions/locations"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(30),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.locations_table.grant_read_write_data(self.delete_location_fn)
+        self.feedback_table.grant_read_write_data(self.delete_location_fn)
+        self.photos_bucket.grant_delete(self.delete_location_fn)
+
         # Feedback functions
         self.submit_feedback_fn = lambda_.Function(
             self,
@@ -570,6 +586,7 @@ class ChristmasLightsStack(Stack):
             "get_locations": self.get_locations_fn,
             "get_location_by_id": self.get_location_by_id_fn,
             "create_location": self.create_location_fn,
+            "delete_location": self.delete_location_fn,
             "submit_feedback": self.submit_feedback_fn,
             "report_inactive": self.report_inactive_fn,
             "get_feedback_status": self.get_feedback_status_fn,
@@ -687,6 +704,13 @@ class ChristmasLightsStack(Stack):
         location_by_id.add_method(
             "GET",
             apigw.LambdaIntegration(self.get_location_by_id_fn),
+        )
+        # DELETE /locations/{id} - admin only for testing
+        location_by_id.add_method(
+            "DELETE",
+            apigw.LambdaIntegration(self.delete_location_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
         )
 
         # /locations/{id}/feedback endpoint
