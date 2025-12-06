@@ -127,21 +127,21 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-300px)] gradient-winter py-12 px-4 animate-fade-in">
+    <div className="min-h-[calc(100vh-300px)] gradient-winter py-6 sm:py-12 px-3 sm:px-4 animate-fade-in">
       <div className="container mx-auto max-w-7xl">
         {/* Header */}
-        <div className="mb-12">
+        <div className="mb-6 sm:mb-12">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-burgundy-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-burgundy-600" fill="currentColor" viewBox="0 0 20 20">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-burgundy-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-burgundy-600" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
               </svg>
             </div>
             <div>
-              <h1 className="font-display text-3xl md:text-4xl font-bold text-forest-900">
+              <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold text-forest-900">
                 Admin Dashboard
               </h1>
-              <p className="text-forest-600">Manage locations and community suggestions</p>
+              <p className="text-sm sm:text-base text-forest-600">Manage locations and suggestions</p>
             </div>
           </div>
         </div>
@@ -157,8 +157,8 @@ export default function AdminPage() {
         )}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="p-6 card-glow">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <Card className="p-4 sm:p-6 card-glow">
             <div className="flex items-start justify-between mb-3">
               <div className="w-10 h-10 bg-gold-100 rounded-lg flex items-center justify-center">
                 <svg className="w-5 h-5 text-gold-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -167,13 +167,13 @@ export default function AdminPage() {
               </div>
               {suggestions.length > 0 && <Badge variant="gold">New</Badge>}
             </div>
-            <p className="text-4xl font-display font-bold text-forest-900 mb-1">
+            <p className="text-3xl sm:text-4xl font-display font-bold text-forest-900 mb-1">
               {isLoading ? '...' : suggestions.length}
             </p>
             <p className="text-sm font-medium text-forest-600">Pending Suggestions</p>
           </Card>
 
-          <Card className="p-6 card-glow">
+          <Card className="p-4 sm:p-6 card-glow">
             <div className="flex items-start justify-between mb-3">
               <div className="w-10 h-10 bg-forest-100 rounded-lg flex items-center justify-center">
                 <svg className="w-5 h-5 text-forest-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -182,11 +182,11 @@ export default function AdminPage() {
                 </svg>
               </div>
             </div>
-            <p className="text-4xl font-display font-bold text-forest-900 mb-1">{locationCount ?? '...'}</p>
+            <p className="text-3xl sm:text-4xl font-display font-bold text-forest-900 mb-1">{locationCount ?? '...'}</p>
             <p className="text-sm font-medium text-forest-600">Total Locations</p>
           </Card>
 
-          <Card className="p-6 card-glow">
+          <Card className="p-4 sm:p-6 card-glow">
             <div className="flex items-start justify-between mb-3">
               <div className="w-10 h-10 bg-burgundy-100 rounded-lg flex items-center justify-center">
                 <svg className="w-5 h-5 text-burgundy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -195,26 +195,26 @@ export default function AdminPage() {
               </div>
               {flaggedCount > 0 && <Badge variant="burgundy">Review</Badge>}
             </div>
-            <p className="text-4xl font-display font-bold text-forest-900 mb-1">{isLoading ? '...' : flaggedCount}</p>
+            <p className="text-3xl sm:text-4xl font-display font-bold text-forest-900 mb-1">{isLoading ? '...' : flaggedCount}</p>
             <p className="text-sm font-medium text-forest-600">Flagged for Review</p>
           </Card>
         </div>
 
         {/* Pending Suggestions Section */}
-        <Card className="p-6 md:p-8">
-          <div className="flex items-center justify-between mb-6">
+        <Card className="p-4 sm:p-6 md:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h2 className="font-display text-2xl font-bold text-forest-900 flex items-center gap-2">
-                <svg className="w-6 h-6 text-burgundy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <h2 className="font-display text-xl sm:text-2xl font-bold text-forest-900 flex items-center gap-2">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-burgundy-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
                 Pending Suggestions
               </h2>
-              <p className="text-sm text-forest-600 mt-1">
-                Review and approve new location submissions from the community
+              <p className="text-xs sm:text-sm text-forest-600 mt-1">
+                Review and approve new location submissions
               </p>
             </div>
-            <Button variant="secondary" size="sm" onClick={fetchSuggestions} disabled={isLoading}>
+            <Button variant="secondary" size="sm" onClick={fetchSuggestions} disabled={isLoading} className="self-start sm:self-auto">
               Refresh
             </Button>
           </div>
@@ -239,51 +239,53 @@ export default function AdminPage() {
               {suggestions.map((suggestion) => (
                 <div
                   key={suggestion.id}
-                  className={`border-2 rounded-lg p-6 transition-colors duration-200 ${
-                    suggestion.flaggedForReview 
-                      ? 'border-burgundy-300 bg-burgundy-50/50' 
+                  className={`border-2 rounded-lg p-4 sm:p-6 transition-colors duration-200 ${
+                    suggestion.flaggedForReview
+                      ? 'border-burgundy-300 bg-burgundy-50/50'
                       : 'border-forest-100 hover:border-forest-200'
                   }`}
                 >
-                  <div className="flex flex-col lg:flex-row gap-6">
+                  <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
                     <div className="flex-1">
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-display text-lg font-semibold text-forest-900">
+                          <div className="flex flex-wrap items-start sm:items-center gap-2 mb-2">
+                            <h3 className="font-display text-base sm:text-lg font-semibold text-forest-900 break-words">
                               {suggestion.address}
                             </h3>
-                            {suggestion.flaggedForReview && (
-                              <Badge variant="burgundy">⚠️ Flagged</Badge>
-                            )}
-                            {suggestion.displayQuality && (
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${qualityColors[suggestion.displayQuality] || qualityColors.moderate}`}>
-                                {suggestion.displayQuality}
-                              </span>
-                            )}
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {suggestion.flaggedForReview && (
+                                <Badge variant="burgundy">⚠️ Flagged</Badge>
+                              )}
+                              {suggestion.displayQuality && (
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize whitespace-nowrap ${qualityColors[suggestion.displayQuality] || qualityColors.moderate}`}>
+                                  {suggestion.displayQuality}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-4 text-sm text-forest-600">
-                            <span className="flex items-center gap-1">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-forest-600">
+                            <span className="flex items-center gap-1 truncate max-w-[180px] sm:max-w-none">
+                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                               </svg>
-                              {suggestion.submittedByEmail || 'Anonymous'}
+                              <span className="truncate">{suggestion.submittedByEmail || 'Anonymous'}</span>
                             </span>
                             <span className="flex items-center gap-1">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                               {formatDate(suggestion.createdAt)}
                             </span>
-                            <span className="flex items-center gap-1">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <span className="hidden md:flex items-center gap-1">
+                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                               </svg>
                               {suggestion.lat.toFixed(4)}, {suggestion.lng.toFixed(4)}
                             </span>
                             {suggestion.photos.length > 0 && (
                               <span className="flex items-center gap-1 text-gold-600">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                                 {suggestion.photos.length} photo{suggestion.photos.length > 1 ? 's' : ''}
@@ -330,7 +332,7 @@ export default function AdminPage() {
                             <button
                               key={idx}
                               onClick={() => setLightboxImage(photoUrl)}
-                              className="w-20 h-20 rounded-lg overflow-hidden border-2 border-forest-200 hover:border-forest-400 transition-colors focus:outline-none focus:ring-2 focus:ring-forest-500"
+                              className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border-2 border-forest-200 hover:border-forest-400 transition-colors focus:outline-none focus:ring-2 focus:ring-forest-500"
                             >
                               <img
                                 src={photoUrl}
@@ -343,7 +345,7 @@ export default function AdminPage() {
                       )}
                     </div>
 
-                    <div className="flex lg:flex-col gap-3 lg:min-w-[140px]">
+                    <div className="flex flex-col sm:flex-row lg:flex-col gap-2 sm:gap-3 w-full sm:w-auto lg:min-w-[140px] mt-4 lg:mt-0">
                       <Button
                         variant="primary"
                         size="md"
@@ -351,6 +353,7 @@ export default function AdminPage() {
                         onClick={() => handleApprove(suggestion.id)}
                         loading={processingId === suggestion.id}
                         disabled={processingId !== null}
+                        className="justify-center"
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -363,6 +366,7 @@ export default function AdminPage() {
                         fullWidth
                         onClick={() => handleReject(suggestion.id)}
                         disabled={processingId !== null}
+                        className="justify-center"
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -378,20 +382,20 @@ export default function AdminPage() {
         </Card>
 
         {/* Manage Locations Section */}
-        <Card className="p-6 md:p-8 mt-8">
-          <div className="flex items-center justify-between mb-6">
+        <Card className="p-4 sm:p-6 md:p-8 mt-6 sm:mt-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h2 className="font-display text-2xl font-bold text-forest-900 flex items-center gap-2">
-                <svg className="w-6 h-6 text-forest-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <h2 className="font-display text-xl sm:text-2xl font-bold text-forest-900 flex items-center gap-2">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-forest-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 </svg>
                 Manage Locations
               </h2>
-              <p className="text-sm text-forest-600 mt-1">
+              <p className="text-xs sm:text-sm text-forest-600 mt-1">
                 Delete locations for testing purposes
               </p>
             </div>
-            <Button variant="secondary" size="sm" onClick={() => setShowLocations(!showLocations)}>
+            <Button variant="secondary" size="sm" onClick={() => setShowLocations(!showLocations)} className="self-start sm:self-auto">
               {showLocations ? 'Hide' : 'Show'} Locations
             </Button>
           </div>
