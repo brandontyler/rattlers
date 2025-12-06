@@ -14,27 +14,21 @@ dynamodb = boto3.resource("dynamodb")
 
 suggestions_table = dynamodb.Table(os.environ.get("SUGGESTIONS_TABLE_NAME", "christmas-lights-suggestions-dev"))
 
-DECORATION_TYPES = [
-    "christmas lights",
-    "christmas tree",
-    "santa claus",
-    "reindeer",
-    "snowman",
-    "wreath",
-    "nativity scene",
-    "candy canes",
-    "nutcracker",
-    "elf",
-    "sleigh",
-    "gingerbread house",
-    "angel",
-    "star",
-    "penguin",
-    "polar bear",
-    "presents",
+# Categories for filtering (broad groupings)
+DECORATION_CATEGORIES = [
+    "string lights",
     "inflatables",
+    "blow molds",
+    "yard figures",
+    "wooden cutouts",
+    "metal silhouettes",
+    "nativity",
+    "animated",
+    "music synchronized",
     "projections",
-    "animated display",
+    "themed display",
+    "traditional",
+    "wreaths and garland",
 ]
 
 # Tool definition for structured output
@@ -47,23 +41,32 @@ ANALYSIS_TOOL = {
             "decorations": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "List of Christmas decorations detected in the photo",
+                "description": "List of SPECIFIC items seen (e.g., 'Grinch inflatable', 'white wire reindeer', 'wooden nativity cutout', 'Darth Vader figure'). Be specific - include character names, colors, materials.",
+            },
+            "categories": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Broad categories for filtering: string lights, inflatables, blow molds, yard figures, wooden cutouts, metal silhouettes, nativity, animated, music synchronized, projections, themed display, traditional, wreaths and garland",
+            },
+            "theme": {
+                "type": "string",
+                "description": "If display has a clear theme, name it (e.g., 'Grinch', 'Star Wars', 'Disney', 'Peanuts', 'Nightmare Before Christmas', 'Frozen'). Use 'traditional' for classic Christmas or null if no clear theme.",
             },
             "description": {
                 "type": "string",
-                "description": "A brief 1-2 sentence description of the display suitable for a listing",
+                "description": "One factual sentence listing the main items visible. NO marketing language. Example: 'Display features Grinch and Max inflatables, white wire reindeer, and multicolor string lights on the roofline.'",
             },
             "display_quality": {
                 "type": "string",
                 "enum": ["minimal", "moderate", "impressive", "spectacular"],
-                "description": "Overall quality/scale of the display",
+                "description": "Overall quality/scale: minimal (few items), moderate (good effort), impressive (stands out), spectacular (must-see destination)",
             },
             "is_christmas_display": {
                 "type": "boolean",
-                "description": "Whether this photo shows a legitimate Christmas light display",
+                "description": "Whether this photo shows a legitimate Christmas/holiday light display",
             },
         },
-        "required": ["decorations", "description", "display_quality", "is_christmas_display"],
+        "required": ["decorations", "categories", "description", "display_quality", "is_christmas_display"],
     },
 }
 
@@ -227,15 +230,23 @@ def analyze_photo(bucket: str, key: str) -> dict:
                     },
                     {
                         "type": "text",
-                        "text": f"""Analyze this photo of a Christmas light display.
+                        "text": f"""Analyze this Christmas display photo. Be SPECIFIC about what you see.
 
-Identify decorations from this list (only include what you clearly see):
-{', '.join(DECORATION_TYPES)}
+**DECORATIONS** - List each specific item you can identify:
+- Include character names: "Grinch inflatable", "Minion with santa hat", "Darth Vader figure", "Snoopy on doghouse"
+- Include colors/materials: "white wire reindeer", "wooden nativity cutout", "red blow mold Santa"
+- Include word signs: "JOY letters", "PEACE sign", "Merry Christmas banner"
+- Be specific, not generic. Say "inflatable gingerbread man" not just "inflatables"
 
-Also provide:
-- A brief description suitable for a listing (1-2 sentences, focus on what makes it special)
-- The overall display quality (minimal/moderate/impressive/spectacular)
-- Whether this is actually a Christmas display photo
+**CATEGORIES** - Select all that apply from: {', '.join(DECORATION_CATEGORIES)}
+
+**THEME** - If there's a recognizable theme (Grinch, Star Wars, Disney, Peanuts, Frozen, Nightmare Before Christmas, etc.), name it. Use "traditional" for classic Christmas decor.
+
+**DESCRIPTION** - Write ONE factual sentence listing the main items.
+- BAD: "Charming display with festive holiday decorations"
+- GOOD: "Display includes Grinch and Max inflatables, white wire reindeer, wooden JOY sign, and multicolor roofline lights."
+
+**QUALITY** - Rate as minimal/moderate/impressive/spectacular based on effort and scale.
 
 Use the record_photo_analysis tool to submit your analysis.""",
                     },
@@ -251,52 +262,69 @@ Use the record_photo_analysis tool to submit your analysis.""",
         if block.get("type") == "tool_use" and block.get("name") == "record_photo_analysis":
             return block.get("input", {})
     
-    return {"decorations": [], "description": "", "display_quality": "moderate", "is_christmas_display": True}
+    return {"decorations": [], "categories": [], "theme": None, "description": "", "display_quality": "moderate", "is_christmas_display": True}
 
 
 def update_suggestion_tags(suggestion_id: str, photo_key: str, analysis: dict):
-    """Update suggestion record with photo analysis tags."""
-    
+    """Update suggestion record with photo analysis tags, categories, and theme."""
+
     try:
         # Get current suggestion
         response = suggestions_table.get_item(
             Key={"PK": f"SUGGESTION#{suggestion_id}", "SK": "METADATA"}
         )
         suggestion = response.get("Item")
-        
+
         if not suggestion:
             print(f"Suggestion {suggestion_id} not found")
             return
-        
-        # Merge new tags with existing
+
+        # Merge new tags with existing (specific items like "Grinch inflatable")
         existing_tags = set(suggestion.get("detectedTags", []))
         new_tags = set(analysis.get("decorations", []))
         merged_tags = list(existing_tags | new_tags)
-        
+
+        # Merge categories with existing (broad categories for filtering)
+        existing_categories = set(suggestion.get("categories", []))
+        new_categories = set(analysis.get("categories", []))
+        merged_categories = list(existing_categories | new_categories)
+
         # Build update expression
-        update_expr = "SET detectedTags = :tags"
-        expr_values = {":tags": merged_tags}
-        
+        update_expr = "SET detectedTags = :tags, categories = :categories"
+        expr_values = {
+            ":tags": merged_tags,
+            ":categories": merged_categories,
+        }
+
+        # Add theme if detected and not already set
+        theme = analysis.get("theme")
+        if theme and not suggestion.get("theme"):
+            update_expr += ", theme = :theme"
+            expr_values[":theme"] = theme
+
         # Add AI description if not already set and this is a valid display
         if analysis.get("is_christmas_display") and analysis.get("description"):
             if not suggestion.get("aiDescription"):
                 update_expr += ", aiDescription = :desc, displayQuality = :quality"
                 expr_values[":desc"] = analysis["description"]
                 expr_values[":quality"] = analysis.get("display_quality", "moderate")
-        
+
         # Flag if not a Christmas display
         if not analysis.get("is_christmas_display"):
             update_expr += ", flaggedForReview = :flagged"
             expr_values[":flagged"] = True
-        
+
         suggestions_table.update_item(
             Key={"PK": f"SUGGESTION#{suggestion_id}", "SK": "METADATA"},
             UpdateExpression=update_expr,
             ExpressionAttributeValues=expr_values,
         )
-        
-        print(f"Updated suggestion {suggestion_id} with tags: {merged_tags}")
-        
+
+        print(f"Updated suggestion {suggestion_id}:")
+        print(f"  - Tags (specific): {merged_tags}")
+        print(f"  - Categories: {merged_categories}")
+        print(f"  - Theme: {theme}")
+
     except ClientError as e:
         print(f"DynamoDB error updating {suggestion_id}: {e}")
         raise
