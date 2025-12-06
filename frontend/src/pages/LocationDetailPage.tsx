@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Button, Card, Badge, LoadingSpinner } from '@/components/ui';
+import { Button, Card, Badge, LoadingSpinner, Lightbox } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api';
 import type { Location } from '@/types';
@@ -16,7 +16,9 @@ export default function LocationDetailPage() {
   const [hasReported, setHasReported] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
-  
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [showLightbox, setShowLightbox] = useState(false);
+
   // Refs for bulletproof click protection (state updates are async, refs are sync)
   const isLikingRef = useRef(false);
   const isReportingRef = useRef(false);
@@ -210,16 +212,86 @@ export default function LocationDetailPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column - Photos and Description */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Photo or Placeholder */}
+              {/* Photo Gallery or Placeholder */}
               {location.photos && location.photos.length > 0 ? (
                 <Card padding="none" className="overflow-hidden">
-                  <div className="relative h-96 bg-forest-100">
+                  <div className="relative h-96 bg-forest-100 group">
+                    {/* Main Photo */}
                     <img
-                      src={location.photos[0]}
-                      alt={location.address}
-                      className="w-full h-full object-cover"
+                      src={location.photos[currentPhotoIndex]}
+                      alt={`${location.address} - Photo ${currentPhotoIndex + 1}`}
+                      className="w-full h-full object-cover cursor-pointer"
+                      onClick={() => setShowLightbox(true)}
                     />
+
+                    {/* Photo Counter */}
+                    {location.photos.length > 1 && (
+                      <div className="absolute top-4 right-4 px-3 py-1 bg-black bg-opacity-60 text-white text-sm rounded-full">
+                        {currentPhotoIndex + 1} / {location.photos.length}
+                      </div>
+                    )}
+
+                    {/* Click to expand hint */}
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <div className="bg-white bg-opacity-90 px-4 py-2 rounded-lg text-forest-900 font-medium">
+                        <svg className="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                        </svg>
+                        Click to view full size
+                      </div>
+                    </div>
+
+                    {/* Previous/Next Buttons (only if multiple photos) */}
+                    {location.photos.length > 1 && (
+                      <>
+                        {currentPhotoIndex > 0 && (
+                          <button
+                            onClick={() => setCurrentPhotoIndex(prev => prev - 1)}
+                            className="absolute left-4 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full flex items-center justify-center transition-all shadow-lg"
+                            aria-label="Previous photo"
+                          >
+                            <svg className="w-6 h-6 text-forest-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                            </svg>
+                          </button>
+                        )}
+                        {currentPhotoIndex < location.photos.length - 1 && (
+                          <button
+                            onClick={() => setCurrentPhotoIndex(prev => prev + 1)}
+                            className="absolute right-4 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full flex items-center justify-center transition-all shadow-lg"
+                            aria-label="Next photo"
+                          >
+                            <svg className="w-6 h-6 text-forest-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </button>
+                        )}
+                      </>
+                    )}
                   </div>
+
+                  {/* Thumbnail Strip (if multiple photos) */}
+                  {location.photos.length > 1 && (
+                    <div className="p-4 bg-cream-50 flex gap-2 overflow-x-auto">
+                      {location.photos.map((photo, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setCurrentPhotoIndex(index)}
+                          className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+                            index === currentPhotoIndex
+                              ? 'border-burgundy-600 ring-2 ring-burgundy-200'
+                              : 'border-forest-200 hover:border-forest-400'
+                          }`}
+                        >
+                          <img
+                            src={photo}
+                            alt={`Thumbnail ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </Card>
               ) : (
                 <Card className="h-64 flex items-center justify-center gradient-winter">
@@ -325,6 +397,18 @@ export default function LocationDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Lightbox */}
+      {showLightbox && location.photos && location.photos.length > 0 && (
+        <Lightbox
+          images={location.photos}
+          currentIndex={currentPhotoIndex}
+          onClose={() => setShowLightbox(false)}
+          onNext={() => setCurrentPhotoIndex(prev => Math.min(prev + 1, location.photos!.length - 1))}
+          onPrev={() => setCurrentPhotoIndex(prev => Math.max(prev - 1, 0))}
+          altText={location.address}
+        />
+      )}
     </div>
   );
 }
