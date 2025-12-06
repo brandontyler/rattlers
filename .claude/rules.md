@@ -6,10 +6,20 @@
 
 ### Step-by-Step Required Process
 
-1. **Create a new feature branch** with very descriptive name
-2. **Commit changes** with VERY descriptive commit messages
-3. **Push ALL changes** to the feature branch
-4. **Create a Pull Request** with comprehensive description
+1. **Update ALL relevant documentation** FIRST
+   - Update `docs/PROJECT.md` with completed features
+   - Update `docs/API.md` if endpoints changed
+   - Update session notes with what was accomplished
+   - Update roadmap to reflect current status
+   - Keep documentation as single source of truth
+
+2. **Create a new feature branch** with very descriptive name
+
+3. **Commit changes** with VERY descriptive commit messages
+
+4. **Push ALL changes** to the feature branch
+
+5. **Create a Pull Request** with comprehensive description
 
 **DO NOT skip any of these steps. This is required for EVERY completed task.**
 
@@ -97,6 +107,11 @@ git push -u origin claude/my-feature-01NXjtqTW5xshBiRTfoTniJw
 ## Important Reminders
 
 ### ✅ ALWAYS DO:
+- **Update documentation FIRST** before committing code
+  - Update `docs/PROJECT.md` to reflect completed work
+  - Update `docs/API.md` if endpoints changed
+  - Add session notes about what was accomplished
+  - Update roadmap and feature status
 - Create a NEW feature branch for EVERY task (never reuse branches)
 - Use `claude/` prefix with descriptive name and session ID
 - Write VERY descriptive multi-line commit messages with detailed bodies

@@ -1,6 +1,6 @@
 # DFW Christmas Lights Finder - Project Guide
 
-**Last Updated:** December 5, 2025
+**Last Updated:** December 6, 2025
 
 > Start here when resuming work. This is the single source of truth for project status.
 
@@ -48,6 +48,7 @@ cd backend && uv run pytest
 | Mobile responsive | ✅ | - | Layout adapts |
 | Like/unlike locations | ✅ | ✅ | Optimistic UI updates |
 | Report inactive | ✅ | ✅ | Flag displays for review |
+| User profiles | ✅ | ✅ | Profile page with stats, submission history |
 
 ### ✅ Photo Features (Complete End-to-End)
 
@@ -62,28 +63,43 @@ cd backend && uv run pytest
 | Full-screen lightbox | ✅ | - | Keyboard navigation, click outside to close |
 | Photo count badges | ✅ | - | Shows "📸 3" on map popups |
 
+### ✅ User Profile Features (MVP Complete)
+
+| Feature | Frontend | Backend | Notes |
+|---------|----------|---------|-------|
+| Profile page | ✅ | ✅ | Email, join date, admin badge |
+| Activity statistics | ✅ | ✅ | Total, approved, pending, rejected counts |
+| Submission history | ✅ | ✅ | Expandable cards with details |
+| Photo thumbnails | ✅ | ✅ | Display photos in submission history |
+| Rejection reasons | ✅ | ✅ | Show admin notes for rejected submissions |
+| Status badges | ✅ | - | Color-coded: green/approved, gold/pending, red/rejected |
+| Protected routes | ✅ | ✅ | Authentication required for /profile |
+| Navigation link | ✅ | - | Profile link in nav (authenticated users only) |
+
 ### 📋 Future Enhancements
 
 | Feature | Notes |
 |---------|-------|
-| User profiles | Saved favorites, submission history |
+| Saved favorites | Heart icon to bookmark locations, favorites list on profile |
 | Geographic expansion | Houston, Austin, San Antonio |
 | Native mobile apps | React Native or native iOS/Android |
 | Photo reporting | Flag inappropriate photos |
 | Social sharing | Share locations on social media |
+| Email notifications | Alert users when submissions are approved/rejected |
 
 ---
 
-## Next Priority: User Profiles & Favorites
+## Next Priority: Favorites & Enhancements
 
-Photo features are now complete end-to-end! Next focus areas:
+User Profiles MVP is now complete! Next focus areas:
 
-### Option 1: User Profiles
-Allow users to save their favorite locations and view submission history:
-- **Saved favorites** - Heart icon to save locations to profile
-- **Submission history** - View status of user's submitted locations
-- **Profile page** - Display user info, stats, activity
-- **Email notifications** - Alert when submission is approved/rejected
+### Option 1: Saved Favorites
+Complete the user profiles feature with favorites functionality:
+- **Save/unsave favorites** - Heart icon to bookmark locations
+- **Favorites list** - Display saved locations on profile page
+- **Backend** - DynamoDB table for user favorites
+- **Quick access** - "My Favorites" filter on map
+- **Email notifications** - Alert when submission is approved/rejected (optional)
 
 ### Option 2: Geographic Expansion
 Expand beyond DFW to other Texas cities:
@@ -150,7 +166,8 @@ backend/functions/
 ├── feedback/        # submit_feedback, get_feedback_status, report_inactive
 ├── suggestions/     # submit, get, approve, reject
 ├── routes/          # generate_pdf
-└── photos/          # get_upload_url
+├── photos/          # get_upload_url, analyze_photo
+└── users/           # get_profile, get_submissions
 ```
 
 ---
@@ -167,6 +184,8 @@ backend/functions/
 - `POST /v1/locations/{id}/feedback` - Like location
 - `GET /v1/locations/{id}/feedback/status` - Get user's like status
 - `POST /v1/locations/{id}/report` - Report inactive
+- `GET /v1/users/profile` - Get user profile with stats
+- `GET /v1/users/submissions` - Get user's submission history
 
 ### Admin Only
 - `GET /v1/suggestions` - List pending suggestions
@@ -226,7 +245,8 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
-- **Dec 6, 2025:** Photo features complete! Added full photo gallery with carousel + lightbox, automatic compression (20MB→2MB), enhanced iPhone HEIC support
+- **Dec 6, 2025 (PM):** User Profiles MVP complete! Added profile page with email, join date, activity stats (total/approved/pending/rejected), submission history with expandable cards, photo thumbnails, rejection reasons, and status badges
+- **Dec 6, 2025 (AM):** Photo features complete! Added full photo gallery with carousel + lightbox, automatic compression (20MB→2MB), enhanced iPhone HEIC support
 - **Dec 5, 2025 (PM):** Enhanced PDF with ReportLab best practices - custom page template with corner ornaments, page numbers, alternating row colors, gradient-style stats box
 - **Dec 5, 2025 (AM):** Documentation consolidated. Reverted WeasyPrint (requires native libs not in Lambda). Next priority: wire up feedback UI
 - **Dec 4, 2025:** Route planner + PDF generation complete with QR codes
@@ -257,11 +277,13 @@ _Add notes, blockers, or decisions here:_
 - [x] Full-screen lightbox viewer
 
 ### Phase 3: Growth (Current)
-- [ ] User profiles & favorites
+- [x] User profiles (MVP) - Profile page, activity stats, submission history
+- [ ] Saved favorites - Heart icon, favorites list
 - [ ] Geographic expansion (Houston, Austin, San Antonio)
 - [ ] Performance optimization (caching, lazy loading)
 - [ ] Photo reporting/flagging
 - [ ] Social sharing features
+- [ ] Email notifications for submissions
 
 ### Phase 4: Mobile (Future)
 - [ ] Native mobile apps (iOS/Android)
