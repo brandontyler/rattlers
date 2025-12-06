@@ -5,6 +5,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Marker cluster styles */
+.custom-cluster {
+  background: transparent !important;
+}
+
+.cluster-icon {
+  @apply bg-burgundy-600 text-cream-50 rounded-full w-10 h-10 flex items-center justify-center font-bold text-sm shadow-lg border-2 border-cream-50;
+}
+
 /* Base styles with sophisticated holiday theme */
 @layer base {
   body {

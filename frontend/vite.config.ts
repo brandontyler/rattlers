@@ -21,5 +21,16 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split vendor chunks for better caching
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-map': ['leaflet', 'react-leaflet'],
+          'vendor-cognito': ['amazon-cognito-identity-js'],
+          'vendor-utils': ['axios', 'date-fns', 'clsx'],
+        },
+      },
+    },
   },
 })

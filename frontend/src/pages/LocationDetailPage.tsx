@@ -3,15 +3,13 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button, Card, Badge, LoadingSpinner, Lightbox } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api';
-import type { Location } from '@/types';
+import { useLocation as useLocationData } from '@/hooks';
 
 export default function LocationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const [location, setLocation] = useState<Location | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: location, isLoading: loading, error: queryError, refetch } = useLocationData(id || '');
   const [hasLiked, setHasLiked] = useState(false);
   const [hasReported, setHasReported] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
@@ -22,27 +20,6 @@ export default function LocationDetailPage() {
   // Refs for bulletproof click protection (state updates are async, refs are sync)
   const isLikingRef = useRef(false);
   const isReportingRef = useRef(false);
-
-  useEffect(() => {
-    const fetchLocation = async () => {
-      if (!id) return;
-      try {
-        setLoading(true);
-        const response = await apiService.getLocationById(id);
-        if (response.success && response.data) {
-          setLocation(response.data);
-        } else {
-          setError('Location not found');
-        }
-      } catch (err) {
-        console.error('Failed to fetch location:', err);
-        setError('Failed to load location');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchLocation();
-  }, [id]);
 
   // Fetch initial like and report state on mount
   useEffect(() => {
@@ -74,14 +51,14 @@ export default function LocationDetailPage() {
     );
   }
 
-  if (error || !location) {
+  if (queryError || !location) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
         <h2 className="font-display text-3xl font-bold text-forest-900 mb-4">
           Location Not Found
         </h2>
         <p className="text-forest-600 mb-8">
-          {error || "We couldn't find the location you're looking for."}
+          {queryError ? "Failed to load location" : "We couldn't find the location you're looking for."}
         </p>
         <Button onClick={() => navigate('/')}>
           Back to Map
@@ -115,11 +92,8 @@ export default function LocationDetailPage() {
         const serverLiked = response.data.liked ?? false;
         setHasLiked(serverLiked);
       }
-      // Always refetch location to get accurate count from server
-      const locationResponse = await apiService.getLocationById(location.id);
-      if (locationResponse.success && locationResponse.data) {
-        setLocation(locationResponse.data);
-      }
+      // Refetch location to get accurate count from server
+      refetch();
     } catch (err) {
       console.error('Failed to toggle like:', err);
     } finally {
@@ -287,6 +261,7 @@ export default function LocationDetailPage() {
                             src={photo}
                             alt={`Thumbnail ${index + 1}`}
                             className="w-full h-full object-cover"
+                            loading="lazy"
                           />
                         </button>
                       ))}
