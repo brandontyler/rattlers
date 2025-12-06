@@ -143,6 +143,10 @@ def compress_photo_if_needed(bucket: str, key: str):
         # Open image with Pillow
         image = Image.open(io.BytesIO(image_bytes))
 
+        # Apply EXIF orientation (fixes upside-down iPhone photos)
+        from PIL import ImageOps
+        image = ImageOps.exif_transpose(image)
+
         # Convert RGBA to RGB if needed (for JPEG)
         if image.mode in ("RGBA", "LA", "P"):
             # Create white background
