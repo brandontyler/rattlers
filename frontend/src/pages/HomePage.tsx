@@ -1,33 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapView } from '@/components/map';
 import { Button, Card, Input, Select, Badge } from '@/components/ui';
 import { RoutePanel } from '@/components/route';
-import type { Location } from '@/types';
-import { apiService } from '@/services/api';
+import { useLocations } from '@/hooks';
 
 export default function HomePage() {
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: locations = [], isLoading: loading } = useLocations();
   const [searchQuery, setSearchQuery] = useState('');
   const [ratingFilter, setRatingFilter] = useState('');
   const [radiusFilter, setRadiusFilter] = useState('10');
-
-  useEffect(() => {
-    const fetchLocations = async () => {
-      try {
-        const response = await apiService.getLocations({ pageSize: 500 });
-        if (response.success) {
-          setLocations(response.data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch locations:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchLocations();
-  }, []);
 
   return (
     <div className="animate-fade-in">

@@ -120,6 +120,7 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
             src={location.photos[0]}
             alt={location.address}
             className="w-full h-full object-cover"
+            loading="lazy"
           />
           {/* Photo count badge */}
           {location.photos.length > 1 && (

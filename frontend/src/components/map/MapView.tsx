@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { Icon, LatLngTuple } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import LocationPopup from './LocationPopup';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import 'leaflet.markercluster';
 import { RouteMapLayer } from '@/components/route';
 import type { Location } from '@/types';
 
@@ -57,6 +59,59 @@ function MapController({ center }: { center: LatLngTuple }) {
   return null;
 }
 
+// Marker cluster component
+function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; onLocationClick?: (location: Location) => void }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const L = window.L as typeof import('leaflet');
+    const cluster = (L as any).markerClusterGroup({
+      chunkedLoading: true,
+      maxClusterRadius: 50,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      iconCreateFunction: (c: any) => {
+        const count = c.getChildCount();
+        return L.divIcon({
+          html: `<div class="cluster-icon">${count}</div>`,
+          className: 'custom-cluster',
+          iconSize: [40, 40],
+        });
+      },
+    });
+
+    locations.forEach((location) => {
+      const marker = L.marker([location.lat, location.lng], { icon: customIcon });
+      
+      // Create popup content
+      const popupContent = document.createElement('div');
+      popupContent.innerHTML = `
+        <div class="p-2 min-w-[200px]">
+          <h3 class="font-semibold text-forest-900 mb-1">${location.address}</h3>
+          <a href="/location/${location.id}" class="text-burgundy-600 text-sm hover:underline mt-2 inline-block">View Details →</a>
+        </div>
+      `;
+      
+      marker.bindPopup(popupContent);
+      
+      if (onLocationClick) {
+        marker.on('click', () => onLocationClick(location));
+      }
+      
+      cluster.addLayer(marker);
+    });
+
+    map.addLayer(cluster);
+
+    return () => {
+      map.removeLayer(cluster);
+    };
+  }, [map, locations, onLocationClick]);
+
+  return null;
+}
+
 interface MapViewProps {
   locations?: Location[];
   center?: LatLngTuple;
@@ -97,7 +152,6 @@ export default function MapView({
     if (userLocation) {
       setMapCenter(userLocation);
     } else {
-      // Request permission again
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
@@ -173,25 +227,8 @@ export default function MapView({
             </Marker>
           )}
 
-          {/* Location markers */}
-          {locations.map((location) => (
-            <Marker
-              key={location.id}
-              position={[location.lat, location.lng]}
-              icon={customIcon}
-              eventHandlers={{
-                click: () => {
-                  if (onLocationClick) {
-                    onLocationClick(location);
-                  }
-                },
-              }}
-            >
-              <Popup>
-                <LocationPopup location={location} />
-              </Popup>
-            </Marker>
-          ))}
+          {/* Clustered location markers */}
+          <MarkerCluster locations={locations} onLocationClick={onLocationClick} />
 
           {/* Route visualization layer */}
           <RouteMapLayer />
