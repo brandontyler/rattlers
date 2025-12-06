@@ -384,6 +384,56 @@ Returns authenticated user's submission history sorted by date (newest first).
 
 ---
 
+### Photos
+
+#### Get Upload URL
+```
+POST /photos/upload-url
+Authorization: Required
+```
+
+Generates a presigned S3 URL for uploading photos.
+
+**Request Body:**
+```json
+{
+  "contentType": "image/jpeg",
+  "fileSize": 5242880,
+  "suggestionId": "uuid"
+}
+```
+
+**Validation:**
+- `contentType`: Required, must be image/jpeg, image/png, image/webp, image/heic, or image/heif
+- `fileSize`: Required, max 20MB (20971520 bytes)
+- `suggestionId`: Optional, associates photo with a suggestion
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "uploadUrl": "https://bucket.s3.amazonaws.com/",
+    "fields": {
+      "key": "pending/user-id/photo-id.jpg",
+      "Content-Type": "image/jpeg",
+      "policy": "...",
+      "x-amz-signature": "..."
+    },
+    "photoKey": "pending/user-id/photo-id.jpg",
+    "expiresIn": 900
+  }
+}
+```
+
+**Notes:**
+- Upload using multipart/form-data POST to `uploadUrl` with `fields`
+- Photos are automatically compressed to ~2MB by backend Lambda
+- AI analysis runs automatically after upload (Bedrock Claude)
+- Detected decorations and quality stored on suggestion record
+
+---
+
 ## Error Responses
 
 ### 400 Bad Request

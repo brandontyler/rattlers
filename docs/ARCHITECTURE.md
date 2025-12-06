@@ -1,6 +1,6 @@
 # Architecture Documentation
 
-**Last Updated:** December 5, 2025
+**Last Updated:** December 6, 2025
 
 ## System Overview
 
@@ -39,16 +39,16 @@ DFW Christmas Lights Finder is a serverless web application built entirely on AW
               │  - Auth     │      │  (Python)   │
               └─────────────┘      └──────┬──────┘
                                           │
-                          ┌───────────────┼───────────────┐
-                          ▼               ▼               ▼
-                   ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-                   │  DynamoDB   │ │     S3      │ │  Secrets    │
-                   │             │ │  (Photos)   │ │  Manager    │
-                   │ - Locations │ │             │ │             │
-                   │ - Feedback  │ │             │ │             │
-                   │ - Users     │ │             │ │             │
-                   │ - Reports   │ │             │ │             │
-                   └─────────────┘ └─────────────┘ └─────────────┘
+                    ┌─────────────────────┼─────────────────────┐
+                    ▼                     ▼                     ▼
+             ┌─────────────┐       ┌─────────────┐       ┌─────────────┐
+             │  DynamoDB   │       │     S3      │       │  Bedrock    │
+             │             │       │  (Photos)   │       │  (Claude)   │
+             │ - Locations │       │             │       │  AI Photo   │
+             │ - Feedback  │       │  S3 Trigger │       │  Analysis   │
+             │ - Users     │       │      ↓      │       │             │
+             │ - Reports   │       │  Lambda     │───────│             │
+             └─────────────┘       └─────────────┘       └─────────────┘
 ```
 
 ## Components
@@ -120,9 +120,20 @@ DFW Christmas Lights Finder is a serverless web application built entirely on AW
 
 10. **GetSuggestions** (`GET /suggestions`) - Admin only
     - Lists pending suggestions
+    - Includes AI-detected tags and description
 
 11. **ApproveSuggestion** (`POST /suggestions/{id}/approve`) - Admin only
     - Converts suggestion to location
+    - Moves photos from pending/ to approved/
+
+12. **AnalyzePhoto** (S3 Trigger)
+    - Triggered on S3 upload to pending/ prefix
+    - Compresses photos to ~2MB, 2000px max
+    - Calls Bedrock Claude 3.5 Sonnet for AI analysis
+    - Detects Christmas decorations (snowman, santa, lights, etc.)
+    - Generates description and quality rating
+    - Flags non-Christmas photos for review
+    - Updates suggestion record with tags
 
 ### Database (DynamoDB)
 
