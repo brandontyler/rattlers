@@ -27,6 +27,7 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - 🔍 **Full-screen lightbox** - view photos in full screen with keyboard navigation
 - 📱 **iPhone optimization** - enhanced validation and file handling for iOS Safari
 - ⚡ **Performance optimization** - code splitting, API caching, map clustering, lazy loading
+- 🔖 **Saved favorites** - bookmark locations and view them on your profile page
 
 ### Future Phases
 - 👤 User profiles - save favorites, view submission history

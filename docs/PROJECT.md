@@ -93,13 +93,13 @@ cd backend && uv run pytest
 
 User Profiles MVP is now complete! Next focus areas:
 
-### Option 1: Saved Favorites
+### Option 1: Saved Favorites ✅ COMPLETE
 Complete the user profiles feature with favorites functionality:
-- **Save/unsave favorites** - Heart icon to bookmark locations
-- **Favorites list** - Display saved locations on profile page
-- **Backend** - DynamoDB table for user favorites
-- **Quick access** - "My Favorites" filter on map
-- **Email notifications** - Alert when submission is approved/rejected (optional)
+- ✅ **Save/unsave favorites** - Bookmark icon on location popups
+- ✅ **Favorites list** - Display saved locations on profile page (default tab)
+- ✅ **Backend** - Uses feedback table with type='favorite'
+- 🔲 **Quick access** - "My Favorites" filter on map (future)
+- 🔲 **Email notifications** - Alert when submission is approved/rejected (future)
 
 ### Option 2: Geographic Expansion
 Expand beyond DFW to other Texas cities:
