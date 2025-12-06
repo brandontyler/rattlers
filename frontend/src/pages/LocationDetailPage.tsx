@@ -12,14 +12,17 @@ export default function LocationDetailPage() {
   const { data: location, isLoading: loading, error: queryError, refetch } = useLocationData(id || '');
   const [hasLiked, setHasLiked] = useState(false);
   const [hasReported, setHasReported] = useState(false);
+  const [hasFavorited, setHasFavorited] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
+  const [isFavoriting, setIsFavoriting] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showLightbox, setShowLightbox] = useState(false);
 
   // Refs for bulletproof click protection (state updates are async, refs are sync)
   const isLikingRef = useRef(false);
   const isReportingRef = useRef(false);
+  const isFavoritingRef = useRef(false);
 
   // Fetch initial like and report state on mount
   useEffect(() => {
@@ -33,6 +36,7 @@ export default function LocationDetailPage() {
         if (response.success && response.data) {
           setHasLiked(response.data.liked ?? false);
           setHasReported(response.data.reported ?? false);
+          setHasFavorited(response.data.favorited ?? false);
         }
       } catch (err) {
         console.error('Failed to fetch feedback status:', err);
@@ -42,6 +46,27 @@ export default function LocationDetailPage() {
 
     fetchFeedbackStatus();
   }, [id, isAuthenticated]);
+
+  const handleFavorite = async () => {
+    if (!isAuthenticated || !id || isFavoritingRef.current) return;
+    isFavoritingRef.current = true;
+    setIsFavoriting(true);
+    const previousFavorited = hasFavorited;
+    setHasFavorited(!hasFavorited);
+
+    try {
+      const response = await apiService.toggleFavorite(id);
+      if (response.success && response.data) {
+        setHasFavorited(response.data.favorited);
+      }
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+      setHasFavorited(previousFavorited);
+    } finally {
+      isFavoritingRef.current = false;
+      setIsFavoriting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -167,6 +192,18 @@ export default function LocationDetailPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                   </svg>
                   Get Directions
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleFavorite}
+                  disabled={!isAuthenticated || isFavoriting}
+                  className={hasFavorited ? 'bg-gold-50 border-gold-600' : ''}
+                  title={!isAuthenticated ? 'Sign in to save' : hasFavorited ? 'Remove from favorites' : 'Save to favorites'}
+                >
+                  <svg className="w-5 h-5 mr-2" fill={hasFavorited ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                  </svg>
+                  {isFavoriting ? '...' : hasFavorited ? 'Saved' : 'Save'}
                 </Button>
                 <Button
                   variant="secondary"
