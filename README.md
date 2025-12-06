@@ -48,7 +48,8 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - API Gateway (REST API)
 - DynamoDB (NoSQL database)
 - Cognito (authentication)
-- S3 (image storage - future)
+- S3 (photo storage)
+- Bedrock Claude (AI photo analysis)
 
 ### Infrastructure
 - AWS CDK (Infrastructure as Code)
@@ -73,7 +74,9 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 │   │   ├── locations/  # Location CRUD + geocoding
 │   │   ├── feedback/   # Likes, ratings, reports
 │   │   ├── suggestions/# Suggestion submission + admin
-│   │   └── routes/     # Route PDF generation
+│   │   ├── routes/     # Route PDF generation
+│   │   ├── photos/     # Photo uploads + AI analysis
+│   │   └── users/      # User profiles + submissions
 │   └── layers/
 │       └── common/     # Shared utilities (db, responses)
 ├── infrastructure/     # AWS CDK (Python)
@@ -96,9 +99,12 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - `POST /v1/locations/{id}/feedback` - Like/unlike location
 - `GET /v1/locations/{id}/feedback/status` - Get user's like status
 - `POST /v1/locations/{id}/report` - Report inactive location
+- `POST /v1/photos/upload-url` - Get presigned URL for photo upload
+- `GET /v1/users/profile` - Get user profile with stats
+- `GET /v1/users/submissions` - Get user's submission history
 
 ### Admin Only
-- `GET /v1/suggestions` - List pending suggestions
+- `GET /v1/suggestions` - List pending suggestions (includes AI analysis)
 - `POST /v1/suggestions/{id}/approve` - Approve suggestion (creates location)
 - `POST /v1/suggestions/{id}/reject` - Reject suggestion
 

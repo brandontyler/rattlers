@@ -47,6 +47,7 @@ backend/
 
 ### Photos
 - **get_upload_url.py** - `POST /photos/upload-url` - Get S3 presigned URL (auth required)
+- **analyze_photo.py** - S3 trigger - Compress photos and run AI analysis (Bedrock Claude)
 
 ## Local Development
 
