@@ -16,16 +16,21 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - 🚗 **Route Planner** - Build custom routes with up to 15 stops
 - 📄 **PDF Generation** - Festive printable route guide with map and QR codes
 
-### Completed
-- ❤️ Like system - users can like their favorite displays
-- 🚫 Report inactive displays - flag displays that are no longer active
-- 📸 Photo uploads - users can upload up to 3 photos with location suggestions
-- 🔍 Photo moderation - admins review and approve/reject photos before publishing
+### Recently Completed (Dec 2025)
+- ❤️ **Like system** - users can like their favorite displays with optimistic UI updates
+- 🚫 **Report inactive** - flag displays that are no longer active
+- 📸 **Photo uploads** - upload up to 3 photos (20MB max) with HEIC/HEIF support for iPhone
+- 🗜️ **Auto compression** - backend automatically compresses photos to ~2MB for optimal performance
+- 🔍 **Photo moderation** - admins review and approve/reject photos with lightbox viewer
+- 🤖 **AI photo analysis** - Bedrock Claude automatically detects decorations and quality
+- 🖼️ **Photo gallery** - interactive carousel with thumbnails on location detail pages
+- 🔍 **Full-screen lightbox** - view photos in full screen with keyboard navigation
+- 📱 **iPhone optimization** - enhanced validation and file handling for iOS Safari
 
 ### Future Phases
-- 🖼️ Photo gallery - display approved photos on location detail pages
+- 👤 User profiles - save favorites, view submission history
 - 📱 Native mobile apps (iOS/Android)
-- 🌎 Geographic expansion (Houston, Austin)
+- 🌎 Geographic expansion (Houston, Austin, San Antonio)
 
 ## Tech Stack
 
@@ -195,13 +200,22 @@ Admin users are managed via Cognito groups:
   - [x] PDF generation with festive design
   - [x] Static map image in PDF
   - [x] QR codes for Google Maps navigation
-- [ ] Photo features (in progress)
-  - [x] Photo uploads on suggestion form (S3 presigned URLs)
+- [x] Photo features (complete!)
+  - [x] Photo uploads on suggestion form (S3 presigned URLs, up to 20MB)
+  - [x] iPhone HEIC/HEIF support with enhanced validation
+  - [x] Automatic photo compression (~2MB, 2000px max)
   - [x] Upload progress tracking
   - [x] Photo moderation in admin dashboard (thumbnails + lightbox)
+  - [x] AI photo analysis (Bedrock Claude)
   - [x] Automated photo handling (pending → approved/{locationId}/)
-  - [ ] Photo gallery on location detail pages (public display)
-- [ ] Mobile apps (Future)
+  - [x] Photo gallery on location detail pages (carousel with thumbnails)
+  - [x] Full-screen lightbox viewer (keyboard navigation)
+  - [x] Photo count badges on map popups
+- [ ] User features (next)
+  - [ ] User profiles with favorites
+  - [ ] Submission history
+  - [ ] Email notifications for approved/rejected submissions
+- [ ] Mobile apps (future)
 
 ## Cost Estimates
 
