@@ -42,13 +42,76 @@ Thank you for your interest in contributing! This is currently a personal projec
 
 ## Development Workflow
 
-1. Create a feature branch: `git checkout -b feature/your-feature`
-2. Make your changes
-3. Run tests:
-   - Frontend: `npm test`
-   - Backend: `pytest`
-4. Commit with descriptive messages
-5. Push and create a pull request
+### For Every Task or Feature
+
+**IMPORTANT:** After completing any task, always follow this workflow:
+
+1. **Create a descriptive feature branch**
+   ```bash
+   git checkout -b claude/feature-name-with-clear-description
+   ```
+   - Use `claude/` prefix for AI-assisted development
+   - Include clear description of what the feature does
+   - Examples:
+     - `claude/user-profiles-mvp-01Wcw6enrK1uZ4S3MJFGp4Kw`
+     - `claude/photo-upload-validation-fix`
+
+2. **Make your changes**
+   - Implement the feature or fix
+   - Test thoroughly
+   - Run tests:
+     - Frontend: `npm test` and `npm run build`
+     - Backend: `pytest`
+
+3. **Commit with VERY descriptive commit messages**
+   - Group related changes into logical commits
+   - Write detailed, multi-line commit messages
+   - Format: `type(scope): brief summary`
+   - Include detailed explanation in commit body
+
+   Example:
+   ```bash
+   git add frontend/src/pages/ProfilePage.tsx
+   git commit -m "feat(frontend): add ProfilePage component with user stats and submission history
+
+   - Display user email, join date, and admin badge
+   - Show activity statistics: total, approved, pending, rejected submissions
+   - Submission history with expandable cards showing details
+   - Photo thumbnails, rejection reasons, and review dates
+   - Mobile-responsive design with color-coded status badges
+   - Empty state with call-to-action to submit first location
+   - Protected route requiring authentication"
+   ```
+
+4. **Push ALL changes to the feature branch**
+   ```bash
+   git push -u origin claude/your-feature-branch-name
+   ```
+
+5. **Create a Pull Request**
+   - Use the GitHub link provided after push, OR
+   - Visit: `https://github.com/brandontyler/rattlers/pull/new/branch-name`
+   - Write a comprehensive PR description including:
+     - Summary of changes
+     - What was implemented
+     - Testing done
+     - Any deployment notes
+
+### Commit Message Guidelines
+
+Use conventional commit format with detailed descriptions:
+
+- `feat(scope): description` - New features
+- `fix(scope): description` - Bug fixes
+- `docs(scope): description` - Documentation changes
+- `refactor(scope): description` - Code refactoring
+- `test(scope): description` - Test additions/changes
+- `chore(scope): description` - Maintenance tasks
+
+**Always include a detailed body** explaining:
+- What changed
+- Why it changed
+- Any important implementation details
 
 ## Code Style
 
@@ -75,20 +138,53 @@ Thank you for your interest in contributing! This is currently a personal projec
 - Ensure existing tests pass
 - Aim for good test coverage
 
-## Commit Messages
-
-Use clear, descriptive commit messages:
-- `feat: Add route planning feature`
-- `fix: Resolve authentication bug`
-- `docs: Update API documentation`
-- `refactor: Improve database queries`
-
 ## Pull Request Process
 
-1. Ensure code passes all tests
-2. Update documentation as needed
-3. Describe your changes in the PR description
-4. Wait for review and address feedback
+### Creating a Pull Request
+
+1. **Ensure quality**
+   - All tests pass (`npm test`, `npm run build`, `pytest`)
+   - Code follows style guidelines
+   - No TypeScript errors
+   - Changes are tested locally
+
+2. **Update documentation**
+   - Update relevant `.md` files in `/docs`
+   - Update API documentation if endpoints changed
+   - Update README if user-facing features changed
+   - Add comments for complex logic
+
+3. **Write a comprehensive PR description**
+
+   Include these sections:
+   ```markdown
+   ## Summary
+   Brief overview of what was implemented
+
+   ## Changes
+   - Detailed list of what changed
+   - Frontend, backend, infrastructure sections
+
+   ## Features
+   ✅ List of features added
+
+   ## Testing
+   - [x] Tested scenarios
+   - [ ] Remaining tests needed
+
+   ## Deployment Notes
+   Any special deployment steps needed
+   ```
+
+4. **Link the PR**
+   - After pushing, copy the PR creation link
+   - Create PR on GitHub
+   - Link related issues if applicable
+
+5. **Review and merge**
+   - Wait for review and address feedback
+   - Once approved, merge to main
+   - Delete branch after merge
 
 ## Questions?
 

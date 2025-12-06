@@ -1,5 +1,20 @@
 # Git Workflow Rules for Rattlers Project
 
+## ⚠️ CRITICAL: After EVERY Task Completion
+
+**MANDATORY WORKFLOW - Follow this after completing ANY task:**
+
+### Step-by-Step Required Process
+
+1. **Create a new feature branch** with very descriptive name
+2. **Commit changes** with VERY descriptive commit messages
+3. **Push ALL changes** to the feature branch
+4. **Create a Pull Request** with comprehensive description
+
+**DO NOT skip any of these steps. This is required for EVERY completed task.**
+
+---
+
 ## Branch Strategy
 
 **NEVER push directly to `main` branch.**
@@ -10,20 +25,28 @@ Always follow this workflow:
    - Format: `claude/{feature-description}-{session-id}`
    - Example: `claude/add-photo-moderation-01NXjtqTW5xshBiRTfoTniJw`
 
-2. **Commit with descriptive messages**:
-   - Use conventional commit format: `feat:`, `fix:`, `refactor:`, `docs:`, etc.
-   - Provide clear, detailed commit messages
+2. **Commit with VERY descriptive messages**:
+   - Use conventional commit format: `type(scope): brief summary`
+   - **MUST include detailed multi-line body** explaining what and why
+   - Group related changes into logical commits
+   - Each commit should tell the complete story
    - Example:
      ```
-     feat: add photo moderation queue to admin dashboard
+     feat(admin): add photo moderation queue to admin dashboard
 
      Implements admin interface to review, approve, or reject user-submitted
      photos before they appear on location detail pages.
 
      Changes:
-     - Add PhotoModerationQueue component
-     - Create approve/reject API endpoints
-     - Update admin dashboard with new tab
+     - Add PhotoModerationQueue component with approve/reject actions
+     - Create POST /admin/photos/:id/approve endpoint
+     - Create POST /admin/photos/:id/reject endpoint
+     - Update admin dashboard with new "Pending Photos" tab
+     - Add photo status badges (pending, approved, rejected)
+     - Implement real-time photo count updates
+
+     This allows admins to ensure quality control before photos
+     are visible to public users.
      ```
 
 3. **Push to the feature branch**:
@@ -73,10 +96,20 @@ git push -u origin claude/my-feature-01NXjtqTW5xshBiRTfoTniJw
 
 ## Important Reminders
 
-- ✅ Always create descriptive feature branches
-- ✅ Write clear, detailed commit messages
-- ✅ Push to feature branch, not main
-- ✅ Create PRs for all changes
-- ❌ Never push directly to main
-- ❌ Never force push to main
-- ❌ Never commit without a descriptive message
+### ✅ ALWAYS DO:
+- Create a NEW feature branch for EVERY task (never reuse branches)
+- Use `claude/` prefix with descriptive name and session ID
+- Write VERY descriptive multi-line commit messages with detailed bodies
+- Push ALL changes to the feature branch
+- Create a comprehensive Pull Request with full description
+- Include what changed, why it changed, and testing done
+- Group related changes into logical commits
+
+### ❌ NEVER DO:
+- Push directly to main
+- Force push to main
+- Commit without a detailed descriptive message
+- Skip creating a PR
+- Reuse old feature branches
+- Push incomplete work
+- Create commits with only a one-line message (always add body)
