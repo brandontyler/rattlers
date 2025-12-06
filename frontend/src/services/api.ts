@@ -10,6 +10,7 @@ import type {
   SuggestionRequest,
   ReportRequest,
   UserProfile,
+  UserSubmission,
   PhotoUploadRequest,
   UploadUrlResponse,
   Location,
@@ -208,6 +209,16 @@ class ApiService {
 
   async updateProfile(updates: Partial<UserProfile>): Promise<ApiResponse<UserProfile>> {
     const { data } = await this.api.put<ApiResponse<UserProfile>>('/users/me', updates);
+    return data;
+  }
+
+  async getUserProfile(): Promise<ApiResponse<UserProfile>> {
+    const { data } = await this.api.get<ApiResponse<UserProfile>>('/users/profile');
+    return data;
+  }
+
+  async getUserSubmissions(): Promise<ApiResponse<UserSubmission[]>> {
+    const { data } = await this.api.get<ApiResponse<UserSubmission[]>>('/users/submissions');
     return data;
   }
 

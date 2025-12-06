@@ -87,7 +87,7 @@ export interface User {
   email: string;
   name?: string;
   isAdmin: boolean;
-  createdAt: string;
+  createdAt?: string;
 }
 
 export interface UserProfile {
@@ -95,6 +95,26 @@ export interface UserProfile {
   email: string;
   name?: string;
   isAdmin: boolean;
+  joinDate: string;
+  stats: {
+    totalSubmissions: number;
+    approvedSubmissions: number;
+    pendingSubmissions: number;
+    rejectedSubmissions: number;
+  };
+}
+
+export interface UserSubmission {
+  id: string;
+  address: string;
+  description: string;
+  photos: string[];
+  status: 'pending' | 'approved' | 'rejected';
+  submittedAt: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+  lat: number;
+  lng: number;
 }
 
 // API Response types
