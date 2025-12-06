@@ -32,15 +32,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             location_id, user["id"], "report"
         )
 
+        # Get user's favorite feedback
+        favorite_feedback = feedback_table.get_user_feedback(
+            location_id, user["id"], "favorite"
+        )
+
         # Build response
         data = {
             "locationId": location_id,
             "liked": like_feedback is not None,
             "reported": report_feedback is not None,
+            "favorited": favorite_feedback is not None,
         }
 
         if like_feedback:
             data["likedAt"] = like_feedback.get("createdAt")
+        if favorite_feedback:
+            data["favoritedAt"] = favorite_feedback.get("createdAt")
 
         return success_response(data=data)
 

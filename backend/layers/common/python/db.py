@@ -268,6 +268,16 @@ class FeedbackTable:
         items = response.get("Items", [])
         return [decimal_to_float(item) for item in items]
 
+    def get_user_favorites(self, user_id: str) -> List[Dict]:
+        """Get all favorites for a user."""
+        response = self.table.query(
+            IndexName="userId-locationId-index",
+            KeyConditionExpression=Key("userId").eq(user_id),
+            FilterExpression=Attr("type").eq("favorite"),
+        )
+        items = response.get("Items", [])
+        return [decimal_to_float(item) for item in items]
+
 
 class SuggestionsTable:
     """Helper class for Suggestions table operations."""

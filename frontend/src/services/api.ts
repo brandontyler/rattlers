@@ -222,6 +222,19 @@ class ApiService {
     return data;
   }
 
+  // Favorites endpoints
+  async toggleFavorite(locationId: string): Promise<ApiResponse<{ favorited: boolean; locationId: string }>> {
+    const { data } = await this.api.post<ApiResponse<{ favorited: boolean; locationId: string }>>(
+      `/locations/${locationId}/favorite`
+    );
+    return data;
+  }
+
+  async getFavorites(): Promise<ApiResponse<Location[]>> {
+    const { data } = await this.api.get<ApiResponse<Location[]>>('/users/favorites');
+    return data;
+  }
+
   // Route PDF endpoints
   async generateRoutePdf(request: RoutePdfRequest): Promise<ApiResponse<RoutePdfResponse>> {
     const { data } = await this.api.post<ApiResponse<RoutePdfResponse>>(

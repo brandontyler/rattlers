@@ -17,15 +17,18 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
   // Optimistic state for instant UI updates
   const [optimisticLiked, setOptimisticLiked] = useState(false);
   const [optimisticLikeCount, setOptimisticLikeCount] = useState(location.likeCount || 0);
+  const [favorited, setFavorited] = useState(false);
 
   const [isLiking, setIsLiking] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
+  const [isFavoriting, setIsFavoriting] = useState(false);
   const [reported, setReported] = useState(false);
   const [hasError, setHasError] = useState(false);
   
   // Refs for bulletproof click protection (state updates are async, refs are sync)
   const isLikingRef = useRef(false);
   const isReportingRef = useRef(false);
+  const isFavoritingRef = useRef(false);
 
   // Fetch initial like and report state on mount
   useEffect(() => {
@@ -39,6 +42,7 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
         if (response.success && response.data) {
           setOptimisticLiked(response.data.liked ?? false);
           setReported(response.data.reported ?? false);
+          setFavorited(response.data.favorited ?? false);
         }
       } catch (error) {
         console.error('Failed to fetch feedback status:', error);
@@ -48,6 +52,27 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
 
     fetchFeedbackStatus();
   }, [location.id, isAuthenticated]);
+
+  const handleFavorite = async () => {
+    if (!isAuthenticated || isFavoritingRef.current) return;
+    isFavoritingRef.current = true;
+    setIsFavoriting(true);
+    const previousFavorited = favorited;
+    setFavorited(!favorited);
+
+    try {
+      const response = await apiService.toggleFavorite(location.id);
+      if (response.success && response.data) {
+        setFavorited(response.data.favorited);
+      }
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+      setFavorited(previousFavorited);
+    } finally {
+      isFavoritingRef.current = false;
+      setIsFavoriting(false);
+    }
+  };
 
   const handleLike = async () => {
     // Use ref for synchronous check - state updates are async and unreliable for guards
@@ -180,6 +205,24 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
 
         {/* Action buttons */}
         <div className="flex gap-2 mb-3">
+          {/* Favorite button */}
+          <button
+            onClick={handleFavorite}
+            disabled={!isAuthenticated || isFavoriting}
+            className={`flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              favorited
+                ? 'bg-gold-100 text-gold-700 hover:bg-gold-200'
+                : isAuthenticated
+                ? 'bg-gold-50 text-gold-600 hover:bg-gold-100'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+            title={!isAuthenticated ? 'Sign in to save' : favorited ? 'Remove from favorites' : 'Save to favorites'}
+          >
+            <svg className="w-4 h-4" fill={favorited ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+          </button>
+
           {/* Like button */}
           <button
             onClick={handleLike}

@@ -399,6 +399,36 @@ class ChristmasLightsStack(Stack):
         )
         self.feedback_table.grant_read_data(self.get_feedback_status_fn)
 
+        # Toggle favorite function
+        self.toggle_favorite_fn = lambda_.Function(
+            self,
+            "ToggleFavoriteFunction",
+            handler="toggle_favorite.handler",
+            code=lambda_.Code.from_asset("../backend/functions/feedback"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.locations_table.grant_read_data(self.toggle_favorite_fn)
+        self.feedback_table.grant_read_write_data(self.toggle_favorite_fn)
+
+        # Get favorites function
+        self.get_favorites_fn = lambda_.Function(
+            self,
+            "GetFavoritesFunction",
+            handler="get_favorites.handler",
+            code=lambda_.Code.from_asset("../backend/functions/feedback"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.locations_table.grant_read_data(self.get_favorites_fn)
+        self.feedback_table.grant_read_data(self.get_favorites_fn)
+
         # Address suggestions - geocoding
         self.suggest_addresses_fn = lambda_.Function(
             self,
@@ -590,6 +620,8 @@ class ChristmasLightsStack(Stack):
             "submit_feedback": self.submit_feedback_fn,
             "report_inactive": self.report_inactive_fn,
             "get_feedback_status": self.get_feedback_status_fn,
+            "toggle_favorite": self.toggle_favorite_fn,
+            "get_favorites": self.get_favorites_fn,
             "suggest_addresses": self.suggest_addresses_fn,
             "submit_suggestion": self.submit_suggestion_fn,
             "get_suggestions": self.get_suggestions_fn,
@@ -740,6 +772,15 @@ class ChristmasLightsStack(Stack):
             authorization_type=apigw.AuthorizationType.COGNITO,
         )
 
+        # /locations/{id}/favorite endpoint
+        favorite = location_by_id.add_resource("favorite")
+        favorite.add_method(
+            "POST",
+            apigw.LambdaIntegration(self.toggle_favorite_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
         # /suggestions endpoints
         suggestions = v1.add_resource("suggestions")
         suggestions.add_method(
@@ -813,6 +854,15 @@ class ChristmasLightsStack(Stack):
         submissions.add_method(
             "GET",
             apigw.LambdaIntegration(self.get_user_submissions_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # /users/favorites endpoint (authenticated)
+        favorites = users.add_resource("favorites")
+        favorites.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.get_favorites_fn),
             authorizer=authorizer,
             authorization_type=apigw.AuthorizationType.COGNITO,
         )
