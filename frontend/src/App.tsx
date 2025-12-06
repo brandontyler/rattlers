@@ -5,6 +5,7 @@ import SignupPage from '@/pages/SignupPage';
 import LocationDetailPage from '@/pages/LocationDetailPage';
 import SubmitLocationPage from '@/pages/SubmitLocationPage';
 import AdminPage from '@/pages/AdminPage';
+import ProfilePage from '@/pages/ProfilePage';
 import NotFoundPage from '@/pages/NotFoundPage';
 import Layout from '@/components/Layout';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -24,6 +25,14 @@ function App() {
           element={
             <ProtectedRoute>
               <SubmitLocationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
             </ProtectedRoute>
           }
         />
