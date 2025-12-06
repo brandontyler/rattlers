@@ -41,7 +41,7 @@ ANALYSIS_TOOL = {
             "decorations": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "List of SPECIFIC items seen (e.g., 'Grinch inflatable', 'white wire reindeer', 'wooden nativity cutout', 'Darth Vader figure'). Be specific - include character names, colors, materials.",
+                "description": "Short, unique item names. No duplicates. Examples: 'Grinch inflatable', 'reindeer figures', 'nativity scene', 'JOY sign'. Keep it concise.",
             },
             "categories": {
                 "type": "array",
@@ -230,25 +230,24 @@ def analyze_photo(bucket: str, key: str) -> dict:
                     },
                     {
                         "type": "text",
-                        "text": f"""Analyze this Christmas display photo. Be SPECIFIC about what you see.
+                        "text": f"""Analyze this Christmas display photo.
 
-**DECORATIONS** - List each specific item you can identify:
-- Include character names: "Grinch inflatable", "Minion with santa hat", "Darth Vader figure", "Snoopy on doghouse"
-- Include colors/materials: "white wire reindeer", "wooden nativity cutout", "red blow mold Santa"
-- Include word signs: "JOY letters", "PEACE sign", "Merry Christmas banner"
-- Be specific, not generic. Say "inflatable gingerbread man" not just "inflatables"
+**DECORATIONS** - List each UNIQUE item using short, consistent names:
+- Use simple format: "snowman inflatable", "reindeer figures", "JOY sign"
+- Do NOT repeat items. If you see 3 snowmen, list "snowman inflatables" ONCE
+- Do NOT list the same thing multiple ways (e.g., don't list both "JOY sign" AND "JOY LOVE PEACE signs")
+- Be concise: "wreaths" not "Traditional wreaths on windows"
+- Only list items you're CONFIDENT about - skip uncertain items
 
-**CATEGORIES** - Select all that apply from: {', '.join(DECORATION_CATEGORIES)}
+**CATEGORIES** - Select from: {', '.join(DECORATION_CATEGORIES)}
 
-**THEME** - If there's a recognizable theme (Grinch, Star Wars, Disney, Peanuts, Frozen, Nightmare Before Christmas, etc.), name it. Use "traditional" for classic Christmas decor.
+**THEME** - Only if clearly themed: 'Grinch', 'Star Wars', 'Disney', etc. Otherwise null.
 
-**DESCRIPTION** - Write ONE factual sentence listing the main items.
-- BAD: "Charming display with festive holiday decorations"
-- GOOD: "Display includes Grinch and Max inflatables, white wire reindeer, wooden JOY sign, and multicolor roofline lights."
+**DESCRIPTION** - One short factual sentence.
 
-**QUALITY** - Rate as minimal/moderate/impressive/spectacular based on effort and scale.
+**QUALITY** - minimal/moderate/impressive/spectacular
 
-Use the record_photo_analysis tool to submit your analysis.""",
+Use the record_photo_analysis tool.""",
                     },
                 ],
             }],
