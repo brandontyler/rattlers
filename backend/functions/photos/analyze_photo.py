@@ -232,16 +232,16 @@ def analyze_photo(bucket: str, key: str) -> dict:
                         "type": "text",
                         "text": f"""Analyze this Christmas display photo.
 
-**DECORATIONS** - List each UNIQUE item using short, consistent names:
-- Use simple format: "snowman inflatable", "reindeer figures", "JOY sign"
-- Do NOT repeat items. If you see 3 snowmen, list "snowman inflatables" ONCE
-- Do NOT list the same thing multiple ways (e.g., don't list both "JOY sign" AND "JOY LOVE PEACE signs")
-- Be concise: "wreaths" not "Traditional wreaths on windows"
-- Only list items you're CONFIDENT about - skip uncertain items
+**DECORATIONS** - List 5-10 unique items MAX. Use short names:
+- STRICT: No duplicates or variations. Pick ONE name per item type.
+- BAD: "wreaths", "Christmas wreaths" (duplicate)
+- BAD: "JOY sign", "JOY LOVE PEACE signs" (pick one)
+- BAD: "mailbox cover", "decorative mailbox cover" (pick one)
+- GOOD: "wreaths", "word signs", "inflatable snowmen", "reindeer figures"
 
 **CATEGORIES** - Select from: {', '.join(DECORATION_CATEGORIES)}
 
-**THEME** - Only if clearly themed: 'Grinch', 'Star Wars', 'Disney', etc. Otherwise null.
+**THEME** - Only if clearly themed (Grinch, Star Wars, etc). Otherwise null.
 
 **DESCRIPTION** - One short factual sentence.
 
