@@ -5,7 +5,7 @@ import AddressAutocomplete, { AddressAutocompleteRef } from '@/components/ui/Add
 import { apiService } from '@/services/api';
 import type { AddressSuggestion } from '@/types';
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB (photos are compressed on backend)
 const MAX_PHOTOS = 3;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
@@ -429,7 +429,10 @@ export default function SubmitLocationPage() {
                               <span className="font-semibold">Click to upload</span> or drag and drop
                             </p>
                             <p className="text-xs text-forest-500">
-                              PNG, JPG, WEBP, or HEIC (iPhone), max 5MB each
+                              PNG, JPG, WEBP, or HEIC (iPhone), max 20MB each
+                            </p>
+                            <p className="text-xs text-forest-400 mt-1">
+                              Large photos are automatically compressed
                             </p>
                             <p className="text-xs text-forest-400 mt-1">
                               Up to {MAX_PHOTOS - photos.length} {photos.length === MAX_PHOTOS - 1 ? 'photo' : 'photos'} remaining
