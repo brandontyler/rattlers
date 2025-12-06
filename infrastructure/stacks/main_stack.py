@@ -525,6 +525,46 @@ class ChristmasLightsStack(Stack):
             )
         )
 
+        # User profile function
+        user_env = {
+            **common_env,
+            "USER_POOL_ID": self.user_pool.user_pool_id,
+        }
+        self.get_user_profile_fn = lambda_.Function(
+            self,
+            "GetUserProfileFunction",
+            handler="get_profile.handler",
+            code=lambda_.Code.from_asset("../backend/functions/users"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=user_env,
+            layers=[self.common_layer],
+        )
+        self.suggestions_table.grant_read_data(self.get_user_profile_fn)
+        # Grant Cognito permissions to get user details
+        self.get_user_profile_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["cognito-idp:AdminGetUser"],
+                resources=[self.user_pool.user_pool_arn],
+            )
+        )
+
+        # User submissions function
+        self.get_user_submissions_fn = lambda_.Function(
+            self,
+            "GetUserSubmissionsFunction",
+            handler="get_submissions.handler",
+            code=lambda_.Code.from_asset("../backend/functions/users"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.suggestions_table.grant_read_data(self.get_user_submissions_fn)
+        self.photos_bucket.grant_read(self.get_user_submissions_fn)
+
         # Store functions for API Gateway integration
         self.lambda_functions = {
             "get_locations": self.get_locations_fn,
@@ -540,6 +580,8 @@ class ChristmasLightsStack(Stack):
             "reject_suggestion": self.reject_suggestion_fn,
             "get_upload_url": self.get_upload_url_fn,
             "generate_route_pdf": self.generate_route_pdf_fn,
+            "get_user_profile": self.get_user_profile_fn,
+            "get_user_submissions": self.get_user_submissions_fn,
         }
 
     def create_api_gateway(self):
@@ -728,6 +770,27 @@ class ChristmasLightsStack(Stack):
         generate_pdf.add_method(
             "POST",
             apigw.LambdaIntegration(self.generate_route_pdf_fn),
+        )
+
+        # /users endpoints
+        users = v1.add_resource("users")
+
+        # /users/profile endpoint (authenticated)
+        profile = users.add_resource("profile")
+        profile.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.get_user_profile_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # /users/submissions endpoint (authenticated)
+        submissions = users.add_resource("submissions")
+        submissions.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.get_user_submissions_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
         )
 
     def create_cloudfront_distribution(self):
