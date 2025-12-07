@@ -35,6 +35,8 @@ backend/
 - **submit_feedback.py** - `POST /locations/{id}/feedback` - Like/rate location (auth required)
 - **get_feedback_status.py** - `GET /locations/{id}/feedback/status` - Get user's feedback (auth required)
 - **report_inactive.py** - `POST /locations/{id}/report` - Report inactive (auth required)
+- **toggle_favorite.py** - `POST /locations/{id}/favorite` - Toggle favorite status (auth required)
+- **get_favorites.py** - `GET /users/favorites` - Get user's saved favorites (auth required)
 
 ### Suggestions
 - **submit_suggestion.py** - `POST /suggestions` - Submit suggestion (auth required)
