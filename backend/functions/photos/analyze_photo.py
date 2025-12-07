@@ -345,6 +345,28 @@ def deduplicate_tags_semantically(tags: list[str]) -> list[str]:
     return sorted(result)  # Sort for consistency
 
 
+def generate_description_from_tags(tags: list[str]) -> str:
+    """Generate a natural description from a list of decoration tags.
+
+    Examples:
+    - ["inflatable snowmen", "white reindeer figures"]
+      -> "Display features inflatable snowmen and white reindeer figures."
+    - ["nativity scene", "wreaths", "string lights"]
+      -> "Display features nativity scene, wreaths, and string lights."
+    """
+    if not tags:
+        return ""
+
+    if len(tags) == 1:
+        return f"Display features {tags[0]}."
+    elif len(tags) == 2:
+        return f"Display features {tags[0]} and {tags[1]}."
+    else:
+        # Join all but last with commas, then add "and" before the last item
+        items = ", ".join(tags[:-1])
+        return f"Display features {items}, and {tags[-1]}."
+
+
 def update_suggestion_tags(suggestion_id: str, photo_key: str, analysis: dict):
     """Update suggestion record with photo analysis tags, categories, and theme."""
 
@@ -385,12 +407,21 @@ def update_suggestion_tags(suggestion_id: str, photo_key: str, analysis: dict):
             update_expr += ", theme = :theme"
             expr_values[":theme"] = theme
 
-        # Add AI description if not already set and this is a valid display
-        if analysis.get("is_christmas_display") and analysis.get("description"):
-            if not suggestion.get("aiDescription"):
-                update_expr += ", aiDescription = :desc, displayQuality = :quality"
-                expr_values[":desc"] = analysis["description"]
-                expr_values[":quality"] = analysis.get("display_quality", "moderate")
+        # Generate comprehensive description from merged tags (combines all photos)
+        # This ensures the description reflects decorations visible across ALL submitted photos
+        if analysis.get("is_christmas_display") and merged_tags:
+            comprehensive_description = generate_description_from_tags(merged_tags)
+            update_expr += ", aiDescription = :desc"
+            expr_values[":desc"] = comprehensive_description
+
+            # Track the highest quality level across all photos
+            quality_levels = {"minimal": 1, "moderate": 2, "impressive": 3, "spectacular": 4}
+            new_quality = analysis.get("display_quality", "moderate")
+            existing_quality = suggestion.get("displayQuality", "minimal")
+
+            if quality_levels.get(new_quality, 0) > quality_levels.get(existing_quality, 0):
+                update_expr += ", displayQuality = :quality"
+                expr_values[":quality"] = new_quality
 
         # Flag if not a Christmas display
         if not analysis.get("is_christmas_display"):
