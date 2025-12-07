@@ -13,6 +13,12 @@ export interface Location {
   updatedAt?: string;
   googleMapsUrl?: string;
   createdBy?: string;
+  // AI-generated fields
+  decorations?: string[];  // Specific items like "Grinch inflatable", "nativity scene"
+  categories?: string[];   // Broad categories like "inflatables", "string lights"
+  theme?: string;          // Display theme like "Grinch", "Star Wars", "traditional"
+  aiDescription?: string;  // AI-generated description
+  displayQuality?: 'minimal' | 'moderate' | 'impressive' | 'spectacular';
 }
 
 export interface LocationsResponse {
