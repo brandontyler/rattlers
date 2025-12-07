@@ -415,6 +415,343 @@ backend/functions/
 
 ---
 
+## Strategy 3: Enhanced Leaderboards & Achievement Display
+
+### 3.1 User Leaderboard Categories
+
+Display multiple leaderboard views to recognize different types of contributions:
+
+| Leaderboard | Metric | Description |
+|-------------|--------|-------------|
+| **Top Submitters** | Approved submissions count | Users who've added the most locations |
+| **Most Liked Locations** | Likes on individual location | Shows the best single finds |
+| **Total Likes Earned** | Sum of likes across all submissions | Overall popularity of contributions |
+| **Spectacular Finders** | Count of "spectacular" rated finds | Quality over quantity |
+| **Photo Champions** | Submissions with 3+ quality photos | Visual contributors |
+
+#### Leaderboard UI Concept
+```
+┌─────────────────────────────────────────────────────────┐
+│ 🏆 SEASON LEADERBOARD (2024-2025)                       │
+├─────────────────────────────────────────────────────────┤
+│ [Top Submitters] [Most Liked] [Total Likes] [Photos]   │
+├─────────────────────────────────────────────────────────┤
+│ 1. 👑 @LightHunterDFW        47 locations   🔥 +5      │
+│ 2. ⭐ @ChristmasCarol         38 locations   🔥 +12     │
+│ 3. ⭐ @DadLightsTour          31 locations   📈 +3      │
+│ 4.    @HolidayExplorer       28 locations             │
+│ 5.    @PlanoLights           24 locations             │
+│ ...                                                     │
+│ 47.   @YourUsername          8 locations    ← You!    │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 3.2 Achievement & Badge Display System
+
+#### Where Badges Are Shown
+
+| Location | Display Type | Purpose |
+|----------|-------------|---------|
+| **User Profile** | Full badge gallery with dates earned | Personal achievement showcase |
+| **Location Cards** | Top 3 badges as mini icons | Credibility indicator |
+| **Leaderboard** | Badge count + top badge | Quick status recognition |
+| **Comments** | Single "primary" badge | Conversation context |
+| **Shareable Card** | Export profile as image | Social media sharing |
+
+#### Achievement Score System
+
+Calculate a single "Achievement Score" that represents overall contribution value:
+
+```
+Achievement Score =
+    (Approved Submissions × 10) +
+    (Total Likes Received × 2) +
+    (Badges Earned × 25) +
+    (Spectacular Finds × 15) +
+    (Photos Uploaded × 1) +
+    (Seasons Active × 50)
+```
+
+#### Score Tiers
+| Score Range | Title | Perks |
+|-------------|-------|-------|
+| 0-99 | Newcomer | Basic features |
+| 100-299 | Contributor | Custom avatar frame |
+| 300-599 | Enthusiast | Featured in weekly digest |
+| 600-999 | Expert | Early access to features |
+| 1000+ | Legend | Mod tools, direct contact |
+
+#### Profile Card (Shareable)
+```
+┌─────────────────────────────────────────┐
+│  🎄 CHRISTMAS LIGHTS FINDER 🎄          │
+│                                          │
+│     @LightHunterDFW                     │
+│     ⭐ Achievement Score: 847           │
+│     🏆 Title: Expert                    │
+│                                          │
+│  📍 47 Locations  ❤️ 234 Likes          │
+│                                          │
+│  [🏅][📸][🌟][🔦][🎯]                   │
+│  5 badges earned                        │
+│                                          │
+│  "Finding the best displays in DFW!"    │
+│                                          │
+│  rattlers.app/@LightHunterDFW           │
+└─────────────────────────────────────────┘
+```
+
+Users can export this card as an image to share on social media.
+
+---
+
+## Strategy 4: AWS Bedrock Agents for Admin Automation
+
+### Core Principle
+Use AWS Bedrock Agents to automate repetitive admin tasks, reducing manual workload while maintaining quality control.
+
+### 4.1 Auto-Approval/Denial Agent
+
+An agent that reviews new location submissions and makes approval decisions.
+
+#### Agent Capabilities
+- Analyze submitted photos for Christmas lights presence
+- Validate address exists and is geocodable
+- Check for duplicates against existing database
+- Evaluate description quality and completeness
+- Score confidence level for auto-approval
+
+#### Decision Matrix
+| Confidence | Photos Valid | Address Valid | No Duplicate | Action |
+|------------|-------------|---------------|--------------|--------|
+| High (90%+) | ✓ | ✓ | ✓ | Auto-approve |
+| Medium (70-89%) | ✓ | ✓ | ✓ | Queue for quick review |
+| Low (<70%) | ? | ? | ? | Manual review required |
+| Any | ✗ | - | - | Auto-reject with reason |
+| Any | - | ✗ | - | Request address correction |
+| Any | - | - | ✗ | Flag as potential duplicate |
+
+#### Agent Workflow
+```
+┌─────────────────────────────────────────────────────────┐
+│              SUBMISSION AUTO-REVIEW AGENT               │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  1. NEW SUBMISSION RECEIVED                             │
+│     └─> Trigger: DynamoDB Stream / EventBridge          │
+│                                                          │
+│  2. PHOTO ANALYSIS (Bedrock Claude Vision)              │
+│     ├─> Are there Christmas lights visible?             │
+│     ├─> Quality score (blur, lighting, composition)     │
+│     └─> Extract visible decorations (inflatables, etc)  │
+│                                                          │
+│  3. ADDRESS VALIDATION                                   │
+│     ├─> Geocode address                                 │
+│     ├─> Verify residential/valid location               │
+│     └─> Cross-check with Street View if available       │
+│                                                          │
+│  4. DUPLICATE CHECK                                      │
+│     ├─> Fuzzy address matching                          │
+│     ├─> Geo-proximity check (within 50m)                │
+│     └─> Photo similarity (future: perceptual hash)      │
+│                                                          │
+│  5. DECISION                                             │
+│     ├─> Auto-approve → Add to active locations          │
+│     ├─> Quick review → Admin queue (easy approve)       │
+│     ├─> Manual review → Admin queue (needs attention)   │
+│     └─> Auto-reject → Notify user with reason           │
+│                                                          │
+│  6. NOTIFICATION                                         │
+│     └─> Email user with decision & next steps           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 4.2 Social Media Discovery Agent
+
+An agent that proactively finds new Christmas light locations by monitoring social media.
+
+#### Target Sources
+| Platform | Approach | Data Points |
+|----------|----------|-------------|
+| **Facebook Groups** | Monitor "DFW Christmas Lights" public groups | Posts with addresses, photos, recommendations |
+| **Facebook Events** | Search for drive-through and neighborhood events | Event locations, dates, descriptions |
+| **Instagram** | Geotag searches, hashtag monitoring | #dfwchristmaslights, location-tagged posts |
+| **Nextdoor** | Public neighborhood posts (if accessible) | "Check out this display" posts |
+| **Reddit** | r/dallas, r/plano, r/dfw threads | Annual "best lights" threads |
+
+#### Agent Workflow
+```
+┌─────────────────────────────────────────────────────────┐
+│            SOCIAL MEDIA DISCOVERY AGENT                  │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  1. SCHEDULED CRAWL (Daily during season)               │
+│     └─> EventBridge: 6am, 6pm Nov 15 - Jan 5            │
+│                                                          │
+│  2. SOURCE MONITORING                                    │
+│     ├─> Facebook: API / public page scraping            │
+│     ├─> Instagram: Hashtag & location search            │
+│     └─> Reddit: API search for keywords                 │
+│                                                          │
+│  3. CONTENT EXTRACTION (Bedrock Claude)                 │
+│     ├─> Is this about a Christmas light display?        │
+│     ├─> Extract address (explicit or implied)           │
+│     ├─> Extract description, hours, dates               │
+│     ├─> Download/reference photos                       │
+│     └─> Sentiment: positive recommendation?             │
+│                                                          │
+│  4. VALIDATION                                           │
+│     ├─> Geocode extracted address                       │
+│     ├─> Verify not already in database                  │
+│     └─> Score confidence level                          │
+│                                                          │
+│  5. OUTPUT                                               │
+│     ├─> High confidence → Admin quick-add queue         │
+│     ├─> Medium confidence → Admin review queue          │
+│     └─> Store source URL for attribution                │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### Sample Extraction Prompt
+```
+Analyze this social media post about Christmas lights:
+
+"{post_content}"
+
+Extract:
+1. Is this about a specific Christmas light display location? (yes/no)
+2. Street address (if mentioned or can be inferred)
+3. City/neighborhood
+4. Description of the display
+5. Any dates/hours mentioned
+6. Confidence score (high/medium/low)
+7. Why would someone visit this display?
+
+Return JSON format.
+```
+
+### 4.3 Location Cleanup Agent
+
+An agent that maintains quality of existing locations in the database.
+
+#### Cleanup Tasks
+| Task | Trigger | Action |
+|------|---------|--------|
+| **Description Enhancement** | Missing/short description | Generate AI description from photos |
+| **Tag Standardization** | Inconsistent decoration tags | Normalize to standard tag list |
+| **Photo Quality Check** | Low-quality or missing photos | Flag for user re-upload request |
+| **Duplicate Merge** | Similar addresses found | Suggest merge, combine data |
+| **Stale Detection** | No activity in 2+ seasons | Mark for verification |
+| **Address Cleanup** | Formatting inconsistencies | Standardize to USPS format |
+
+#### Agent Workflow
+```
+┌─────────────────────────────────────────────────────────┐
+│              LOCATION CLEANUP AGENT                      │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  1. SCHEDULED SWEEP (Weekly during off-season)          │
+│     └─> EventBridge: Sundays 3am                        │
+│                                                          │
+│  2. BATCH ANALYSIS                                       │
+│     ├─> Fetch locations needing attention               │
+│     │   (missing desc, old photos, no tags)             │
+│     └─> Prioritize by user traffic/popularity           │
+│                                                          │
+│  3. ENHANCEMENT TASKS (Bedrock Claude)                  │
+│     ├─> Generate descriptions from photos               │
+│     ├─> Extract decoration tags from images             │
+│     ├─> Assess photo quality (blur, lighting)           │
+│     └─> Standardize address formatting                  │
+│                                                          │
+│  4. QUALITY CHECKS                                       │
+│     ├─> Flag potential duplicates                       │
+│     ├─> Identify stale locations (2+ years inactive)    │
+│     ├─> Check for inappropriate content                 │
+│     └─> Verify coordinates match address                │
+│                                                          │
+│  5. ACTIONS                                              │
+│     ├─> Auto-fix: Address formatting, tag cleanup       │
+│     ├─> Admin queue: Duplicates, quality issues         │
+│     ├─> User notification: Photo re-upload requests     │
+│     └─> Archive: Confirmed inactive locations           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### Description Generation Prompt
+```
+You are enhancing a Christmas light display listing.
+
+Location: {address}
+Current Description: "{current_description}" (may be empty)
+Photos: [attached]
+Decoration Tags: {tags}
+User Reviews: "{reviews}"
+
+Generate:
+1. A compelling 2-3 sentence description that would make a family want to visit
+2. Key features to highlight (music sync, walk-through, etc.)
+3. Best time to visit (if known)
+4. Any missing decoration tags visible in photos
+
+Keep the tone warm, family-friendly, and enthusiastic about the holiday spirit.
+```
+
+### 4.4 AWS Architecture for Agents
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    AGENT INFRASTRUCTURE                         │
+├────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────┐     ┌──────────────────────────────────────┐  │
+│  │ EventBridge │────>│          STEP FUNCTIONS              │  │
+│  │ (Scheduler) │     │  (Orchestrate multi-step workflows)  │  │
+│  └─────────────┘     └──────────────┬───────────────────────┘  │
+│                                      │                          │
+│        ┌─────────────────────────────┼─────────────────────┐   │
+│        │                             │                     │   │
+│        v                             v                     v   │
+│  ┌──────────────┐         ┌──────────────┐        ┌───────────┐│
+│  │ AUTO-REVIEW  │         │  DISCOVERY   │        │  CLEANUP  ││
+│  │    AGENT     │         │    AGENT     │        │   AGENT   ││
+│  │   (Lambda)   │         │   (Lambda)   │        │  (Lambda) ││
+│  └──────┬───────┘         └──────┬───────┘        └─────┬─────┘│
+│         │                        │                      │      │
+│         └────────────┬───────────┴──────────────────────┘      │
+│                      │                                          │
+│                      v                                          │
+│         ┌─────────────────────────┐                            │
+│         │     BEDROCK CLAUDE      │                            │
+│         │  (Vision + Text + Tool  │                            │
+│         │        Calling)         │                            │
+│         └─────────────────────────┘                            │
+│                      │                                          │
+│         ┌────────────┴────────────┐                            │
+│         v                         v                            │
+│  ┌──────────────┐         ┌──────────────┐                     │
+│  │   DynamoDB   │         │     SNS      │                     │
+│  │ (Locations,  │         │  (Admin      │                     │
+│  │  Suggestions)│         │  Alerts)     │                     │
+│  └──────────────┘         └──────────────┘                     │
+│                                                                  │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### 4.5 Agent Cost Estimates (Monthly)
+
+| Agent | Frequency | Bedrock Usage | Lambda | Total |
+|-------|-----------|---------------|--------|-------|
+| Auto-Review | Per submission (~100/mo) | ~$5 | ~$1 | ~$6 |
+| Discovery | 2x daily, 60 days | ~$15 | ~$3 | ~$18 |
+| Cleanup | Weekly sweep | ~$8 | ~$2 | ~$10 |
+| **Total** | | | | **~$34/month** |
+
+---
+
 ## Open Questions
 
 1. **Facebook API Access**: Do we need official API access or can we use public data?
@@ -422,6 +759,8 @@ backend/functions/
 3. **Rate Limiting**: How aggressive can we scrape without getting blocked?
 4. **Seasonal Timing**: When to start/stop automation each year?
 5. **Privacy**: How do we handle when homeowners want to opt out?
+6. **Agent Autonomy**: What confidence threshold for full auto-approval vs human review?
+7. **Badge Inflation**: How to keep achievement scores meaningful over multiple seasons?
 
 ---
 
