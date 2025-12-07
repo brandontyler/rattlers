@@ -60,7 +60,11 @@ src/
 - ✅ Admin dashboard (approve/reject suggestions)
 - ✅ Route planner (up to 15 stops, optimize, reorder)
 - ✅ PDF route generation with QR codes
-- ⏳ User feedback system (likes/ratings) - Backend ready, UI pending
+- ✅ User feedback system (likes, favorites, reports)
+- ✅ Photo uploads with HEIC/HEIF support
+- ✅ Photo gallery with carousel and lightbox
+- ✅ User profiles with submission history
+- ✅ Location popups with full details (photos, tags, actions)
 
 ## Tech Stack
 
