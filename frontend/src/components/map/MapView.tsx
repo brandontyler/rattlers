@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createRoot } from 'react-dom/client';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { Icon, LatLngTuple } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -7,6 +8,10 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
 import { RouteMapLayer } from '@/components/route';
 import type { Location } from '@/types';
+import LocationPopup from './LocationPopup';
+import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { RouteProvider } from '@/contexts/RouteContext';
 
 // Fix for default marker icons in React Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -81,19 +86,31 @@ function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; 
       },
     });
 
+    const roots: Array<ReturnType<typeof createRoot>> = [];
+
     locations.forEach((location) => {
       const marker = L.marker([location.lat, location.lng], { icon: customIcon });
-      
-      // Create popup content
+
+      // Create popup content container
       const popupContent = document.createElement('div');
-      popupContent.innerHTML = `
-        <div class="p-2 min-w-[200px]">
-          <h3 class="font-semibold text-forest-900 mb-1">${location.address}</h3>
-          <a href="/location/${location.id}" class="text-burgundy-600 text-sm hover:underline mt-2 inline-block">View Details →</a>
-        </div>
-      `;
-      
-      marker.bindPopup(popupContent);
+
+      // Create a React root and render LocationPopup
+      const root = createRoot(popupContent);
+      roots.push(root);
+      root.render(
+        <BrowserRouter>
+          <AuthProvider>
+            <RouteProvider>
+              <LocationPopup location={location} />
+            </RouteProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      );
+
+      marker.bindPopup(popupContent, {
+        maxWidth: 350,
+        minWidth: 280,
+      });
       
       if (onLocationClick) {
         marker.on('click', () => onLocationClick(location));
@@ -105,6 +122,8 @@ function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; 
     map.addLayer(cluster);
 
     return () => {
+      // Cleanup React roots before removing layer
+      roots.forEach((root) => root.unmount());
       map.removeLayer(cluster);
     };
   }, [map, locations, onLocationClick]);
