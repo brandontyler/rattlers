@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api';
 import type { UserProfile, UserSubmission, Location } from '@/types';
 import Badge from '@/components/ui/Badge';
+import BadgeDisplay from '@/components/badges/BadgeDisplay';
 
 export default function ProfilePage() {
   const { isAuthenticated } = useAuth();
@@ -166,8 +167,11 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* Badges Section */}
+      <BadgeDisplay approvedSubmissions={profile.stats.approvedSubmissions} />
+
       {/* Tabs */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="bg-white rounded-lg shadow-md overflow-hidden mt-8">
         <div className="flex border-b border-forest-200">
           <button
             onClick={() => setActiveTab('favorites')}
