@@ -232,12 +232,14 @@ def analyze_photo(bucket: str, key: str) -> dict:
                         "type": "text",
                         "text": f"""Analyze this Christmas display photo.
 
-**DECORATIONS** - List 5-10 unique items MAX. Use short names:
+**DECORATIONS** - List 5-10 unique items MAX. Use short, specific names:
 - STRICT: No duplicates or variations. Pick ONE name per item type.
+- STRICT: Be specific about TYPE (inflatable/blow mold/figure/wooden) + SUBJECT (snowman/reindeer/etc)
 - BAD: "wreaths", "Christmas wreaths" (duplicate)
-- BAD: "JOY sign", "JOY LOVE PEACE signs" (pick one)
-- BAD: "mailbox cover", "decorative mailbox cover" (pick one)
-- GOOD: "wreaths", "word signs", "inflatable snowmen", "reindeer figures"
+- BAD: "snowman figures", "snowmen" (duplicate - pick one)
+- BAD: "JOY sign", "word signs" (too generic - pick specific)
+- GOOD: "inflatable snowmen", "white reindeer figures", "JOY signs", "nativity scene"
+- GOOD: "gingerbread blow molds", not just "gingerbread decorations"
 
 **CATEGORIES** - Select from: {', '.join(DECORATION_CATEGORIES)}
 
@@ -264,6 +266,85 @@ Use the record_photo_analysis tool.""",
     return {"decorations": [], "categories": [], "theme": None, "description": "", "display_quality": "moderate", "is_christmas_display": True}
 
 
+def deduplicate_tags_semantically(tags: list[str]) -> list[str]:
+    """Remove semantic duplicates, keeping more specific/descriptive tags.
+
+    Examples:
+    - ["snowman figures", "inflatable snowmen"] -> ["inflatable snowmen"]
+    - ["reindeer figures", "white reindeer figures"] -> ["white reindeer figures"]
+    - ["word signs", "JOY signs"] -> ["word signs", "JOY signs"]  # Different enough
+    - ["gingerbread inflatables", "inflatable snowmen"] -> both kept  # Different items
+    """
+    if len(tags) <= 1:
+        return tags
+
+    tags_to_remove = set()
+
+    for i, tag_i in enumerate(tags):
+        if tag_i in tags_to_remove:
+            continue
+
+        for j, tag_j in enumerate(tags):
+            if i >= j or tag_j in tags_to_remove:
+                continue
+
+            words_i = set(tag_i.lower().split())
+            words_j = set(tag_j.lower().split())
+
+            # Strategy 1: If one tag's words are a proper subset of another, remove the less specific one
+            # E.g., "reindeer figures" ⊂ "white reindeer figures"
+            if words_i < words_j:  # i is proper subset of j
+                tags_to_remove.add(tag_i)
+                break
+            elif words_j < words_i:  # j is proper subset of i
+                tags_to_remove.add(tag_j)
+                continue
+
+            # Strategy 2: Check for plural/singular variations of the SAME item
+            # Only consider stem matching if the tags are otherwise similar (share other words or are short)
+            overlap = words_i & words_j
+            min_words = min(len(words_i), len(words_j))
+
+            # Only apply stem matching if:
+            # - Tags share at least one word already (some overlap), OR
+            # - Both tags are 2 words or less (short tags more likely to be variations)
+            if overlap or (len(words_i) <= 2 and len(words_j) <= 2):
+                # Find stem matches (e.g., "snowman" vs "snowmen")
+                # Only check words that don't already have exact matches
+                unmatched_i = words_i - overlap
+                unmatched_j = words_j - overlap
+
+                stem_matches = 0
+                for word_i in unmatched_i:
+                    for word_j in unmatched_j:
+                        if len(word_i) >= 4 and len(word_j) >= 4:
+                            min_len = min(len(word_i), len(word_j))
+                            prefix_len = max(4, int(min_len * 0.7))
+                            if word_i[:prefix_len] == word_j[:prefix_len]:
+                                stem_matches += 1
+                                break
+
+                # If we found stem matches AND tags are very similar, consider them duplicates
+                # Use conservative threshold to avoid false positives:
+                # - Don't merge "penguin figures" vs "snowman figures" (only share "figures")
+                # - Don't merge "inflatable snowmen" vs "gingerbread inflatables" (different objects)
+                # - DO merge "word signs" vs "WORD SIGNS" (same thing, case variation)
+                total_matches = len(overlap) + stem_matches
+                similarity_ratio = total_matches / min_words
+
+                # Conservative: require 100% of shorter tag's words to match
+                if similarity_ratio == 1.0 and total_matches >= 2:
+                    # Keep the longer/more descriptive tag
+                    if len(tag_i) > len(tag_j):
+                        tags_to_remove.add(tag_j)
+                    else:
+                        tags_to_remove.add(tag_i)
+                        break
+
+    result = [tag for tag in tags if tag not in tags_to_remove]
+    return sorted(result)  # Sort for consistency
+
+
 def update_suggestion_tags(suggestion_id: str, photo_key: str, analysis: dict):
     """Update suggestion record with photo analysis tags, categories, and theme."""
 
@@ -282,6 +363,9 @@ def update_suggestion_tags(suggestion_id: str, photo_key: str, analysis: dict):
         existing_tags = set(suggestion.get("detectedTags", []))
         new_tags = set(analysis.get("decorations", []))
         merged_tags = list(existing_tags | new_tags)
+
+        # Apply semantic deduplication to remove redundant variations
+        merged_tags = deduplicate_tags_semantically(merged_tags)
 
         # Merge categories with existing (broad categories for filtering)
         existing_categories = set(suggestion.get("categories", []))
