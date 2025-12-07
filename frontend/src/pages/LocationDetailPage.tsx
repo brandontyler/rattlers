@@ -18,6 +18,7 @@ export default function LocationDetailPage() {
   const [isFavoriting, setIsFavoriting] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showLightbox, setShowLightbox] = useState(false);
+  const [showCopied, setShowCopied] = useState(false);
 
   // Refs for bulletproof click protection (state updates are async, refs are sync)
   const isLikingRef = useRef(false);
@@ -129,10 +130,10 @@ export default function LocationDetailPage() {
 
   const handleReport = async () => {
     if (!isAuthenticated || isReportingRef.current || hasReported) return;
-    
+
     isReportingRef.current = true;
     setIsReporting(true);
-    
+
     try {
       await apiService.reportInactive(location.id, { reason: 'No lights visible' });
       setHasReported(true);
@@ -142,6 +143,29 @@ export default function LocationDetailPage() {
       isReportingRef.current = false;
       setIsReporting(false);
     }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setShowCopied(true);
+      setTimeout(() => setShowCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
+  };
+
+  const handleShareTwitter = () => {
+    const text = `Check out this amazing Christmas light display! ${location.address}`;
+    const url = window.location.href;
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+    window.open(twitterUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleShareFacebook = () => {
+    const url = window.location.href;
+    const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+    window.open(facebookUrl, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -462,6 +486,53 @@ export default function LocationDetailPage() {
                       </div>
                     </div>
                   )}
+                </div>
+              </Card>
+
+              {/* Share Section */}
+              <Card>
+                <h3 className="font-display text-lg font-semibold text-forest-900 mb-4">
+                  Share This Display
+                </h3>
+                <div className="space-y-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    fullWidth
+                    onClick={handleCopyLink}
+                    className="relative"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    {showCopied ? 'Copied!' : 'Copy Link'}
+                  </Button>
+
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    fullWidth
+                    onClick={handleShareTwitter}
+                    className="hover:bg-[#1DA1F2] hover:text-white hover:border-[#1DA1F2]"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                    </svg>
+                    Share on X
+                  </Button>
+
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    fullWidth
+                    onClick={handleShareFacebook}
+                    className="hover:bg-[#1877F2] hover:text-white hover:border-[#1877F2]"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                    </svg>
+                    Share on Facebook
+                  </Button>
                 </div>
               </Card>
 
