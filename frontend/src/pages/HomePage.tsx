@@ -1,15 +1,62 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MapView } from '@/components/map';
 import { Button, Card, Input, Select, Badge } from '@/components/ui';
 import { RoutePanel } from '@/components/route';
 import { useLocations } from '@/hooks';
 
+// Decoration categories for filtering
+const DECORATION_CATEGORIES = [
+  'string lights',
+  'inflatables',
+  'blow molds',
+  'yard figures',
+  'wooden cutouts',
+  'metal silhouettes',
+  'nativity',
+  'animated',
+  'music synchronized',
+  'projections',
+  'themed display',
+  'traditional',
+  'wreaths and garland',
+];
+
 export default function HomePage() {
   const { data: locations = [], isLoading: loading } = useLocations();
   const [searchQuery, setSearchQuery] = useState('');
-  const [ratingFilter, setRatingFilter] = useState('');
-  const [radiusFilter, setRadiusFilter] = useState('10');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [qualityFilter, setQualityFilter] = useState('');
+
+  // Filter locations based on search and filters
+  const filteredLocations = useMemo(() => {
+    return locations.filter((loc) => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          loc.address.toLowerCase().includes(query) ||
+          (loc.description || '').toLowerCase().includes(query) ||
+          (loc.aiDescription || '').toLowerCase().includes(query) ||
+          (loc.decorations || []).some((d) => d.toLowerCase().includes(query)) ||
+          (loc.categories || []).some((c) => c.toLowerCase().includes(query)) ||
+          (loc.theme || '').toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
+
+      // Category filter
+      if (categoryFilter) {
+        if (!(loc.categories || []).includes(categoryFilter)) return false;
+      }
+
+      // Quality filter
+      if (qualityFilter) {
+        if (loc.displayQuality !== qualityFilter) return false;
+      }
+
+      return true;
+    });
+  }, [locations, searchQuery, categoryFilter, qualityFilter]);
 
   return (
     <div className="animate-fade-in">
@@ -105,32 +152,51 @@ export default function HomePage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input
                 type="text"
-                placeholder="Search by address or neighborhood..."
+                placeholder="Search: snowmen, nativity, Grinch..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
 
               <Select
-                value={ratingFilter}
-                onChange={(e) => setRatingFilter(e.target.value)}
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
               >
-                <option value="">All Ratings</option>
-                <option value="3">3+ Stars</option>
-                <option value="4">4+ Stars</option>
-                <option value="4.5">4.5+ Stars</option>
+                <option value="">All Categories</option>
+                {DECORATION_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  </option>
+                ))}
               </Select>
 
               <Select
-                value={radiusFilter}
-                onChange={(e) => setRadiusFilter(e.target.value)}
+                value={qualityFilter}
+                onChange={(e) => setQualityFilter(e.target.value)}
               >
-                <option value="5">Within 5 miles</option>
-                <option value="10">Within 10 miles</option>
-                <option value="15">Within 15 miles</option>
-                <option value="20">Within 20 miles</option>
-                <option value="30">Within 30 miles</option>
+                <option value="">All Quality Levels</option>
+                <option value="spectacular">Spectacular (Must-see)</option>
+                <option value="impressive">Impressive</option>
+                <option value="moderate">Moderate</option>
+                <option value="minimal">Minimal</option>
               </Select>
             </div>
+
+            {/* Active filters indicator */}
+            {(searchQuery || categoryFilter || qualityFilter) && (
+              <div className="mt-4 flex items-center gap-2 text-sm text-forest-600">
+                <span>Showing {filteredLocations.length} of {locations.length} displays</span>
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setCategoryFilter('');
+                    setQualityFilter('');
+                  }}
+                  className="text-burgundy-600 hover:text-burgundy-700 underline"
+                >
+                  Clear filters
+                </button>
+              </div>
+            )}
           </Card>
 
           {/* Interactive Map */}
@@ -144,7 +210,7 @@ export default function HomePage() {
               </div>
             ) : (
               <MapView
-                locations={locations}
+                locations={filteredLocations}
                 height="650px"
                 onLocationClick={(location) => {
                   console.log('Location clicked:', location);

@@ -176,11 +176,30 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
           {location.address}
         </h3>
 
-        {/* Description preview */}
-        {location.description && (
-          <p className="text-sm text-forest-600 mb-3 line-clamp-2">
-            {location.description}
+        {/* AI Description or user description preview */}
+        {(location.aiDescription || location.description) && (
+          <p className="text-sm text-forest-600 mb-2 line-clamp-2">
+            {location.aiDescription || location.description}
           </p>
+        )}
+
+        {/* Tags preview (show first 3 decorations) */}
+        {location.decorations && location.decorations.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-3">
+            {location.decorations.slice(0, 3).map((tag, index) => (
+              <span
+                key={index}
+                className="inline-flex items-center px-2 py-0.5 rounded-full bg-cream-100 text-forest-700 text-xs border border-forest-200"
+              >
+                {tag}
+              </span>
+            ))}
+            {location.decorations.length > 3 && (
+              <span className="text-xs text-forest-500">
+                +{location.decorations.length - 3} more
+              </span>
+            )}
+          </div>
         )}
 
         {/* Stats */}

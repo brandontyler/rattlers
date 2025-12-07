@@ -119,6 +119,19 @@ def handler(event, context):
             "createdAt": now,
             "createdBy": suggestion.get("submittedBy"),
         }
+
+        # Copy AI-generated fields from suggestion if they exist
+        if suggestion.get("detectedTags"):
+            location_item["decorations"] = suggestion["detectedTags"]
+        if suggestion.get("categories"):
+            location_item["categories"] = suggestion["categories"]
+        if suggestion.get("theme"):
+            location_item["theme"] = suggestion["theme"]
+        if suggestion.get("aiDescription"):
+            location_item["aiDescription"] = suggestion["aiDescription"]
+        if suggestion.get("displayQuality"):
+            location_item["displayQuality"] = suggestion["displayQuality"]
+
         locations_table.put_item(Item=location_item)
 
         # Update suggestion status

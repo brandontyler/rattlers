@@ -322,10 +322,92 @@ export default function LocationDetailPage() {
                 <h2 className="font-display text-2xl font-semibold text-forest-900 mb-4">
                   About This Display
                 </h2>
-                <p className="text-forest-700 leading-relaxed whitespace-pre-line">
-                  {location.description || 'No description available yet. Visit this display and share your experience!'}
-                </p>
+                {/* AI Description */}
+                {location.aiDescription && (
+                  <p className="text-forest-700 leading-relaxed mb-4">
+                    {location.aiDescription}
+                  </p>
+                )}
+                {/* User Description */}
+                {location.description && location.description !== location.aiDescription && (
+                  <p className="text-forest-600 leading-relaxed whitespace-pre-line text-sm italic">
+                    "{location.description}"
+                  </p>
+                )}
+                {!location.aiDescription && !location.description && (
+                  <p className="text-forest-600">
+                    No description available yet. Visit this display and share your experience!
+                  </p>
+                )}
               </Card>
+
+              {/* Decorations & Features */}
+              {(location.decorations?.length || location.categories?.length || location.theme || location.displayQuality) && (
+                <Card>
+                  <h2 className="font-display text-2xl font-semibold text-forest-900 mb-4">
+                    What You'll See
+                  </h2>
+
+                  {/* Display Quality Badge */}
+                  {location.displayQuality && (
+                    <div className="mb-4">
+                      <Badge variant={
+                        location.displayQuality === 'spectacular' ? 'gold' :
+                        location.displayQuality === 'impressive' ? 'forest' :
+                        'burgundy'
+                      }>
+                        {location.displayQuality === 'spectacular' && '⭐ '}
+                        {location.displayQuality === 'impressive' && '✨ '}
+                        {location.displayQuality.charAt(0).toUpperCase() + location.displayQuality.slice(1)} Display
+                      </Badge>
+                    </div>
+                  )}
+
+                  {/* Theme */}
+                  {location.theme && location.theme !== 'traditional' && (
+                    <div className="mb-4">
+                      <h3 className="text-sm font-medium text-forest-600 mb-2">Theme</h3>
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-gold-100 text-gold-800 font-medium">
+                        🎭 {location.theme}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Decorations (specific items) */}
+                  {location.decorations && location.decorations.length > 0 && (
+                    <div className="mb-4">
+                      <h3 className="text-sm font-medium text-forest-600 mb-2">Featured Items</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {location.decorations.map((item, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center px-3 py-1 rounded-full bg-cream-100 text-forest-700 text-sm border border-forest-200"
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Categories (broad types) */}
+                  {location.categories && location.categories.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-medium text-forest-600 mb-2">Categories</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {location.categories.map((category, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center px-3 py-1 rounded-full bg-burgundy-50 text-burgundy-700 text-sm"
+                          >
+                            {category}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              )}
 
               {/* Stats Card */}
               <Card>

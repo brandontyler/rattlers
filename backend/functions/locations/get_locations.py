@@ -78,12 +78,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Apply filters
         filtered_locations = all_locations
 
-        # Search filter
+        # Search filter (searches address, description, decorations, categories, theme)
         if search:
             filtered_locations = [
                 loc for loc in filtered_locations
                 if search in loc.get("address", "").lower()
                 or search in loc.get("description", "").lower()
+                or search in loc.get("aiDescription", "").lower()
+                or any(search in dec.lower() for dec in loc.get("decorations", []))
+                or any(search in cat.lower() for cat in loc.get("categories", []))
+                or search in (loc.get("theme") or "").lower()
             ]
 
         # Rating filter
