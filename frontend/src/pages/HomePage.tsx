@@ -1,9 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MapView } from '@/components/map';
 import { Button, Card, Input, Select, Badge } from '@/components/ui';
 import { RoutePanel } from '@/components/route';
 import { useLocations } from '@/hooks';
+import { useAuth } from '@/contexts/AuthContext';
+import { apiService } from '@/services/api';
+import type { Location } from '@/types';
 
 // Decoration categories for filtering
 const DECORATION_CATEGORIES = [
@@ -24,13 +27,40 @@ const DECORATION_CATEGORIES = [
 
 export default function HomePage() {
   const { data: locations = [], isLoading: loading } = useLocations();
+  const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [qualityFilter, setQualityFilter] = useState('');
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [favorites, setFavorites] = useState<Location[]>([]);
+  const [loadingFavorites, setLoadingFavorites] = useState(false);
+
+  // Fetch favorites when toggle is turned on
+  useEffect(() => {
+    const fetchFavorites = async () => {
+      if (showFavoritesOnly && isAuthenticated) {
+        setLoadingFavorites(true);
+        try {
+          const response = await apiService.getFavorites();
+          setFavorites(response.data || []);
+        } catch (error) {
+          console.error('Failed to fetch favorites:', error);
+          setFavorites([]);
+        } finally {
+          setLoadingFavorites(false);
+        }
+      }
+    };
+
+    fetchFavorites();
+  }, [showFavoritesOnly, isAuthenticated]);
 
   // Filter locations based on search and filters
   const filteredLocations = useMemo(() => {
-    return locations.filter((loc) => {
+    // Start with either all locations or just favorites
+    const baseLocations = showFavoritesOnly ? favorites : locations;
+
+    return baseLocations.filter((loc) => {
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -56,7 +86,7 @@ export default function HomePage() {
 
       return true;
     });
-  }, [locations, searchQuery, categoryFilter, qualityFilter]);
+  }, [locations, favorites, showFavoritesOnly, searchQuery, categoryFilter, qualityFilter]);
 
   return (
     <div className="animate-fade-in">
@@ -181,15 +211,46 @@ export default function HomePage() {
               </Select>
             </div>
 
+            {/* Favorites Filter Toggle */}
+            {isAuthenticated && (
+              <div className="mt-4 flex items-center gap-3">
+                <button
+                  onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                  disabled={loadingFavorites}
+                  className={`
+                    flex items-center gap-2 px-4 py-2 rounded-lg transition-all
+                    ${showFavoritesOnly
+                      ? 'bg-burgundy-600 text-white hover:bg-burgundy-700'
+                      : 'bg-cream-100 text-forest-700 hover:bg-cream-200'
+                    }
+                    ${loadingFavorites ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                  `}
+                >
+                  <svg className="w-5 h-5" fill={showFavoritesOnly ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  <span className="font-medium">
+                    {loadingFavorites ? 'Loading...' : 'My Favorites Only'}
+                  </span>
+                  {showFavoritesOnly && !loadingFavorites && (
+                    <span className="text-xs bg-white bg-opacity-20 px-2 py-0.5 rounded">
+                      {favorites.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
+
             {/* Active filters indicator */}
-            {(searchQuery || categoryFilter || qualityFilter) && (
+            {(searchQuery || categoryFilter || qualityFilter || showFavoritesOnly) && (
               <div className="mt-4 flex items-center gap-2 text-sm text-forest-600">
-                <span>Showing {filteredLocations.length} of {locations.length} displays</span>
+                <span>Showing {filteredLocations.length} of {showFavoritesOnly ? favorites.length : locations.length} displays</span>
                 <button
                   onClick={() => {
                     setSearchQuery('');
                     setCategoryFilter('');
                     setQualityFilter('');
+                    setShowFavoritesOnly(false);
                   }}
                   className="text-burgundy-600 hover:text-burgundy-700 underline"
                 >
