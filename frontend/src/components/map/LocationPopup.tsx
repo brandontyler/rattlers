@@ -136,8 +136,18 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
     }
   };
 
+  // Prevent touch/click events from bubbling to map layer and closing popup
+  const handlePopupInteraction = (e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
+  };
+
   return (
-    <div className="min-w-[280px] max-w-[320px]">
+    <div
+      className="min-w-[280px] max-w-[320px]"
+      onClick={handlePopupInteraction}
+      onTouchStart={handlePopupInteraction}
+      onTouchEnd={handlePopupInteraction}
+    >
       {/* Image if available */}
       {location.photos && location.photos.length > 0 && (
         <div className="w-full h-40 overflow-hidden -mx-0 -mt-0 mb-3 relative">
@@ -145,7 +155,7 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
             src={location.photos[0]}
             alt={location.address}
             className="w-full h-full object-cover"
-            loading="lazy"
+            loading="eager"
           />
           {/* Photo count badge */}
           {location.photos.length > 1 && (
