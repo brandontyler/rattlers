@@ -110,6 +110,8 @@ function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; 
       marker.bindPopup(popupContent, {
         maxWidth: 350,
         minWidth: 280,
+        autoClose: false,
+        closeOnClick: false,
       });
       
       if (onLocationClick) {
