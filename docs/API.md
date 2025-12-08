@@ -1,6 +1,6 @@
 # API Documentation
 
-**Last Updated:** December 6, 2025
+**Last Updated:** December 8, 2025
 
 Base URL: `https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1`
 
@@ -30,6 +30,7 @@ Authorization: Bearer {cognito-jwt-token}
 - `GET /suggestions`
 - `POST /suggestions/{id}/approve`
 - `POST /suggestions/{id}/reject`
+- `DELETE /locations/{id}`
 
 ---
 
@@ -137,6 +138,22 @@ Geocodes a partial address query and returns suggestions with coordinates.
 - Results filtered to North Texas area (DFW region)
 - Uses Nominatim (OpenStreetMap) for geocoding
 - 10 second timeout with retry logic
+
+#### Delete Location (Admin Only)
+```
+DELETE /locations/{id}
+Authorization: Required (Admin)
+```
+
+Permanently deletes a location. Used for testing or removing invalid entries.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Location deleted successfully"
+}
+```
 
 ---
 

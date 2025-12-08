@@ -1,6 +1,6 @@
 # DFW Christmas Lights Finder - Project Guide
 
-**Last Updated:** December 6, 2025
+**Last Updated:** December 8, 2025
 
 > Start here when resuming work. This is the single source of truth for project status.
 
@@ -27,7 +27,7 @@ cd backend && uv run pytest
 
 ---
 
-## Current Status (December 7, 2025)
+## Current Status (December 8, 2025)
 
 ### ✅ Complete & Working
 
@@ -75,6 +75,7 @@ cd backend && uv run pytest
 | Status badges | ✅ | - | Color-coded: green/approved, gold/pending, red/rejected |
 | Protected routes | ✅ | ✅ | Authentication required for /profile |
 | Navigation link | ✅ | - | Profile link in nav (authenticated users only) |
+| Contributor badges | ✅ | - | First Light, Scout, Enthusiast, Expert badges |
 
 ### 📋 Future Enhancements
 
@@ -260,6 +261,7 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
+- **Dec 8, 2025:** Added contributor badges system (First Light, Scout, Enthusiast, Expert) with progress tracking on profile page
 - **Dec 7, 2025:** Fixed map popups to show full LocationPopup component with photos, descriptions, tags, and action buttons instead of just address
 - **Dec 6, 2025 (PM):** User Profiles MVP complete! Added profile page with email, join date, activity stats (total/approved/pending/rejected), submission history with expandable cards, photo thumbnails, rejection reasons, and status badges
 - **Dec 6, 2025 (AM):** Photo features complete! Added full photo gallery with carousel + lightbox, automatic compression (20MB→2MB), enhanced iPhone HEIC support
@@ -306,3 +308,33 @@ _Add notes, blockers, or decisions here:_
 - [ ] Native mobile apps (iOS/Android)
 - [ ] Push notifications
 - [ ] Offline support
+
+---
+
+## Future Vision
+
+Long-term growth strategies for scaling the platform.
+
+### Community-Driven Growth
+- **Gamification**: Contributor badges (✅ done), leaderboards, achievement scores
+- **Recognition**: "Submitted by" attribution, contributor spotlight, public profiles
+- **Engagement**: Email notifications, weekly digests, badge progress alerts
+
+### AI-Powered Discovery (Future)
+Automated location discovery using AWS services:
+- News article scraping → Bedrock Claude extraction → geocoding → admin review
+- Social media monitoring (Facebook groups, Reddit, Instagram geotags)
+- Auto-approval agent for high-confidence submissions
+
+### Geographic Expansion
+- Houston, Austin, San Antonio regions
+- Multi-region selector in navigation
+- Per-region or combined map views
+- See `docs/GEOGRAPHIC_EXPANSION_PLAN.md` for details
+
+### Admin Automation (Bedrock Agents)
+- Auto-review submissions (photo validation, duplicate detection)
+- Location cleanup (description enhancement, tag standardization)
+- Quality scoring and confidence thresholds
+
+_For detailed strategy docs, see `docs/FUTURES.md` (archived reference)._
