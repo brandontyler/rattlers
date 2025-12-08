@@ -49,6 +49,8 @@ cd backend && uv run pytest
 | Like/unlike locations | ✅ | ✅ | Optimistic UI updates |
 | Report inactive | ✅ | ✅ | Flag displays for review |
 | User profiles | ✅ | ✅ | Profile page with stats, submission history |
+| Search & filter | ✅ | - | Search by address/description, filter by category/quality |
+| "My Favorites" filter | ✅ | ✅ | Toggle to show only saved locations on map |
 
 ### ✅ Photo Features (Complete End-to-End)
 
@@ -81,7 +83,6 @@ cd backend && uv run pytest
 
 | Feature | Notes |
 |---------|-------|
-| "My Favorites" map filter | Filter map to show only saved favorites |
 | Geographic expansion | Houston, Austin, San Antonio |
 | Native mobile apps | React Native or native iOS/Android |
 | Photo reporting | Flag inappropriate photos |
@@ -99,7 +100,7 @@ Complete the user profiles feature with favorites functionality:
 - ✅ **Save/unsave favorites** - Bookmark icon on location popups
 - ✅ **Favorites list** - Display saved locations on profile page (default tab)
 - ✅ **Backend** - Uses feedback table with type='favorite'
-- 🔲 **Quick access** - "My Favorites" filter on map (future)
+- ✅ **Quick access** - "My Favorites" filter on map
 - 🔲 **Email notifications** - Alert when submission is approved/rejected (future)
 
 ### Option 2: Geographic Expansion
@@ -299,8 +300,9 @@ _Add notes, blockers, or decisions here:_
 - [x] User profiles (MVP) - Profile page, activity stats, submission history
 - [x] Saved favorites - Bookmark icon, favorites list on profile
 - [x] Performance optimization - Code splitting, caching, map clustering
+- [x] "My Favorites" map filter - Toggle to show only saved locations
+- [x] Search and filter - Search by address/description, filter by category/quality
 - [ ] Geographic expansion (Houston, Austin, San Antonio)
-- [ ] "My Favorites" map filter
 - [ ] Photo reporting/flagging
 - [ ] Social sharing features
 - [ ] Email notifications for submissions
