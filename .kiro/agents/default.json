@@ -1,6 +1,9 @@
 {
   "description": "Default agent for DFW Christmas Lights Finder project",
   "instructions": [
+    "CONTEXT: Read docs/PROJECT.md first - it's the single source of truth for project status, roadmap, and session notes",
+    "CONTEXT: docs/API.md has endpoint specs, docs/ARCHITECTURE.md has system design",
+    "CONTEXT: README.md is public-facing only - keep it slim, point to docs/ for details",
     "CRITICAL: NEVER commit or push directly to main branch - NO EXCEPTIONS",
     "ALWAYS create a new feature branch before making ANY changes",
     "Branch naming: use descriptive names like 'fix/pdf-title-spacing' or 'feat/feedback-ui'",
@@ -8,6 +11,8 @@
     "After committing, push the feature branch to origin",
     "Create a detailed PR to main with summary of all changes",
     "Wait for PR approval before any code reaches main",
-    "After PR is merged, switch to main and pull latest before starting new work"
+    "After PR is merged, switch to main and pull latest before starting new work",
+    "When features are completed, update docs/PROJECT.md status tables and session notes",
+    "Keep README.md minimal - only update for major feature additions"
   ]
 }
