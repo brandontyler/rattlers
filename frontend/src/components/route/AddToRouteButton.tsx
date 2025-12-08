@@ -1,4 +1,5 @@
-import { useRoute } from '@/contexts/RouteContext';
+import { useState, useEffect } from 'react';
+import { ROUTE_EVENTS, dispatchRouteEvent } from '@/contexts/RouteContext';
 import type { Location } from '@/types';
 
 interface AddToRouteButtonProps {
@@ -7,25 +8,60 @@ interface AddToRouteButtonProps {
   className?: string;
 }
 
+// Global state for tracking route stops (synced via events)
+let globalStops: string[] = [];
+
+// Listen for route changes to update local state
+if (typeof window !== 'undefined') {
+  window.addEventListener(ROUTE_EVENTS.ADD_STOP, ((e: CustomEvent<Location>) => {
+    if (!globalStops.includes(e.detail.id)) {
+      globalStops = [...globalStops, e.detail.id];
+    }
+  }) as EventListener);
+  
+  window.addEventListener(ROUTE_EVENTS.REMOVE_STOP, ((e: CustomEvent<string>) => {
+    globalStops = globalStops.filter(id => id !== e.detail);
+  }) as EventListener);
+}
+
 export default function AddToRouteButton({
   location,
   variant = 'default',
   className = '',
 }: AddToRouteButtonProps) {
-  const { addStop, removeStop, isInRoute, stops } = useRoute();
+  const [inRoute, setInRoute] = useState(globalStops.includes(location.id));
+  const [stopNumber, setStopNumber] = useState<number | null>(null);
 
-  const inRoute = isInRoute(location.id);
-  const stopNumber = inRoute
-    ? stops.findIndex((s) => s.id === location.id) + 1
-    : null;
+  // Sync with global state
+  useEffect(() => {
+    const updateState = () => {
+      const isIn = globalStops.includes(location.id);
+      setInRoute(isIn);
+      setStopNumber(isIn ? globalStops.indexOf(location.id) + 1 : null);
+    };
+
+    updateState();
+
+    const handleAdd = () => updateState();
+    const handleRemove = () => updateState();
+
+    window.addEventListener(ROUTE_EVENTS.ADD_STOP, handleAdd);
+    window.addEventListener(ROUTE_EVENTS.REMOVE_STOP, handleRemove);
+
+    return () => {
+      window.removeEventListener(ROUTE_EVENTS.ADD_STOP, handleAdd);
+      window.removeEventListener(ROUTE_EVENTS.REMOVE_STOP, handleRemove);
+    };
+  }, [location.id]);
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    
     if (inRoute) {
-      removeStop(location.id);
+      dispatchRouteEvent(ROUTE_EVENTS.REMOVE_STOP, location.id);
     } else {
-      addStop(location);
+      dispatchRouteEvent(ROUTE_EVENTS.ADD_STOP, location);
     }
   };
 

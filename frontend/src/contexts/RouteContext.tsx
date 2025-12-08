@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import type { Location } from '@/types';
 import {
   calculateRouteStats,
@@ -30,6 +30,17 @@ const RouteContext = createContext<RouteContextType | undefined>(undefined);
 
 const MAX_STOPS = 15;
 
+// Global event names for cross-context communication
+export const ROUTE_EVENTS = {
+  ADD_STOP: 'route:addStop',
+  REMOVE_STOP: 'route:removeStop',
+};
+
+// Helper to dispatch route events from anywhere (e.g., popups)
+export function dispatchRouteEvent(type: string, payload: any) {
+  window.dispatchEvent(new CustomEvent(type, { detail: payload }));
+}
+
 export function RouteProvider({ children }: { children: ReactNode }) {
   const [stops, setStops] = useState<Location[]>([]);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -37,21 +48,38 @@ export function RouteProvider({ children }: { children: ReactNode }) {
 
   const addStop = useCallback((location: Location) => {
     setStops((prev) => {
-      // Check if already in route
       if (prev.some((stop) => stop.id === location.id)) {
         return prev;
       }
-      // Check max stops
       if (prev.length >= MAX_STOPS) {
         return prev;
       }
       return [...prev, location];
     });
+    setIsPanelExpanded(true);
   }, []);
 
   const removeStop = useCallback((locationId: string) => {
     setStops((prev) => prev.filter((stop) => stop.id !== locationId));
   }, []);
+
+  // Listen for global route events (from popups rendered outside React tree)
+  useEffect(() => {
+    const handleAddStop = (e: CustomEvent<Location>) => {
+      addStop(e.detail);
+    };
+    const handleRemoveStop = (e: CustomEvent<string>) => {
+      removeStop(e.detail);
+    };
+
+    window.addEventListener(ROUTE_EVENTS.ADD_STOP, handleAddStop as EventListener);
+    window.addEventListener(ROUTE_EVENTS.REMOVE_STOP, handleRemoveStop as EventListener);
+
+    return () => {
+      window.removeEventListener(ROUTE_EVENTS.ADD_STOP, handleAddStop as EventListener);
+      window.removeEventListener(ROUTE_EVENTS.REMOVE_STOP, handleRemoveStop as EventListener);
+    };
+  }, [addStop, removeStop]);
 
   const reorderStops = useCallback((fromIndex: number, toIndex: number) => {
     setStops((prev) => {
