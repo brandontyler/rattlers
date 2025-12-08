@@ -10,7 +10,6 @@ import { RouteMapLayer } from '@/components/route';
 import type { Location } from '@/types';
 import LocationPopup from './LocationPopup';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { RouteProvider } from '@/contexts/RouteContext';
 
 // Fix for default marker icons in React Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -98,9 +97,7 @@ function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; 
       roots.push(root);
       root.render(
         <AuthProvider>
-          <RouteProvider>
-            <LocationPopup location={location} />
-          </RouteProvider>
+          <LocationPopup location={location} />
         </AuthProvider>
       );
 
