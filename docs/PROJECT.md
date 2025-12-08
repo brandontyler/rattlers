@@ -261,6 +261,7 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
+- **Dec 8, 2025 (PM):** Fixed mobile popup closing issue - disabled autoPan, added manual pan after popup opens
 - **Dec 8, 2025:** Added contributor badges system (First Light, Scout, Enthusiast, Expert) with progress tracking on profile page
 - **Dec 7, 2025:** Fixed map popups to show full LocationPopup component with photos, descriptions, tags, and action buttons instead of just address
 - **Dec 6, 2025 (PM):** User Profiles MVP complete! Added profile page with email, join date, activity stats (total/approved/pending/rejected), submission history with expandable cards, photo thumbnails, rejection reasons, and status badges

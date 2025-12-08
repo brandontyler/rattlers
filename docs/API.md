@@ -23,8 +23,12 @@ Authorization: Bearer {cognito-jwt-token}
 - `POST /locations/{id}/feedback`
 - `GET /locations/{id}/feedback/status`
 - `POST /locations/{id}/report`
+- `POST /locations/{id}/favorite`
+- `POST /photos/upload-url`
 - `GET /users/profile`
 - `GET /users/submissions`
+- `GET /users/favorites`
+- `POST /routes/generate-pdf`
 
 **Admin endpoints** (require Cognito `Admins` group):
 - `GET /suggestions`
@@ -503,6 +507,54 @@ Generates a presigned S3 URL for uploading photos.
 - Photos are automatically compressed to ~2MB by backend Lambda
 - AI analysis runs automatically after upload (Bedrock Claude)
 - Detected decorations and quality stored on suggestion record
+
+---
+
+### Routes
+
+#### Generate PDF Route Guide
+```
+POST /routes/generate-pdf
+Authorization: Required
+```
+
+Generates a printable PDF route guide with map, directions, and QR codes.
+
+**Request Body:**
+```json
+{
+  "stops": [
+    {
+      "id": "uuid",
+      "address": "123 Main St, Dallas, TX 75001",
+      "lat": 32.7767,
+      "lng": -96.7970,
+      "description": "Amazing display",
+      "photos": ["https://..."]
+    }
+  ]
+}
+```
+
+**Validation:**
+- `stops`: Required, array of 1-15 locations
+- Each stop must have `id`, `address`, `lat`, `lng`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "downloadUrl": "https://presigned-s3-url.pdf",
+    "expiresIn": 3600
+  }
+}
+```
+
+**Notes:**
+- PDF includes static map image, numbered stops, QR codes for navigation
+- Download URL expires in 1 hour
+- Festive design with holiday decorations
 
 ---
 
