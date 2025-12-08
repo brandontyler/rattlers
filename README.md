@@ -28,11 +28,13 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - 📱 **iPhone optimization** - enhanced validation and file handling for iOS Safari
 - ⚡ **Performance optimization** - code splitting, API caching, map clustering, lazy loading
 - 🔖 **Saved favorites** - bookmark locations and view them on your profile page
+- 👤 **User profiles** - profile page with stats, submission history, and favorites
+- 🏅 **Contributor badges** - earn badges for approved submissions (First Light, Scout, Enthusiast, Expert)
 
 ### Future Phases
-- 👤 User profiles - save favorites, view submission history
 - 📱 Native mobile apps (iOS/Android)
 - 🌎 Geographic expansion (Houston, Austin, San Antonio)
+- 📧 Email notifications for approved/rejected submissions
 
 ## Tech Stack
 
@@ -101,9 +103,11 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - `POST /v1/locations/{id}/feedback` - Like/unlike location
 - `GET /v1/locations/{id}/feedback/status` - Get user's like status
 - `POST /v1/locations/{id}/report` - Report inactive location
+- `POST /v1/locations/{id}/favorite` - Toggle favorite
 - `POST /v1/photos/upload-url` - Get presigned URL for photo upload
 - `GET /v1/users/profile` - Get user profile with stats
 - `GET /v1/users/submissions` - Get user's submission history
+- `GET /v1/users/favorites` - Get user's saved favorites
 
 ### Admin Only
 - `GET /v1/suggestions` - List pending suggestions (includes AI analysis)
@@ -219,9 +223,11 @@ Admin users are managed via Cognito groups:
   - [x] Photo gallery on location detail pages (carousel with thumbnails)
   - [x] Full-screen lightbox viewer (keyboard navigation)
   - [x] Photo count badges on map popups
-- [ ] User features (next)
-  - [ ] User profiles with favorites
-  - [ ] Submission history
+- [x] User features
+  - [x] User profiles with stats
+  - [x] Submission history
+  - [x] Saved favorites
+  - [x] Contributor badges (First Light, Scout, Enthusiast, Expert)
   - [ ] Email notifications for approved/rejected submissions
 - [ ] Mobile apps (future)
 
