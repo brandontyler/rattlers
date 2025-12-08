@@ -104,12 +104,23 @@ function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; 
         </AuthProvider>
       );
 
-      marker.bindPopup(popupContent, {
+      const popup = L.popup({
         maxWidth: 300,
         minWidth: 280,
         className: 'location-popup',
-        autoPan: true,
-        autoPanPadding: [20, 20],
+        autoPan: false,
+        closeOnClick: false,
+      }).setContent(popupContent);
+
+      marker.bindPopup(popup);
+      
+      // Manually pan map after popup opens to avoid close-on-pan issue
+      marker.on('popupopen', () => {
+        setTimeout(() => {
+          const px = map.project(popup.getLatLng()!);
+          px.y -= popup.getElement()!.clientHeight / 2;
+          map.panTo(map.unproject(px), { animate: true });
+        }, 50);
       });
       
       if (onLocationClick) {
