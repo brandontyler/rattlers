@@ -308,3 +308,33 @@ _Add notes, blockers, or decisions here:_
 - [ ] Native mobile apps (iOS/Android)
 - [ ] Push notifications
 - [ ] Offline support
+
+---
+
+## Future Vision
+
+Long-term growth strategies for scaling the platform.
+
+### Community-Driven Growth
+- **Gamification**: Contributor badges (✅ done), leaderboards, achievement scores
+- **Recognition**: "Submitted by" attribution, contributor spotlight, public profiles
+- **Engagement**: Email notifications, weekly digests, badge progress alerts
+
+### AI-Powered Discovery (Future)
+Automated location discovery using AWS services:
+- News article scraping → Bedrock Claude extraction → geocoding → admin review
+- Social media monitoring (Facebook groups, Reddit, Instagram geotags)
+- Auto-approval agent for high-confidence submissions
+
+### Geographic Expansion
+- Houston, Austin, San Antonio regions
+- Multi-region selector in navigation
+- Per-region or combined map views
+- See `docs/GEOGRAPHIC_EXPANSION_PLAN.md` for details
+
+### Admin Automation (Bedrock Agents)
+- Auto-review submissions (photo validation, duplicate detection)
+- Location cleanup (description enhancement, tag standardization)
+- Quality scoring and confidence thresholds
+
+_For detailed strategy docs, see `docs/FUTURES.md` (archived reference)._
