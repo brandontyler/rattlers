@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import type { Location } from '@/types';
 import Badge from '../ui/Badge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -143,14 +142,14 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
 
   return (
     <div
-      className="min-w-[280px] max-w-[320px]"
+      className="w-[280px] max-w-[280px] overflow-hidden"
       onClick={handlePopupInteraction}
       onTouchStart={handlePopupInteraction}
       onTouchEnd={handlePopupInteraction}
     >
       {/* Image if available */}
       {location.photos && location.photos.length > 0 && (
-        <div className="w-full h-40 overflow-hidden -mx-0 -mt-0 mb-3 relative">
+        <div className="w-full h-32 overflow-hidden mb-3 relative">
           <img
             src={location.photos[0]}
             alt={location.address}
@@ -294,17 +293,17 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
         {/* Sign in prompt */}
         {!isAuthenticated && (
           <p className="text-xs text-gray-500 mb-3 text-center">
-            <Link to="/login" className="text-burgundy-600 hover:underline">Sign in</Link> to like or report
+            <a href="/login" className="text-burgundy-600 hover:underline">Sign in</a> to like or report
           </p>
         )}
 
-        {/* View Details Link */}
-        <Link
-          to={`/location/${location.id}`}
+        {/* View Details Link - use anchor tag for navigation from popup */}
+        <a
+          href={`/location/${location.id}`}
           className="inline-block w-full text-center px-4 py-2 bg-burgundy-600 text-cream-50 rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
         >
           View Details
-        </Link>
+        </a>
       </div>
     </div>
   );

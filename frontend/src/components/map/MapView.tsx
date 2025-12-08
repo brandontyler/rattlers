@@ -9,7 +9,6 @@ import 'leaflet.markercluster';
 import { RouteMapLayer } from '@/components/route';
 import type { Location } from '@/types';
 import LocationPopup from './LocationPopup';
-import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { RouteProvider } from '@/contexts/RouteContext';
 
@@ -98,20 +97,19 @@ function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; 
       const root = createRoot(popupContent);
       roots.push(root);
       root.render(
-        <BrowserRouter>
-          <AuthProvider>
-            <RouteProvider>
-              <LocationPopup location={location} />
-            </RouteProvider>
-          </AuthProvider>
-        </BrowserRouter>
+        <AuthProvider>
+          <RouteProvider>
+            <LocationPopup location={location} />
+          </RouteProvider>
+        </AuthProvider>
       );
 
       marker.bindPopup(popupContent, {
-        maxWidth: 350,
+        maxWidth: 300,
         minWidth: 280,
-        autoClose: false,
-        closeOnClick: false,
+        className: 'location-popup',
+        autoPan: true,
+        autoPanPadding: [20, 20],
       });
       
       if (onLocationClick) {
