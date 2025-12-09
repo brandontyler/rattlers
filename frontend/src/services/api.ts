@@ -155,6 +155,11 @@ class ApiService {
     return data;
   }
 
+  async updateSuggestion(id: string, updates: Record<string, any>): Promise<ApiResponse<any>> {
+    const { data } = await this.api.put<ApiResponse<any>>(`/suggestions/${id}`, updates);
+    return data;
+  }
+
   // Photo upload endpoints
   async getUploadUrl(request: PhotoUploadRequest): Promise<ApiResponse<UploadUrlResponse>> {
     const { data } = await this.api.post<ApiResponse<UploadUrlResponse>>(

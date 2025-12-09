@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button, Card, Badge } from '@/components/ui';
 import { apiService } from '@/services/api';
+import EditEntryModal from '@/components/EditEntryModal';
 
 interface Suggestion {
   id: string;
@@ -14,6 +15,8 @@ interface Suggestion {
   submittedByEmail?: string;
   createdAt: string;
   detectedTags?: string[];
+  categories?: string[];
+  theme?: string;
   aiDescription?: string;
   displayQuality?: 'minimal' | 'moderate' | 'impressive' | 'spectacular';
   flaggedForReview?: boolean;
@@ -23,6 +26,11 @@ interface Location {
   id: string;
   address: string;
   description?: string;
+  aiDescription?: string;
+  decorations?: string[];
+  categories?: string[];
+  theme?: string;
+  displayQuality?: 'minimal' | 'moderate' | 'impressive' | 'spectacular';
   likeCount?: number;
   createdAt?: string;
 }
@@ -37,6 +45,10 @@ export default function AdminPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
+  // Edit modal state
+  const [editingSuggestion, setEditingSuggestion] = useState<Suggestion | null>(null);
+  const [editingLocation, setEditingLocation] = useState<Location | null>(null);
 
   const flaggedCount = suggestions.filter(s => s.flaggedForReview).length;
 
@@ -113,6 +125,28 @@ export default function AdminPage() {
     } finally {
       setProcessingId(null);
     }
+  };
+
+  const handleSaveSuggestion = async (updates: Partial<Suggestion>) => {
+    if (!editingSuggestion) return;
+
+    await apiService.updateSuggestion(editingSuggestion.id, updates);
+
+    // Update the local state with the new data
+    setSuggestions(suggestions.map(s =>
+      s.id === editingSuggestion.id ? { ...s, ...updates } : s
+    ));
+  };
+
+  const handleSaveLocation = async (updates: Partial<Location>) => {
+    if (!editingLocation) return;
+
+    await apiService.updateLocation(editingLocation.id, updates);
+
+    // Update the local state with the new data
+    setLocations(locations.map(l =>
+      l.id === editingLocation.id ? { ...l, ...updates } : l
+    ));
   };
 
   const formatDate = (dateString: string) => {
@@ -347,6 +381,19 @@ export default function AdminPage() {
 
                     <div className="flex flex-col sm:flex-row lg:flex-col gap-2 sm:gap-3 w-full sm:w-auto lg:min-w-[140px] mt-4 lg:mt-0">
                       <Button
+                        variant="secondary"
+                        size="md"
+                        fullWidth
+                        onClick={() => setEditingSuggestion(suggestion)}
+                        disabled={processingId !== null}
+                        className="justify-center"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit
+                      </Button>
+                      <Button
                         variant="primary"
                         size="md"
                         fullWidth
@@ -366,7 +413,7 @@ export default function AdminPage() {
                         fullWidth
                         onClick={() => handleReject(suggestion.id)}
                         disabled={processingId !== null}
-                        className="justify-center"
+                        className="justify-center text-burgundy-600 hover:text-burgundy-700"
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -392,7 +439,7 @@ export default function AdminPage() {
                 Manage Locations
               </h2>
               <p className="text-xs sm:text-sm text-forest-600 mt-1">
-                Delete locations for testing purposes
+                Edit descriptions, tags, and manage approved locations
               </p>
             </div>
             <Button variant="secondary" size="sm" onClick={() => setShowLocations(!showLocations)} className="self-start sm:self-auto">
@@ -413,18 +460,30 @@ export default function AdminPage() {
                       {location.likeCount || 0} likes • ID: {location.id.slice(0, 8)}...
                     </p>
                   </div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleDeleteLocation(location.id)}
-                    loading={deletingId === location.id}
-                    disabled={deletingId !== null}
-                    className="ml-4 text-burgundy-600 hover:text-burgundy-700"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </Button>
+                  <div className="flex items-center gap-2 ml-4">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setEditingLocation(location)}
+                      disabled={deletingId !== null}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleDeleteLocation(location.id)}
+                      loading={deletingId === location.id}
+                      disabled={deletingId !== null}
+                      className="text-burgundy-600 hover:text-burgundy-700"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </Button>
+                  </div>
                 </div>
               ))}
               {locations.length === 0 && (
@@ -456,6 +515,30 @@ export default function AdminPage() {
             onClick={(e) => e.stopPropagation()}
           />
         </div>
+      )}
+
+      {/* Edit Suggestion Modal */}
+      {editingSuggestion && (
+        <EditEntryModal
+          entry={editingSuggestion}
+          isOpen={!!editingSuggestion}
+          onClose={() => setEditingSuggestion(null)}
+          onSave={handleSaveSuggestion}
+          title="Edit Suggestion"
+          type="suggestion"
+        />
+      )}
+
+      {/* Edit Location Modal */}
+      {editingLocation && (
+        <EditEntryModal
+          entry={editingLocation}
+          isOpen={!!editingLocation}
+          onClose={() => setEditingLocation(null)}
+          onSave={handleSaveLocation}
+          title="Edit Location"
+          type="location"
+        />
       )}
     </div>
   );

@@ -357,6 +357,20 @@ class ChristmasLightsStack(Stack):
         self.feedback_table.grant_read_write_data(self.delete_location_fn)
         self.photos_bucket.grant_delete(self.delete_location_fn)
 
+        # Update location (admin only) - for editing approved locations
+        self.update_location_fn = lambda_.Function(
+            self,
+            "UpdateLocationFunction",
+            handler="update_location.handler",
+            code=lambda_.Code.from_asset("../backend/functions/locations"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.locations_table.grant_read_write_data(self.update_location_fn)
+
         # Feedback functions
         self.submit_feedback_fn = lambda_.Function(
             self,
@@ -505,6 +519,20 @@ class ChristmasLightsStack(Stack):
         # Grant S3 permissions to delete photos from pending/
         self.photos_bucket.grant_delete(self.reject_suggestion_fn)
         self.photos_bucket.grant_read(self.reject_suggestion_fn)
+
+        # Update suggestion function (admin) - for editing before approval
+        self.update_suggestion_fn = lambda_.Function(
+            self,
+            "UpdateSuggestionFunction",
+            handler="update_suggestion.handler",
+            code=lambda_.Code.from_asset("../backend/functions/suggestions"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.suggestions_table.grant_read_write_data(self.update_suggestion_fn)
 
         # Photo upload URL function
         self.get_upload_url_fn = lambda_.Function(
@@ -750,6 +778,13 @@ class ChristmasLightsStack(Stack):
             authorizer=authorizer,
             authorization_type=apigw.AuthorizationType.COGNITO,
         )
+        # PUT /locations/{id} - admin only for editing approved locations
+        location_by_id.add_method(
+            "PUT",
+            apigw.LambdaIntegration(self.update_location_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
 
         # /locations/{id}/feedback endpoint
         feedback = location_by_id.add_resource("feedback")
@@ -802,8 +837,17 @@ class ChristmasLightsStack(Stack):
             authorization_type=apigw.AuthorizationType.COGNITO,
         )
 
-        # /suggestions/{id}/approve endpoint
+        # /suggestions/{id} endpoints
         suggestion_by_id = suggestions.add_resource("{id}")
+        # PUT /suggestions/{id} - admin only for editing before approval
+        suggestion_by_id.add_method(
+            "PUT",
+            apigw.LambdaIntegration(self.update_suggestion_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # /suggestions/{id}/approve endpoint
         approve = suggestion_by_id.add_resource("approve")
         approve.add_method(
             "POST",
