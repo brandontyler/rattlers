@@ -9,7 +9,10 @@ import boto3
 from botocore.exceptions import ClientError
 
 dynamodb = boto3.resource("dynamodb")
+lambda_client = boto3.client("lambda")
 table = dynamodb.Table(os.environ.get("SUGGESTIONS_TABLE_NAME", "christmas-lights-suggestions-dev"))
+ANALYZE_PHOTO_FUNCTION = os.environ.get("ANALYZE_PHOTO_FUNCTION_NAME", "")
+PHOTOS_BUCKET = os.environ.get("PHOTOS_BUCKET_NAME", "")
 
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
 
@@ -91,6 +94,27 @@ def handler(event, context):
         }
 
         table.put_item(Item=item)
+
+        # Trigger AI analysis for each photo (async)
+        if photos and ANALYZE_PHOTO_FUNCTION and PHOTOS_BUCKET:
+            for photo_key in photos[:3]:  # Max 3 photos
+                try:
+                    # Simulate S3 event to reuse existing analyze_photo handler
+                    s3_event = {
+                        "Records": [{
+                            "s3": {
+                                "bucket": {"name": PHOTOS_BUCKET},
+                                "object": {"key": photo_key}
+                            }
+                        }]
+                    }
+                    lambda_client.invoke(
+                        FunctionName=ANALYZE_PHOTO_FUNCTION,
+                        InvocationType="Event",  # Async
+                        Payload=json.dumps(s3_event),
+                    )
+                except Exception as e:
+                    print(f"Failed to trigger analysis for {photo_key}: {e}")
 
         return {
             "statusCode": 201,

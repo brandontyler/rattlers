@@ -571,6 +571,12 @@ class ChristmasLightsStack(Stack):
             )
         )
 
+        # Grant submit_suggestion permission to invoke analyze_photo
+        self.analyze_photo_fn.grant_invoke(self.submit_suggestion_fn)
+        self.submit_suggestion_fn.add_environment(
+            "ANALYZE_PHOTO_FUNCTION_NAME", self.analyze_photo_fn.function_name
+        )
+
         # User profile function
         user_env = {
             **common_env,
