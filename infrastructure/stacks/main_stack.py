@@ -45,6 +45,9 @@ class ChristmasLightsStack(Stack):
         # Create Lambda functions (after CloudFront so CORS can include CF domain)
         self.create_lambda_functions()
 
+        # Configure Cognito Lambda triggers (after Lambda functions are created)
+        self.configure_cognito_triggers()
+
         # Create API Gateway (after CloudFront so CORS can include CF domain)
         self.create_api_gateway()
 
@@ -130,6 +133,27 @@ class ChristmasLightsStack(Stack):
             removal_policy=RemovalPolicy.DESTROY if self.env_name == "dev" else RemovalPolicy.RETAIN,
         )
 
+        # Users table
+        self.users_table = dynamodb.Table(
+            self,
+            "UsersTable",
+            table_name=f"christmas-lights-users-{self.env_name}",
+            partition_key=dynamodb.Attribute(
+                name="userId", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY if self.env_name == "dev" else RemovalPolicy.RETAIN,
+        )
+
+        # Add GSI for querying by username
+        self.users_table.add_global_secondary_index(
+            index_name="username-index",
+            partition_key=dynamodb.Attribute(
+                name="username", type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
     def create_s3_buckets(self):
         """Create S3 buckets."""
 
@@ -190,6 +214,7 @@ class ChristmasLightsStack(Stack):
     def create_cognito_pool(self):
         """Create Cognito user pool for authentication."""
 
+        # Note: Lambda triggers will be added after Lambda functions are created
         self.user_pool = cognito.UserPool(
             self,
             "UserPool",
@@ -226,6 +251,23 @@ class ChristmasLightsStack(Stack):
                 user_srp=True,
             ),
             generate_secret=False,
+        )
+
+    def configure_cognito_triggers(self):
+        """Configure Lambda triggers for Cognito user pool.
+
+        This must be called after Lambda functions are created.
+        """
+        # Grant Cognito permission to invoke the post-auth Lambda
+        self.post_auth_fn.grant_invoke(
+            iam.ServicePrincipal("cognito-idp.amazonaws.com")
+        )
+
+        # Add post-authentication trigger to user pool
+        # We use CfnUserPool to add the Lambda config
+        cfn_user_pool = self.user_pool.node.default_child
+        cfn_user_pool.lambda_config = cognito.CfnUserPool.LambdaConfigProperty(
+            post_authentication=self.post_auth_fn.function_arn
         )
 
     def create_lambda_layer(self):
@@ -609,6 +651,7 @@ class ChristmasLightsStack(Stack):
         user_env = {
             **common_env,
             "USER_POOL_ID": self.user_pool.user_pool_id,
+            "USERS_TABLE_NAME": self.users_table.table_name,
         }
         self.get_user_profile_fn = lambda_.Function(
             self,
@@ -622,6 +665,7 @@ class ChristmasLightsStack(Stack):
             layers=[self.common_layer],
         )
         self.suggestions_table.grant_read_data(self.get_user_profile_fn)
+        self.users_table.grant_read_data(self.get_user_profile_fn)
         # Grant Cognito permissions to get user details
         self.get_user_profile_fn.add_to_role_policy(
             iam.PolicyStatement(
@@ -644,6 +688,51 @@ class ChristmasLightsStack(Stack):
         )
         self.suggestions_table.grant_read_data(self.get_user_submissions_fn)
         self.photos_bucket.grant_read(self.get_user_submissions_fn)
+
+        # Update user profile function
+        update_profile_env = {
+            **common_env,
+            "USERS_TABLE_NAME": self.users_table.table_name,
+        }
+        self.update_user_profile_fn = lambda_.Function(
+            self,
+            "UpdateUserProfileFunction",
+            handler="update_profile.handler",
+            code=lambda_.Code.from_asset("../backend/functions/users"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=update_profile_env,
+            layers=[self.common_layer],
+        )
+        self.users_table.grant_read_write_data(self.update_user_profile_fn)
+
+        # Post-authentication Lambda (Cognito trigger)
+        post_auth_env = {
+            "USERS_TABLE_NAME": self.users_table.table_name,
+            "ENV_NAME": self.env_name,
+        }
+        self.post_auth_fn = lambda_.Function(
+            self,
+            "PostAuthenticationFunction",
+            handler="post_authentication.handler",
+            code=lambda_.Code.from_asset("../backend/functions/auth"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(30),  # Needs time for Bedrock API call
+            memory_size=512,
+            environment=post_auth_env,
+            layers=[self.common_layer],
+        )
+        self.users_table.grant_read_write_data(self.post_auth_fn)
+        # Grant Bedrock permissions for username generation
+        self.post_auth_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["bedrock:InvokeModel"],
+                resources=[
+                    f"arn:aws:bedrock:{self.region}::foundation-model/us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+                ],
+            )
+        )
 
         # Store functions for API Gateway integration
         self.lambda_functions = {
@@ -895,6 +984,12 @@ class ChristmasLightsStack(Stack):
         profile.add_method(
             "GET",
             apigw.LambdaIntegration(self.get_user_profile_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+        profile.add_method(
+            "PUT",
+            apigw.LambdaIntegration(self.update_user_profile_fn),
             authorizer=authorizer,
             authorization_type=apigw.AuthorizationType.COGNITO,
         )

@@ -7,6 +7,7 @@ import {
   CognitoUserAttribute,
 } from 'amazon-cognito-identity-js';
 import type { User } from '@/types';
+import { apiService } from '@/services/api';
 
 interface AuthContextType {
   user: User | null;
@@ -41,6 +42,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuthState();
   }, []);
 
+  const fetchUserProfile = async (baseUser: User): Promise<User> => {
+    try {
+      // Fetch full profile including username
+      const response = await apiService.getUserProfile();
+      if (response.success && response.data) {
+        return {
+          ...baseUser,
+          username: response.data.username,
+        };
+      }
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error);
+    }
+    return baseUser;
+  };
+
   const checkAuthState = async () => {
     try {
       if (!userPool) {
@@ -64,12 +81,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           // Extract user info from token payload
           const payload = session.getIdToken().payload;
-          setUser({
+          const baseUser: User = {
             id: payload.sub,
             email: payload.email,
             name: payload.name || undefined,
             isAdmin: (payload['cognito:groups'] || []).includes('Admins'),
-          });
+          };
+
+          // Fetch username from API
+          const fullUser = await fetchUserProfile(baseUser);
+          setUser(fullUser);
 
           setIsLoading(false);
         });
@@ -104,12 +125,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           // Extract user info from token payload
           const payload = session.getIdToken().payload;
-          setUser({
+          const baseUser: User = {
             id: payload.sub,
             email: payload.email,
             name: payload.name || undefined,
             isAdmin: (payload['cognito:groups'] || []).includes('Admins'),
-          });
+          };
+
+          // Fetch username from API
+          const fullUser = await fetchUserProfile(baseUser);
+          setUser(fullUser);
+
           resolve();
         },
         onFailure: (err) => {

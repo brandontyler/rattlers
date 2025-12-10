@@ -213,7 +213,7 @@ class ApiService {
   }
 
   async updateProfile(updates: Partial<UserProfile>): Promise<ApiResponse<UserProfile>> {
-    const { data } = await this.api.put<ApiResponse<UserProfile>>('/users/me', updates);
+    const { data } = await this.api.put<ApiResponse<UserProfile>>('/users/profile', updates);
     return data;
   }
 

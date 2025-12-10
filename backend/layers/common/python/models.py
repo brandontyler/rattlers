@@ -107,6 +107,7 @@ class UserProfile(BaseModel):
     """User profile model."""
     id: str
     email: str
+    username: Optional[str] = None
     name: Optional[str] = None
     is_admin: bool = Field(default=False, alias="isAdmin")
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), alias="createdAt")
