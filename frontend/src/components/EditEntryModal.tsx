@@ -3,7 +3,7 @@ import { Button, Input, Select } from '@/components/ui';
 
 interface EditableEntry {
   id: string;
-  description: string;
+  description?: string;
   aiDescription?: string;
   // For suggestions, tags are in detectedTags; for locations, they're in decorations
   detectedTags?: string[];
