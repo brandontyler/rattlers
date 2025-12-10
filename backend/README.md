@@ -11,14 +11,17 @@ backend/
 │   ├── feedback/          # Feedback functions
 │   ├── suggestions/       # Suggestion functions
 │   ├── users/             # User profile functions
-│   └── photos/            # Photo upload functions
+│   ├── photos/            # Photo upload functions
+│   ├── routes/            # PDF route generation
+│   └── auth/              # Cognito triggers (username generation)
 ├── layers/                # Lambda layers
 │   └── common/           # Shared code (models, utilities)
 │       └── python/
-│           ├── models.py      # Data models
-│           ├── responses.py   # API response helpers
-│           ├── auth.py        # Authentication utilities
-│           └── db.py          # DynamoDB utilities
+│           ├── models.py            # Data models
+│           ├── responses.py         # API response helpers
+│           ├── auth.py              # Authentication utilities
+│           ├── db.py                # DynamoDB utilities
+│           └── username_generator.py # AI username generation
 ├── tests/                # Unit tests
 └── scripts/              # Utility scripts
 ```
@@ -29,7 +32,8 @@ backend/
 - **get_locations.py** - `GET /locations` - List all locations with pagination
 - **get_location_by_id.py** - `GET /locations/{id}` - Get single location
 - **suggest_addresses.py** - `POST /locations/suggest-addresses` - Geocode address query
-- **create_location.py** - `POST /locations` - Create location (admin only)
+- **update_location.py** - `PUT /locations/{id}` - Update location details (admin only)
+- **delete_location.py** - `DELETE /locations/{id}` - Delete location (admin only)
 
 ### Feedback
 - **submit_feedback.py** - `POST /locations/{id}/feedback` - Like/rate location (auth required)
@@ -41,8 +45,17 @@ backend/
 ### Suggestions
 - **submit_suggestion.py** - `POST /suggestions` - Submit suggestion (auth required)
 - **get_suggestions.py** - `GET /suggestions` - List pending suggestions (admin only)
+- **update_suggestion.py** - `PUT /suggestions/{id}` - Update suggestion before approval (admin only)
 - **approve_suggestion.py** - `POST /suggestions/{id}/approve` - Approve → creates location (admin only)
 - **reject_suggestion.py** - `POST /suggestions/{id}/reject` - Reject suggestion (admin only)
+
+### Users
+- **get_profile.py** - `GET /users/profile` - Get user profile with stats (auth required)
+- **update_profile.py** - `PUT /users/profile` - Update username (auth required)
+- **get_submissions.py** - `GET /users/submissions` - Get user's submission history (auth required)
+
+### Auth (Cognito Triggers)
+- **post_authentication.py** - Cognito trigger - Generate AI Christmas username on first login
 
 ### Routes
 - **generate_pdf.py** - `POST /routes/generate-pdf` - Generate PDF route guide with map and QR codes
@@ -69,7 +82,9 @@ Lambda functions expect these environment variables (set by CDK):
 - `LOCATIONS_TABLE_NAME` - DynamoDB table for locations
 - `FEEDBACK_TABLE_NAME` - DynamoDB table for feedback
 - `SUGGESTIONS_TABLE_NAME` - DynamoDB table for suggestions
+- `USERS_TABLE_NAME` - DynamoDB table for user profiles
 - `PHOTOS_BUCKET_NAME` - S3 bucket for photos
+- `USER_POOL_ID` - Cognito user pool ID
 - `AWS_REGION` - AWS region
 
 ## Shared Layer
@@ -80,6 +95,7 @@ The `common` layer provides shared utilities:
 - **responses.py** - Standard API response builders
 - **auth.py** - Authentication decorators and helpers
 - **db.py** - DynamoDB table wrapper classes
+- **username_generator.py** - AI-powered Christmas username generation via Bedrock Claude
 
 ## Testing
 

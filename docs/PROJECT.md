@@ -1,6 +1,6 @@
 # DFW Christmas Lights Finder - Project Guide
 
-**Last Updated:** December 8, 2025
+**Last Updated:** December 10, 2025
 
 > Start here when resuming work. This is the single source of truth for project status.
 
@@ -27,7 +27,7 @@ cd backend && uv run pytest
 
 ---
 
-## Current Status (December 8, 2025)
+## Current Status (December 10, 2025)
 
 ### ✅ Complete & Working
 
@@ -42,6 +42,7 @@ cd backend && uv run pytest
 | Submit location suggestion | ✅ | ✅ | With address autocomplete |
 | Address autocomplete | ✅ | ✅ | Nominatim geocoding |
 | Admin dashboard | ✅ | ✅ | View/approve/reject suggestions |
+| Admin edit entries | ✅ | ✅ | Edit descriptions, tags, quality before approval |
 | Route planner | ✅ | - | Up to 15 stops, optimize |
 | Route visualization | ✅ | - | Numbered markers + polyline |
 | PDF route generation | ✅ | ✅ | ReportLab with page decorations, QR codes |
@@ -70,6 +71,8 @@ cd backend && uv run pytest
 | Feature | Frontend | Backend | Notes |
 |---------|----------|---------|-------|
 | Profile page | ✅ | ✅ | Email, join date, admin badge |
+| AI-generated usernames | ✅ | ✅ | Christmas-themed usernames via Bedrock AI |
+| Editable usernames | ✅ | ✅ | Users can customize their display name |
 | Activity statistics | ✅ | ✅ | Total, approved, pending, rejected counts |
 | Submission history | ✅ | ✅ | Expandable cards with details |
 | Photo thumbnails | ✅ | ✅ | Display photos in submission history |
@@ -176,12 +179,13 @@ Frontend (React)  →  API Gateway  →  Lambda  →  DynamoDB
 **Backend Functions:**
 ```
 backend/functions/
-├── locations/       # get_locations, get_location_by_id, suggest_addresses, delete_location
+├── locations/       # get_locations, get_location_by_id, suggest_addresses, update_location, delete_location
 ├── feedback/        # submit_feedback, get_feedback_status, report_inactive, toggle_favorite, get_favorites
-├── suggestions/     # submit, get, approve, reject
+├── suggestions/     # submit, get, approve, reject, update
 ├── routes/          # generate_pdf
 ├── photos/          # get_upload_url, analyze_photo
-└── users/           # get_profile, get_submissions
+├── users/           # get_profile, get_submissions, update_profile
+└── auth/            # post_authentication (AI username generation)
 ```
 
 ---
@@ -200,13 +204,16 @@ backend/functions/
 - `POST /v1/locations/{id}/report` - Report inactive
 - `POST /v1/locations/{id}/favorite` - Toggle favorite
 - `GET /v1/users/profile` - Get user profile with stats
+- `PUT /v1/users/profile` - Update user profile (username)
 - `GET /v1/users/submissions` - Get user's submission history
 - `GET /v1/users/favorites` - Get user's saved favorites
 
 ### Admin Only
 - `GET /v1/suggestions` - List pending suggestions
+- `PUT /v1/suggestions/{id}` - Update suggestion (description, tags, quality)
 - `POST /v1/suggestions/{id}/approve` - Approve → creates location
 - `POST /v1/suggestions/{id}/reject` - Reject suggestion
+- `PUT /v1/locations/{id}` - Update location (description, tags, quality, status)
 - `DELETE /v1/locations/{id}` - Delete location (for testing)
 
 ### Routes
@@ -262,6 +269,9 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
+- **Dec 10, 2025:** Added AI-generated Christmas-themed usernames using Bedrock Claude (e.g., "JollyReindeerRider", "TwinklingStarCollector"). Users can edit their username on the profile page.
+- **Dec 9, 2025:** Added admin edit functionality for locations and suggestions - can now edit descriptions, AI descriptions, categories, themes, and display quality before approval. Fixed route panel to stay minimized when adding stops.
+- **Dec 9, 2025:** Enhanced AI photo analysis - now triggers on suggestion submit (not just photo upload), ensuring all photos get analyzed regardless of upload order.
 - **Dec 8, 2025 (PM):** Fixed mobile popup closing issue - disabled autoPan, added manual pan after popup opens
 - **Dec 8, 2025:** Added contributor badges system (First Light, Scout, Enthusiast, Expert) with progress tracking on profile page
 - **Dec 7, 2025:** Fixed map popups to show full LocationPopup component with photos, descriptions, tags, and action buttons instead of just address
@@ -302,6 +312,8 @@ _Add notes, blockers, or decisions here:_
 - [x] Performance optimization - Code splitting, caching, map clustering
 - [x] "My Favorites" map filter - Toggle to show only saved locations
 - [x] Search and filter - Search by address/description, filter by category/quality
+- [x] AI-generated usernames - Christmas-themed usernames via Bedrock Claude
+- [x] Admin edit entries - Edit descriptions, tags, quality before approval
 - [ ] Geographic expansion (Houston, Austin, San Antonio)
 - [ ] Photo reporting/flagging
 - [ ] Social sharing features
