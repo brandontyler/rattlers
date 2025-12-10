@@ -1,6 +1,6 @@
 # Architecture Documentation
 
-**Last Updated:** December 6, 2025
+**Last Updated:** December 10, 2025
 
 ## System Overview
 
@@ -46,8 +46,8 @@ DFW Christmas Lights Finder is a serverless web application built entirely on AW
              │             │       │  (Photos)   │       │  (Claude)   │
              │ - Locations │       │             │       │  AI Photo   │
              │ - Feedback  │       │  S3 Trigger │       │  Analysis   │
-             │ - Users     │       │      ↓      │       │             │
-             │ - Reports   │       │  Lambda     │───────│             │
+             │ - Users     │       │      ↓      │       │  + Username │
+             │ - Reports   │       │  Lambda     │───────│  Generator  │
              └─────────────┘       └─────────────┘       └─────────────┘
 ```
 
@@ -68,6 +68,7 @@ DFW Christmas Lights Finder is a serverless web application built entirely on AW
 - `/admin` - Admin dashboard (protected)
 - `/login` - Authentication
 - `/submit` - Submit new location (protected)
+- `/profile` - User profile with stats and favorites (protected)
 
 **State Management:**
 - React Context for auth state
@@ -134,6 +135,28 @@ DFW Christmas Lights Finder is a serverless web application built entirely on AW
     - Generates description and quality rating
     - Flags non-Christmas photos for review
     - Updates suggestion record with tags
+
+13. **UpdateLocation** (`PUT /locations/{id}`) - Admin only
+    - Updates location details (description, tags, quality, status)
+    - Used by admin to correct AI-generated content before/after approval
+
+14. **UpdateSuggestion** (`PUT /suggestions/{id}`) - Admin only
+    - Updates pending suggestion before approval
+    - Only pending suggestions can be edited
+
+15. **GetUserProfile** (`GET /users/profile`)
+    - Returns user profile with submission stats
+    - Includes AI-generated Christmas-themed username
+
+16. **UpdateUserProfile** (`PUT /users/profile`)
+    - Allows users to change their username
+    - Validates uniqueness via username-index GSI
+
+17. **PostAuthentication** (Cognito Trigger)
+    - Triggered after successful Cognito authentication
+    - Generates Christmas-themed username using Bedrock Claude
+    - Examples: "JollyReindeerRider", "TwinklingStarCollector"
+    - Stores username in Users DynamoDB table
 
 ### Database (DynamoDB)
 
@@ -227,6 +250,23 @@ Attributes:
   "reviewedAt": "ISO-8601",
   "reviewedBy": "admin-user-id"
 }
+```
+
+#### Users Table
+```
+PK: userId (Cognito sub)
+
+Attributes:
+{
+  "userId": "cognito-sub",
+  "username": "JollyReindeerRider",
+  "createdAt": "ISO-8601",
+  "updatedAt": "ISO-8601"
+}
+
+GSI-1 (username-index):
+  PK: username
+  (For checking username uniqueness during updates)
 ```
 
 ### Authentication (Cognito)

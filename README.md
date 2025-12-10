@@ -12,6 +12,7 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - 📸 Photo uploads with AI analysis
 - ❤️ Like, favorite, and report locations
 - 👤 User profiles with contributor badges
+- 🎅 AI-generated Christmas-themed usernames
 - 📱 Mobile-responsive design
 
 ## Tech Stack

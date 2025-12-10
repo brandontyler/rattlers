@@ -1,6 +1,6 @@
 # API Documentation
 
-**Last Updated:** December 8, 2025
+**Last Updated:** December 10, 2025
 
 Base URL: `https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1`
 
@@ -26,14 +26,17 @@ Authorization: Bearer {cognito-jwt-token}
 - `POST /locations/{id}/favorite`
 - `POST /photos/upload-url`
 - `GET /users/profile`
+- `PUT /users/profile`
 - `GET /users/submissions`
 - `GET /users/favorites`
 - `POST /routes/generate-pdf`
 
 **Admin endpoints** (require Cognito `Admins` group):
 - `GET /suggestions`
+- `PUT /suggestions/{id}`
 - `POST /suggestions/{id}/approve`
 - `POST /suggestions/{id}/reject`
+- `PUT /locations/{id}`
 - `DELETE /locations/{id}`
 
 ---
@@ -143,6 +146,45 @@ Geocodes a partial address query and returns suggestions with coordinates.
 - Uses Nominatim (OpenStreetMap) for geocoding
 - 10 second timeout with retry logic
 
+#### Update Location (Admin Only)
+```
+PUT /locations/{id}
+Authorization: Required (Admin)
+```
+
+Updates location details. Used for correcting descriptions, categories, or status.
+
+**Request Body:**
+```json
+{
+  "description": "Updated description",
+  "aiDescription": "AI-generated description",
+  "decorations": ["lights", "snowman", "santa"],
+  "categories": ["residential"],
+  "theme": "traditional",
+  "displayQuality": "elaborate",
+  "status": "active"
+}
+```
+
+**Allowed Fields:**
+- `description` - User-provided description
+- `aiDescription` - AI-generated description
+- `decorations` - Array of detected decorations
+- `categories` - Array of categories
+- `theme` - Display theme
+- `displayQuality` - Quality rating (simple, moderate, elaborate)
+- `status` - Location status (active, inactive, flagged)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Location updated successfully",
+  "data": { ... }
+}
+```
+
 #### Delete Location (Admin Only)
 ```
 DELETE /locations/{id}
@@ -250,6 +292,47 @@ Creates a new location from the suggestion.
 - Creates new location in locations table
 - Updates suggestion status to "approved"
 - Records reviewer and timestamp
+
+#### Update Suggestion (Admin Only)
+```
+PUT /suggestions/{id}
+Authorization: Required (Admin)
+```
+
+Updates a pending suggestion before approval. Allows admins to correct descriptions and tags.
+
+**Request Body:**
+```json
+{
+  "description": "Updated description",
+  "aiDescription": "AI-generated description",
+  "detectedTags": ["lights", "snowman"],
+  "categories": ["residential"],
+  "theme": "traditional",
+  "displayQuality": "elaborate"
+}
+```
+
+**Allowed Fields:**
+- `description` - User-provided description
+- `aiDescription` - AI-generated description
+- `detectedTags` - Array of detected decoration tags
+- `categories` - Array of categories
+- `theme` - Display theme
+- `displayQuality` - Quality rating
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Suggestion updated successfully",
+  "data": { ... }
+}
+```
+
+**Notes:**
+- Only pending suggestions can be edited
+- Approved/rejected suggestions cannot be modified
 
 #### Reject Suggestion (Admin Only)
 ```
@@ -366,6 +449,7 @@ Returns authenticated user's profile with submission statistics.
   "data": {
     "id": "uuid",
     "email": "user@example.com",
+    "username": "JollyReindeerRider",
     "isAdmin": false,
     "joinDate": "2024-12-01T00:00:00Z",
     "stats": {
@@ -377,6 +461,48 @@ Returns authenticated user's profile with submission statistics.
   }
 }
 ```
+
+**Notes:**
+- `username` is an AI-generated Christmas-themed username assigned on first login
+- Username can be changed via PUT /users/profile
+
+#### Update User Profile
+```
+PUT /users/profile
+Authorization: Required
+```
+
+Updates the authenticated user's profile (currently username only).
+
+**Request Body:**
+```json
+{
+  "username": "MerrySnowflakeExplorer"
+}
+```
+
+**Validation:**
+- `username`: Required, 3-30 characters, alphanumeric and underscores only
+- Username must be unique (not already taken by another user)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "userId": "uuid",
+    "email": "user@example.com",
+    "username": "MerrySnowflakeExplorer",
+    "updatedAt": "2025-12-10T00:00:00Z"
+  },
+  "message": "Profile updated successfully"
+}
+```
+
+**Error Responses:**
+- 400: "Username is required"
+- 400: "Invalid username. Use only letters, numbers, and underscores (3-30 characters)"
+- 400: "Username already taken"
 
 #### Get User Submissions
 ```
@@ -632,3 +758,8 @@ CORS headers are included on all responses, including error responses (4XX/5XX).
 - **SK:** `location#{locationId}`
 - **GSI:** userId-locationId-index
 - **Attributes:** id, locationId, userId, type, createdAt
+
+### Users Table
+- **PK:** `userId` (Cognito sub)
+- **GSI:** username-index (for uniqueness checks)
+- **Attributes:** userId, username, createdAt, updatedAt
