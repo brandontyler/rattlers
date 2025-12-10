@@ -127,6 +127,18 @@ export interface UserSubmission {
   lng: number;
 }
 
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  username: string;
+  approvedSubmissions: number;
+  joinDate: string | null;
+  badge: {
+    type: 'first-light' | 'scout' | 'enthusiast' | 'expert';
+    label: string;
+  } | null;
+}
+
 // API Response types
 export interface ApiResponse<T> {
   success: boolean;

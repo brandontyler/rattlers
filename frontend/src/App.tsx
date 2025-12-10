@@ -12,6 +12,7 @@ const LocationDetailPage = lazy(() => import('@/pages/LocationDetailPage'));
 const SubmitLocationPage = lazy(() => import('@/pages/SubmitLocationPage'));
 const AdminPage = lazy(() => import('@/pages/AdminPage'));
 const ProfilePage = lazy(() => import('@/pages/ProfilePage'));
+const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 function PageLoader() {
@@ -31,6 +32,7 @@ function App() {
           <Route path="login" element={<LoginPage />} />
           <Route path="signup" element={<SignupPage />} />
           <Route path="location/:id" element={<LocationDetailPage />} />
+          <Route path="leaderboard" element={<LeaderboardPage />} />
 
           {/* Protected routes */}
           <Route
