@@ -56,7 +56,6 @@ export function RouteProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, location];
     });
-    setIsPanelExpanded(true);
   }, []);
 
   const removeStop = useCallback((locationId: string) => {
