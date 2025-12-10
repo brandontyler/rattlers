@@ -14,6 +14,8 @@ from responses import success_response, internal_error
 
 dynamodb = boto3.resource("dynamodb")
 cognito_client = boto3.client("cognito-idp")
+users_table_name = os.environ.get("USERS_TABLE_NAME")
+users_table = dynamodb.Table(users_table_name) if users_table_name else None
 
 
 @require_auth
@@ -24,6 +26,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         user_id = user["id"]
         email = user["email"]
         is_admin = user.get("is_admin", False)
+
+        # Get username from users table
+        username = None
+        if users_table:
+            try:
+                response = users_table.get_item(Key={"userId": user_id})
+                user_profile = response.get("Item", {})
+                username = user_profile.get("username")
+            except Exception as e:
+                print(f"Warning: Could not fetch username from users table: {str(e)}")
 
         # Get user creation date from Cognito
         user_pool_id = os.environ.get("USER_POOL_ID")
@@ -64,6 +76,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         profile = {
             "id": user_id,
             "email": email,
+            "username": username,
             "isAdmin": is_admin,
             "joinDate": join_date or datetime.now().isoformat(),
             "stats": {

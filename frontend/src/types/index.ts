@@ -93,6 +93,7 @@ export interface SuggestionRequest {
 export interface User {
   id: string;
   email: string;
+  username?: string;
   name?: string;
   isAdmin: boolean;
   createdAt?: string;
@@ -101,6 +102,7 @@ export interface User {
 export interface UserProfile {
   id: string;
   email: string;
+  username?: string;
   name?: string;
   isAdmin: boolean;
   joinDate: string;

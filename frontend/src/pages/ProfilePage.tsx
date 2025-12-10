@@ -15,6 +15,10 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [expandedSubmissionId, setExpandedSubmissionId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'submissions' | 'favorites'>('favorites');
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -89,6 +93,48 @@ export default function ProfilePage() {
     setExpandedSubmissionId(expandedSubmissionId === id ? null : id);
   };
 
+  const handleEditUsername = () => {
+    setNewUsername(profile?.username || '');
+    setIsEditingUsername(true);
+    setUsernameError(null);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingUsername(false);
+    setNewUsername('');
+    setUsernameError(null);
+  };
+
+  const handleSaveUsername = async () => {
+    if (!newUsername || newUsername.trim().length < 3) {
+      setUsernameError('Username must be at least 3 characters');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(newUsername)) {
+      setUsernameError('Username can only contain letters, numbers, and underscores');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setUsernameError(null);
+
+      const response = await apiService.updateProfile({ username: newUsername });
+
+      if (response.success && response.data) {
+        setProfile({ ...profile!, username: newUsername });
+        setIsEditingUsername(false);
+      } else {
+        setUsernameError(response.error?.message || 'Failed to update username');
+      }
+    } catch (err: any) {
+      setUsernameError(err.response?.data?.error?.message || 'Failed to update username');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const getStatusVariant = (status: string): 'forest' | 'burgundy' | 'gold' => {
     switch (status) {
       case 'approved':
@@ -116,13 +162,55 @@ export default function ProfilePage() {
       {/* Profile Info Card */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
         <div className="flex items-start justify-between mb-4">
-          <div>
-            <h2 className="font-display text-2xl font-semibold text-forest-900 mb-1">
-              {profile.email}
-            </h2>
-            {profile.name && (
-              <p className="text-forest-600">{profile.name}</p>
-            )}
+          <div className="flex-1">
+            {/* Username */}
+            <div className="mb-3">
+              {!isEditingUsername ? (
+                <div className="flex items-center gap-2">
+                  <h2 className="font-display text-2xl font-semibold text-forest-900">
+                    {profile.username || profile.email}
+                  </h2>
+                  <button
+                    onClick={handleEditUsername}
+                    className="text-burgundy-600 hover:text-burgundy-700 p-1"
+                    title="Edit username"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    className="px-3 py-2 border border-forest-300 rounded-md focus:outline-none focus:ring-2 focus:ring-burgundy-500"
+                    placeholder="Enter username"
+                    maxLength={30}
+                  />
+                  <button
+                    onClick={handleSaveUsername}
+                    disabled={isSaving}
+                    className="px-3 py-2 bg-burgundy-600 text-white rounded-md hover:bg-burgundy-700 disabled:opacity-50"
+                  >
+                    {isSaving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    className="px-3 py-2 bg-forest-100 text-forest-700 rounded-md hover:bg-forest-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+              {usernameError && (
+                <p className="text-red-600 text-sm mt-1">{usernameError}</p>
+              )}
+            </div>
+            {/* Email */}
+            <p className="text-forest-600 text-sm">{profile.email}</p>
           </div>
           {profile.isAdmin && (
             <Badge variant="burgundy" className="text-sm">

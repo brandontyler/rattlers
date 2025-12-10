@@ -71,10 +71,10 @@ export default function Layout() {
                   </button>
                   <div className="flex items-center gap-2 pl-4 border-l border-cream-300/30">
                     <div className="w-8 h-8 rounded-full bg-gold-500 flex items-center justify-center text-forest-900 font-bold text-sm">
-                      {user?.email?.[0].toUpperCase() || 'U'}
+                      {(user?.username || user?.email)?.[0].toUpperCase() || 'U'}
                     </div>
                     <span className="text-sm text-cream-200 max-w-[120px] truncate">
-                      {user?.email}
+                      {user?.username || user?.email}
                     </span>
                   </div>
                 </>
@@ -170,7 +170,7 @@ export default function Layout() {
                   >
                     Logout
                   </button>
-                  <div className="pt-2 text-sm text-cream-200">{user?.email}</div>
+                  <div className="pt-2 text-sm text-cream-200">{user?.username || user?.email}</div>
                 </>
               ) : (
                 <>
