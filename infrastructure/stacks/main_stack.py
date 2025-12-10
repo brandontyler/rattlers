@@ -707,6 +707,33 @@ class ChristmasLightsStack(Stack):
         )
         self.users_table.grant_read_write_data(self.update_user_profile_fn)
 
+        # Leaderboard function (public)
+        leaderboard_env = {
+            **common_env,
+            "USER_POOL_ID": self.user_pool.user_pool_id,
+            "USERS_TABLE_NAME": self.users_table.table_name,
+        }
+        self.get_leaderboard_fn = lambda_.Function(
+            self,
+            "GetLeaderboardFunction",
+            handler="get_leaderboard.handler",
+            code=lambda_.Code.from_asset("../backend/functions/users"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(15),
+            memory_size=256,
+            environment=leaderboard_env,
+            layers=[self.common_layer],
+        )
+        self.suggestions_table.grant_read_data(self.get_leaderboard_fn)
+        self.users_table.grant_read_data(self.get_leaderboard_fn)
+        # Grant Cognito permissions to get user details
+        self.get_leaderboard_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["cognito-idp:AdminGetUser"],
+                resources=[self.user_pool.user_pool_arn],
+            )
+        )
+
         # Post-authentication Lambda (Cognito trigger)
         post_auth_env = {
             "USERS_TABLE_NAME": self.users_table.table_name,
@@ -1010,6 +1037,13 @@ class ChristmasLightsStack(Stack):
             apigw.LambdaIntegration(self.get_favorites_fn),
             authorizer=authorizer,
             authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # /leaderboard endpoint (public)
+        leaderboard = v1.add_resource("leaderboard")
+        leaderboard.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.get_leaderboard_fn),
         )
 
     def create_cloudfront_distribution(self):

@@ -37,6 +37,12 @@ export default function Layout() {
               >
                 Explore Map
               </Link>
+              <Link
+                to="/leaderboard"
+                className="text-cream-100 hover:text-gold-300 transition-colors font-medium"
+              >
+                Leaderboard
+              </Link>
 
               {isAuthenticated ? (
                 <>
@@ -136,6 +142,13 @@ export default function Layout() {
               >
                 Explore Map
               </Link>
+              <Link
+                to="/leaderboard"
+                className="block text-cream-100 hover:text-gold-300 transition-colors font-medium py-2"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Leaderboard
+              </Link>
               {isAuthenticated ? (
                 <>
                   <Link
@@ -231,6 +244,12 @@ export default function Layout() {
                   className="block text-cream-200 hover:text-gold-300 transition-colors text-sm"
                 >
                   Explore Map
+                </Link>
+                <Link
+                  to="/leaderboard"
+                  className="block text-cream-200 hover:text-gold-300 transition-colors text-sm"
+                >
+                  Leaderboard
                 </Link>
                 <Link
                   to="/submit"

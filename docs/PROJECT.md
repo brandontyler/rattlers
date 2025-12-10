@@ -52,6 +52,7 @@ cd backend && uv run pytest
 | User profiles | ✅ | ✅ | Profile page with stats, submission history |
 | Search & filter | ✅ | - | Search by address/description, filter by category/quality |
 | "My Favorites" filter | ✅ | ✅ | Toggle to show only saved locations on map |
+| Leaderboard | ✅ | ✅ | Public ranking of top contributors by approved submissions |
 
 ### ✅ Photo Features (Complete End-to-End)
 

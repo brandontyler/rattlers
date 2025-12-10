@@ -18,6 +18,7 @@ import type {
   AddressSuggestionsResponse,
   RoutePdfRequest,
   RoutePdfResponse,
+  LeaderboardEntry,
 } from '@/types';
 
 const MAX_RETRIES = 3;
@@ -246,6 +247,12 @@ class ApiService {
       '/routes/generate-pdf',
       request
     );
+    return data;
+  }
+
+  // Leaderboard endpoint
+  async getLeaderboard(): Promise<ApiResponse<LeaderboardEntry[]>> {
+    const { data } = await this.api.get<ApiResponse<LeaderboardEntry[]>>('/leaderboard');
     return data;
   }
 }
