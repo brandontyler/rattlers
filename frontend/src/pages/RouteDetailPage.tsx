@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRoute } from '@/contexts/RouteContext';
 import { apiService } from '@/services/api';
 import type { SavedRoute } from '@/types';
-import { getShortAddress, getDirectionsUrl } from '@/utils/address';
+import { getShortAddress } from '@/utils/address';
 
 // Custom numbered marker icons
 const createNumberedIcon = (number: number) => {
@@ -156,7 +156,7 @@ export default function RouteDetailPage() {
     );
   }
 
-  const isOwner = user?.id === route.createdBy;
+  const _isOwner = user?.id === route.createdBy;
   const locations = route.locations || [];
   const mapCenter = locations.length > 0
     ? { lat: locations[0].lat, lng: locations[0].lng }
@@ -439,7 +439,7 @@ export default function RouteDetailPage() {
                     Create an account to save your favorite routes and create your own!
                   </p>
                   <Link to="/login">
-                    <Button variant="burgundy" fullWidth>
+                    <Button variant="primary" fullWidth>
                       Sign In
                     </Button>
                   </Link>
