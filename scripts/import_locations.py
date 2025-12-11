@@ -51,7 +51,7 @@ DFW_CENTER = (32.7767, -96.7970)
 
 # Regex patterns for extracting data from Google Maps URLs
 COORD_PATTERN = r'maps/search/([-\d.]+),([-\d.]+)'
-PLACE_ID_PATTERN = r'!1s(0x[0-9a-f]+:0x[0-9a-f]+)'
+CID_PATTERN = r'0x[0-9a-f]+:0x([0-9a-f]+)'  # Extract hex CID from URL
 PLACE_NAME_PATTERN = r'maps/place/([^/]+)/data'
 
 
@@ -72,12 +72,17 @@ def extract_coords_from_url(url: str) -> Optional[Tuple[float, float]]:
     return None
 
 
-def extract_place_id_from_url(url: str) -> Optional[str]:
-    """Extract Google Place ID from URL."""
+def extract_cid_from_url(url: str) -> Optional[str]:
+    """Extract decimal CID from Google Maps URL hex format."""
     if not url:
         return None
-    match = re.search(PLACE_ID_PATTERN, url)
-    return match.group(1) if match else None
+    match = re.search(CID_PATTERN, url)
+    if match:
+        try:
+            return str(int(match.group(1), 16))
+        except ValueError:
+            pass
+    return None
 
 
 def extract_place_name_from_url(url: str) -> Optional[str]:
@@ -103,29 +108,27 @@ def is_street_address(text: str) -> bool:
     return has_number and has_street_word
 
 
-def geocode_place_id(place_id: str) -> Optional[Tuple[float, float]]:
-    """Use Google Places API to get coordinates from Place ID."""
-    if not GOOGLE_API_KEY:
+def lookup_by_cid(cid: str) -> Optional[GeoResult]:
+    """Use Google Place Details API with CID to get exact location."""
+    if not GOOGLE_API_KEY or not cid:
         return None
     
-    # Google Place IDs from URLs are in format "0x...:0x..."
-    # We need to convert to the API format
-    url = f"https://maps.googleapis.com/maps/api/place/details/json"
+    url = "https://maps.googleapis.com/maps/api/place/details/json"
     params = {
-        'place_id': place_id,
-        'fields': 'geometry',
+        'cid': cid,
+        'fields': 'formatted_address,geometry',
         'key': GOOGLE_API_KEY
     }
     
     try:
-        # First try with the raw place_id
         response = requests.get(url, params=params, timeout=10)
         data = response.json()
         
-        if data.get('status') == 'OK':
-            loc = data['result']['geometry']['location']
-            return (loc['lat'], loc['lng'])
-    except Exception as e:
+        if data.get('status') == 'OK' and data.get('result'):
+            result = data['result']
+            loc = result['geometry']['location']
+            return GeoResult(loc['lat'], loc['lng'], result.get('formatted_address'))
+    except Exception:
         pass
     
     return None
@@ -279,40 +282,53 @@ def process_locations(entries: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
             })
             continue
         
-        # Method 2: Geocode if it's a street address
-        if is_street_address(title):
-            result = geocode_address(title)
+        # Method 2: CID lookup - most accurate, uses Google's stored place data
+        cid = extract_cid_from_url(url)
+        if cid:
+            result = lookup_by_cid(cid)
             if result:
-                # Use formatted address from Google (includes city, state, zip)
-                address = result.formatted_address or title
-                print(f"✓ Geocoded")
+                print(f"✓ CID lookup")
                 ready.append({
-                    'address': address,
+                    'address': result.formatted_address or title,
                     'description': note,
                     'lat': result.lat,
                     'lng': result.lng,
                     'googleMapsUrl': url,
                     'source': 'google-maps-import',
                 })
-                time.sleep(0.1)  # Rate limit
+                time.sleep(0.1)
                 continue
         
-        # Method 3: Find place by name (for non-address entries)
+        # Method 3: Geocode if it's a street address
+        if is_street_address(title):
+            result = geocode_address(title)
+            if result:
+                print(f"✓ Geocoded")
+                ready.append({
+                    'address': result.formatted_address or title,
+                    'description': note,
+                    'lat': result.lat,
+                    'lng': result.lng,
+                    'googleMapsUrl': url,
+                    'source': 'google-maps-import',
+                })
+                time.sleep(0.1)
+                continue
+        
+        # Method 4: Find place by name (for non-address entries)
         place_name = extract_place_name_from_url(url) or title
         result = find_place_by_text(place_name)
         if result:
-            # Use formatted address from Google
-            address = result.formatted_address or place_name
             print(f"✓ Found place")
             ready.append({
-                'address': address,
+                'address': result.formatted_address or place_name,
                 'description': note,
                 'lat': result.lat,
                 'lng': result.lng,
                 'googleMapsUrl': url,
                 'source': 'google-maps-import',
             })
-            time.sleep(0.1)  # Rate limit
+            time.sleep(0.1)
             continue
         
         # Failed all methods - needs manual review
