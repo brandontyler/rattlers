@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { apiService } from '@/services/api';
 import type { SavedRoute } from '@/types';
-import { LoadingSpinner, Button } from '@/components/ui';
+import { LoadingSpinner } from '@/components/ui';
 
 type SortType = 'popular' | 'new';
 

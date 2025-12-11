@@ -253,6 +253,7 @@ export interface SavedRoute {
   createdAt: string;
   updatedAt: string;
   status: 'active' | 'draft';
+  isPublic: boolean;
   likeCount: number;
   saveCount: number;
   startCount: number;
