@@ -734,6 +734,7 @@ class ChristmasLightsStack(Stack):
             layers=[self.common_layer],
         )
         self.routes_table.grant_read_data(self.get_route_by_id_fn)
+        self.routes_table.grant_write_data(self.get_route_by_id_fn)  # For increment_start_count analytics
         self.locations_table.grant_read_data(self.get_route_by_id_fn)
         self.users_table.grant_read_data(self.get_route_by_id_fn)
         self.route_feedback_table.grant_read_data(self.get_route_by_id_fn)
