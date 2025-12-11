@@ -4,6 +4,7 @@ import { Button, Card, Badge, LoadingSpinner, Lightbox } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api';
 import { useLocation as useLocationData } from '@/hooks';
+import { getShortAddress, getDirectionsUrl } from '@/utils/address';
 
 export default function LocationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -94,15 +95,9 @@ export default function LocationDetailPage() {
   }
 
   const handleGetDirections = () => {
-    // Use Google Maps URL if available, otherwise use address
-    if (location.googleMapsUrl) {
-      window.open(location.googleMapsUrl, '_blank');
-    } else {
-      // Use address for accurate directions (lat/lng can point to wrong house)
-      const encodedAddress = encodeURIComponent(location.address);
-      const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`;
-      window.open(googleMapsUrl, '_blank');
-    }
+    // Use address-based URL for better display in Google Maps
+    const url = getDirectionsUrl(location.address, location.lat, location.lng);
+    window.open(url, '_blank');
   };
 
   const handleLike = async () => {
@@ -198,7 +193,7 @@ export default function LocationDetailPage() {
                   )}
                 </div>
                 <h1 className="font-display text-3xl md:text-4xl font-bold text-forest-900 mb-2">
-                  {location.address}
+                  {getShortAddress(location.address)}
                 </h1>
                 <div className="flex items-center gap-4 text-forest-600">
                   <div className="flex items-center gap-1">

@@ -4,6 +4,7 @@ import Badge from '../ui/Badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api';
 import { AddToRouteButton } from '@/components/route';
+import { getShortAddress } from '@/utils/address';
 
 interface LocationPopupProps {
   location: Location;
@@ -180,9 +181,9 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
           </Badge>
         )}
 
-        {/* Address */}
+        {/* Address - show short version in title */}
         <h3 className="font-display font-semibold text-lg text-forest-900 mb-2">
-          {location.address}
+          {getShortAddress(location.address)}
         </h3>
 
         {/* AI Description or user description preview */}
