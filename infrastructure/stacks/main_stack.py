@@ -154,6 +154,80 @@ class ChristmasLightsStack(Stack):
             projection_type=dynamodb.ProjectionType.ALL,
         )
 
+        # Routes table - for saved/shared routes
+        self.routes_table = dynamodb.Table(
+            self,
+            "RoutesTable",
+            table_name=f"christmas-lights-routes-{self.env_name}",
+            partition_key=dynamodb.Attribute(
+                name="PK", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(name="SK", type=dynamodb.AttributeType.STRING),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY if self.env_name == "dev" else RemovalPolicy.RETAIN,
+        )
+
+        # GSI for querying public routes by like count (popular routes leaderboard)
+        self.routes_table.add_global_secondary_index(
+            index_name="status-likeCount-index",
+            partition_key=dynamodb.Attribute(
+                name="status", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="likeCount", type=dynamodb.AttributeType.NUMBER
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
+        # GSI for querying routes by creator (user's routes)
+        self.routes_table.add_global_secondary_index(
+            index_name="createdBy-createdAt-index",
+            partition_key=dynamodb.Attribute(
+                name="createdBy", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="createdAt", type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
+        # GSI for querying public routes by creation date (new routes)
+        self.routes_table.add_global_secondary_index(
+            index_name="status-createdAt-index",
+            partition_key=dynamodb.Attribute(
+                name="status", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="createdAt", type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
+        # Route feedback table - for likes, saves, and starts on routes
+        self.route_feedback_table = dynamodb.Table(
+            self,
+            "RouteFeedbackTable",
+            table_name=f"christmas-lights-route-feedback-{self.env_name}",
+            partition_key=dynamodb.Attribute(
+                name="PK", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(name="SK", type=dynamodb.AttributeType.STRING),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY if self.env_name == "dev" else RemovalPolicy.RETAIN,
+        )
+
+        # GSI for querying user's feedback on routes (prevent duplicates, get user's saved routes)
+        self.route_feedback_table.add_global_secondary_index(
+            index_name="userId-routeId-index",
+            partition_key=dynamodb.Attribute(
+                name="userId", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="routeId", type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
     def create_s3_buckets(self):
         """Create S3 buckets."""
 
@@ -335,6 +409,8 @@ class ChristmasLightsStack(Stack):
             "LOCATIONS_TABLE_NAME": self.locations_table.table_name,
             "FEEDBACK_TABLE_NAME": self.feedback_table.table_name,
             "SUGGESTIONS_TABLE_NAME": self.suggestions_table.table_name,
+            "ROUTES_TABLE_NAME": self.routes_table.table_name,
+            "ROUTE_FEEDBACK_TABLE_NAME": self.route_feedback_table.table_name,
             "PHOTOS_BUCKET_NAME": self.photos_bucket.bucket_name,
             "PHOTOS_CDN_URL": f"https://{self.photos_distribution.distribution_domain_name}" if hasattr(self, 'photos_distribution') else "",
             "ALLOWED_ORIGINS": ",".join(allowed_origins),
@@ -606,6 +682,165 @@ class ChristmasLightsStack(Stack):
         )
         # Grant S3 permissions for PDF storage and presigned URL generation
         self.photos_bucket.grant_read_write(self.generate_route_pdf_fn)
+
+        # Route environment with users table for usernames
+        routes_env = {
+            **common_env,
+            "USERS_TABLE_NAME": self.users_table.table_name,
+        }
+
+        # Create route function
+        self.create_route_fn = lambda_.Function(
+            self,
+            "CreateRouteFunction",
+            handler="create_route.handler",
+            code=lambda_.Code.from_asset("../backend/functions/routes"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=routes_env,
+            layers=[self.common_layer],
+        )
+        self.routes_table.grant_read_write_data(self.create_route_fn)
+        self.locations_table.grant_read_data(self.create_route_fn)
+        self.users_table.grant_read_data(self.create_route_fn)
+
+        # Get routes function (list with sorting/filtering)
+        self.get_routes_fn = lambda_.Function(
+            self,
+            "GetRoutesFunction",
+            handler="get_routes.handler",
+            code=lambda_.Code.from_asset("../backend/functions/routes"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=routes_env,
+            layers=[self.common_layer],
+        )
+        self.routes_table.grant_read_data(self.get_routes_fn)
+        self.locations_table.grant_read_data(self.get_routes_fn)
+        self.users_table.grant_read_data(self.get_routes_fn)
+
+        # Get route by ID function
+        self.get_route_by_id_fn = lambda_.Function(
+            self,
+            "GetRouteByIdFunction",
+            handler="get_route_by_id.handler",
+            code=lambda_.Code.from_asset("../backend/functions/routes"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=routes_env,
+            layers=[self.common_layer],
+        )
+        self.routes_table.grant_read_data(self.get_route_by_id_fn)
+        self.locations_table.grant_read_data(self.get_route_by_id_fn)
+        self.users_table.grant_read_data(self.get_route_by_id_fn)
+        self.route_feedback_table.grant_read_data(self.get_route_by_id_fn)
+
+        # Update route function
+        self.update_route_fn = lambda_.Function(
+            self,
+            "UpdateRouteFunction",
+            handler="update_route.handler",
+            code=lambda_.Code.from_asset("../backend/functions/routes"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=routes_env,
+            layers=[self.common_layer],
+        )
+        self.routes_table.grant_read_write_data(self.update_route_fn)
+        self.locations_table.grant_read_data(self.update_route_fn)
+
+        # Delete route function
+        self.delete_route_fn = lambda_.Function(
+            self,
+            "DeleteRouteFunction",
+            handler="delete_route.handler",
+            code=lambda_.Code.from_asset("../backend/functions/routes"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.routes_table.grant_read_write_data(self.delete_route_fn)
+        self.route_feedback_table.grant_read_write_data(self.delete_route_fn)
+
+        # Route feedback function (like/save/start toggle)
+        self.route_feedback_fn = lambda_.Function(
+            self,
+            "RouteFeedbackFunction",
+            handler="route_feedback.handler",
+            code=lambda_.Code.from_asset("../backend/functions/routes"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.routes_table.grant_read_write_data(self.route_feedback_fn)
+        self.route_feedback_table.grant_read_write_data(self.route_feedback_fn)
+
+        # Get route feedback status function
+        self.get_route_feedback_status_fn = lambda_.Function(
+            self,
+            "GetRouteFeedbackStatusFunction",
+            handler="get_route_feedback_status.handler",
+            code=lambda_.Code.from_asset("../backend/functions/routes"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(5),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.route_feedback_table.grant_read_data(self.get_route_feedback_status_fn)
+
+        # Get user's routes function
+        self.get_user_routes_fn = lambda_.Function(
+            self,
+            "GetUserRoutesFunction",
+            handler="get_user_routes.handler",
+            code=lambda_.Code.from_asset("../backend/functions/routes"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.routes_table.grant_read_data(self.get_user_routes_fn)
+
+        # Get user's saved routes function
+        self.get_user_saved_routes_fn = lambda_.Function(
+            self,
+            "GetUserSavedRoutesFunction",
+            handler="get_user_saved_routes.handler",
+            code=lambda_.Code.from_asset("../backend/functions/routes"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=routes_env,
+            layers=[self.common_layer],
+        )
+        self.routes_table.grant_read_data(self.get_user_saved_routes_fn)
+        self.route_feedback_table.grant_read_data(self.get_user_saved_routes_fn)
+        self.users_table.grant_read_data(self.get_user_saved_routes_fn)
+
+        # Routes leaderboard function (public)
+        self.get_routes_leaderboard_fn = lambda_.Function(
+            self,
+            "GetRoutesLeaderboardFunction",
+            handler="get_routes_leaderboard.handler",
+            code=lambda_.Code.from_asset("../backend/functions/routes"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=routes_env,
+            layers=[self.common_layer],
+        )
+        self.routes_table.grant_read_data(self.get_routes_leaderboard_fn)
+        self.users_table.grant_read_data(self.get_routes_leaderboard_fn)
 
         # Photo analysis function (triggered by S3)
         self.analyze_photo_fn = lambda_.Function(
@@ -1012,11 +1247,68 @@ class ChristmasLightsStack(Stack):
         # /routes endpoints
         routes = v1.add_resource("routes")
 
+        # GET /routes - list public routes (public)
+        routes.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.get_routes_fn),
+        )
+
+        # POST /routes - create a new route (authenticated)
+        routes.add_method(
+            "POST",
+            apigw.LambdaIntegration(self.create_route_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
         # /routes/generate-pdf endpoint (no auth required for now)
         generate_pdf = routes.add_resource("generate-pdf")
         generate_pdf.add_method(
             "POST",
             apigw.LambdaIntegration(self.generate_route_pdf_fn),
+        )
+
+        # /routes/{id} endpoints
+        route_by_id = routes.add_resource("{id}")
+
+        # GET /routes/{id} - get route details (public)
+        route_by_id.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.get_route_by_id_fn),
+        )
+
+        # PUT /routes/{id} - update route (authenticated, owner only)
+        route_by_id.add_method(
+            "PUT",
+            apigw.LambdaIntegration(self.update_route_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # DELETE /routes/{id} - delete route (authenticated, owner only)
+        route_by_id.add_method(
+            "DELETE",
+            apigw.LambdaIntegration(self.delete_route_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # /routes/{id}/feedback endpoint
+        route_feedback = route_by_id.add_resource("feedback")
+        route_feedback.add_method(
+            "POST",
+            apigw.LambdaIntegration(self.route_feedback_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # /routes/{id}/feedback/status endpoint
+        route_feedback_status = route_feedback.add_resource("status")
+        route_feedback_status.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.get_route_feedback_status_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
         )
 
         # /users endpoints
@@ -1055,6 +1347,24 @@ class ChristmasLightsStack(Stack):
             authorization_type=apigw.AuthorizationType.COGNITO,
         )
 
+        # /users/routes endpoint (authenticated) - get user's created routes
+        user_routes = users.add_resource("routes")
+        user_routes.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.get_user_routes_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # /users/saved-routes endpoint (authenticated) - get user's saved routes
+        saved_routes = users.add_resource("saved-routes")
+        saved_routes.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.get_user_saved_routes_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
         # /leaderboard endpoint (public)
         leaderboard = v1.add_resource("leaderboard")
         leaderboard.add_method(
@@ -1067,6 +1377,13 @@ class ChristmasLightsStack(Stack):
         leaderboard_locations.add_method(
             "GET",
             apigw.LambdaIntegration(self.get_locations_leaderboard_fn),
+        )
+
+        # /leaderboard/routes endpoint (public)
+        leaderboard_routes = leaderboard.add_resource("routes")
+        leaderboard_routes.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.get_routes_leaderboard_fn),
         )
 
     def create_cloudfront_distribution(self):

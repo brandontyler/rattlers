@@ -64,6 +64,12 @@ export default function Layout() {
                 Submit Location
               </Link>
               <Link
+                to="/routes"
+                className="text-cream-100 hover:text-gold-300 transition-colors font-medium"
+              >
+                Routes
+              </Link>
+              <Link
                 to="/leaderboard"
                 className="text-cream-100 hover:text-gold-300 transition-colors font-medium"
               >
@@ -195,6 +201,12 @@ export default function Layout() {
                   📍 Submit Location
                 </Link>
                 <Link
+                  to="/routes"
+                  className="block text-cream-100 hover:text-gold-300 hover:bg-cream-50/10 transition-colors font-medium py-3 px-2 rounded-lg"
+                >
+                  🛤️ Routes
+                </Link>
+                <Link
                   to="/leaderboard"
                   className="block text-cream-100 hover:text-gold-300 hover:bg-cream-50/10 transition-colors font-medium py-3 px-2 rounded-lg"
                 >
@@ -301,6 +313,12 @@ export default function Layout() {
                   className="block text-cream-200 hover:text-gold-300 transition-colors text-sm"
                 >
                   Submit Location
+                </Link>
+                <Link
+                  to="/routes"
+                  className="block text-cream-200 hover:text-gold-300 transition-colors text-sm"
+                >
+                  Routes
                 </Link>
                 <Link
                   to="/leaderboard"

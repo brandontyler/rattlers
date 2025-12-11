@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { apiService } from '@/services/api';
-import type { LeaderboardEntry, LocationLeaderboardEntry } from '@/types';
+import type { LeaderboardEntry, LocationLeaderboardEntry, SavedRoute, RouteCreatorEntry } from '@/types';
 
-type TabType = 'contributors' | 'locations';
+type TabType = 'contributors' | 'locations' | 'routes';
 
 const BADGE_STYLES = {
   'first-light': {
@@ -24,10 +24,31 @@ const BADGE_STYLES = {
   },
 };
 
+const ROUTE_BADGE_STYLES: Record<string, { bgClass: string; textClass: string }> = {
+  'route-scout': {
+    bgClass: 'bg-gradient-to-br from-forest-400 to-forest-600',
+    textClass: 'text-cream-50',
+  },
+  'trail-blazer': {
+    bgClass: 'bg-gradient-to-br from-burgundy-500 to-burgundy-700',
+    textClass: 'text-cream-50',
+  },
+  'route-master': {
+    bgClass: 'bg-gradient-to-br from-gold-500 to-gold-700',
+    textClass: 'text-gold-900',
+  },
+  'legend': {
+    bgClass: 'bg-gradient-to-br from-purple-500 to-purple-700',
+    textClass: 'text-cream-50',
+  },
+};
+
 export default function LeaderboardPage() {
   const [activeTab, setActiveTab] = useState<TabType>('contributors');
   const [contributors, setContributors] = useState<LeaderboardEntry[]>([]);
   const [locations, setLocations] = useState<LocationLeaderboardEntry[]>([]);
+  const [routes, setRoutes] = useState<SavedRoute[]>([]);
+  const [routeCreators, setRouteCreators] = useState<RouteCreatorEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,10 +64,18 @@ export default function LeaderboardPage() {
           } else {
             setError('Failed to load leaderboard');
           }
-        } else {
+        } else if (activeTab === 'locations') {
           const response = await apiService.getLocationsLeaderboard();
           if (response.success && response.data) {
             setLocations(response.data);
+          } else {
+            setError('Failed to load leaderboard');
+          }
+        } else {
+          const response = await apiService.getRoutesLeaderboard();
+          if (response.success && response.data) {
+            setRoutes(response.data.routes);
+            setRouteCreators(response.data.creators);
           } else {
             setError('Failed to load leaderboard');
           }
@@ -118,26 +147,36 @@ export default function LeaderboardPage() {
 
       {/* Tab Switcher */}
       <div className="flex justify-center mb-6">
-        <div className="inline-flex bg-forest-100 rounded-lg p-1">
+        <div className="inline-flex bg-forest-100 rounded-lg p-1 flex-wrap justify-center gap-1">
           <button
             onClick={() => setActiveTab('contributors')}
-            className={`px-6 py-2 rounded-md font-medium transition-colors ${
+            className={`px-4 py-2 rounded-md font-medium transition-colors text-sm ${
               activeTab === 'contributors'
                 ? 'bg-white text-forest-900 shadow-sm'
                 : 'text-forest-600 hover:text-forest-900'
             }`}
           >
-            🏆 Contributors
+            Contributors
           </button>
           <button
             onClick={() => setActiveTab('locations')}
-            className={`px-6 py-2 rounded-md font-medium transition-colors ${
+            className={`px-4 py-2 rounded-md font-medium transition-colors text-sm ${
               activeTab === 'locations'
                 ? 'bg-white text-forest-900 shadow-sm'
                 : 'text-forest-600 hover:text-forest-900'
             }`}
           >
-            ❤️ Most Loved
+            Most Loved
+          </button>
+          <button
+            onClick={() => setActiveTab('routes')}
+            className={`px-4 py-2 rounded-md font-medium transition-colors text-sm ${
+              activeTab === 'routes'
+                ? 'bg-white text-forest-900 shadow-sm'
+                : 'text-forest-600 hover:text-forest-900'
+            }`}
+          >
+            Top Routes
           </button>
         </div>
       </div>
@@ -160,9 +199,17 @@ export default function LeaderboardPage() {
           getRankIcon={getRankIcon}
           formatJoinDate={formatJoinDate}
         />
-      ) : (
+      ) : activeTab === 'locations' ? (
         <LocationsLeaderboard
           locations={locations}
+          getRankStyle={getRankStyle}
+          getRankIcon={getRankIcon}
+          UserAvatar={UserAvatar}
+        />
+      ) : (
+        <RoutesLeaderboard
+          routes={routes}
+          creators={routeCreators}
           getRankStyle={getRankStyle}
           getRankIcon={getRankIcon}
           UserAvatar={UserAvatar}
@@ -452,6 +499,192 @@ function LocationsLeaderboard({
             </div>
           </Link>
         ))}
+      </div>
+    </>
+  );
+}
+
+// Routes Leaderboard Component
+function RoutesLeaderboard({
+  routes,
+  creators,
+  getRankStyle,
+  getRankIcon,
+  UserAvatar,
+}: {
+  routes: SavedRoute[];
+  creators: RouteCreatorEntry[];
+  getRankStyle: (rank: number) => string;
+  getRankIcon: (rank: number) => React.ReactNode;
+  UserAvatar: React.FC<{ username: string }>;
+}) {
+  if (routes.length === 0) {
+    return (
+      <div className="text-center py-12 bg-white rounded-lg shadow-md">
+        <div className="text-6xl mb-4">🗺️</div>
+        <p className="text-forest-600 mb-2">No routes yet</p>
+        <p className="text-sm text-forest-500 mb-4">
+          Be the first to create and share a route!
+        </p>
+        <Link
+          to="/"
+          className="inline-block px-6 py-2 bg-burgundy-600 text-cream-50 rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
+        >
+          Create a Route
+        </Link>
+      </div>
+    );
+  }
+
+  const totalLikes = routes.reduce((sum, r) => sum + r.likeCount, 0);
+  const totalStops = routes.reduce((sum, r) => sum + r.stopCount, 0);
+
+  return (
+    <>
+      {/* Stats Summary */}
+      <div className="bg-gradient-to-r from-burgundy-50 to-gold-50 rounded-lg p-6 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+          <div>
+            <div className="text-3xl font-bold text-forest-900">{routes.length}</div>
+            <div className="text-sm text-forest-600">Routes</div>
+          </div>
+          <div>
+            <div className="text-3xl font-bold text-forest-900">{totalStops}</div>
+            <div className="text-sm text-forest-600">Total Stops</div>
+          </div>
+          <div>
+            <div className="text-3xl font-bold text-forest-900">{totalLikes}</div>
+            <div className="text-sm text-forest-600">Total Likes</div>
+          </div>
+          <div>
+            <div className="text-3xl font-bold text-forest-900">{creators.length}</div>
+            <div className="text-sm text-forest-600">Route Creators</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Top Routes */}
+      <div className="mb-8">
+        <h3 className="font-display text-xl font-semibold text-forest-900 mb-4">Top Routes</h3>
+        <div className="space-y-4">
+          {routes.slice(0, 10).map((route, index) => (
+            <Link
+              key={route.id}
+              to={`/routes/${route.id}`}
+              className={`block bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow ${
+                index < 3 ? 'ring-2 ring-gold-200' : ''
+              }`}
+            >
+              <div className="p-4 flex items-start gap-4">
+                {/* Rank Badge */}
+                <div
+                  className={`w-10 h-10 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${getRankStyle(
+                    index + 1
+                  )}`}
+                >
+                  {getRankIcon(index + 1)}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-forest-900 truncate">{route.title}</h4>
+                  {route.description && (
+                    <p className="text-sm text-forest-600 line-clamp-1">{route.description}</p>
+                  )}
+                  <div className="flex items-center gap-3 mt-2 text-xs text-forest-500">
+                    <span>{route.stopCount} stops</span>
+                    <span>~{route.estimatedMinutes} min</span>
+                    {route.createdByUsername && (
+                      <span className="flex items-center gap-1">
+                        by {route.createdByUsername}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div className="flex items-center gap-3 text-sm flex-shrink-0">
+                  <span className="flex items-center gap-1 text-burgundy-600 font-semibold">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                    </svg>
+                    {route.likeCount}
+                  </span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Top Route Creators */}
+      {creators.length > 0 && (
+        <div>
+          <h3 className="font-display text-xl font-semibold text-forest-900 mb-4">Top Route Creators</h3>
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="divide-y divide-forest-100">
+              {creators.slice(0, 10).map((creator) => (
+                <div
+                  key={creator.userId}
+                  className={`flex items-center gap-4 p-4 ${
+                    creator.rank <= 3 ? 'bg-cream-50/50' : ''
+                  }`}
+                >
+                  {/* Rank */}
+                  <div
+                    className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${getRankStyle(
+                      creator.rank
+                    )}`}
+                  >
+                    {getRankIcon(creator.rank)}
+                  </div>
+
+                  {/* Avatar & Name */}
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <UserAvatar username={creator.username} />
+                    <div className="truncate">
+                      <div className="font-semibold text-forest-900">{creator.username}</div>
+                      <div className="text-xs text-forest-500">
+                        {creator.routeCount} route{creator.routeCount !== 1 ? 's' : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Badge */}
+                  {creator.badge && ROUTE_BADGE_STYLES[creator.badge.type] && (
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        ROUTE_BADGE_STYLES[creator.badge.type].bgClass
+                      } ${ROUTE_BADGE_STYLES[creator.badge.type].textClass}`}
+                    >
+                      {creator.badge.label}
+                    </span>
+                  )}
+
+                  {/* Stats */}
+                  <div className="flex items-center gap-3 text-sm text-forest-600">
+                    <span className="flex items-center gap-1">
+                      <svg className="w-4 h-4 text-burgundy-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                      </svg>
+                      {creator.totalLikes}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View all routes link */}
+      <div className="mt-6 text-center">
+        <Link
+          to="/routes"
+          className="text-burgundy-600 hover:text-burgundy-700 font-medium"
+        >
+          View all routes →
+        </Link>
       </div>
     </>
   );

@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { useRoute } from '@/contexts/RouteContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatDuration, formatDistance } from '@/utils/routeUtils';
 import RouteStopCard from './RouteStopCard';
+import SaveRouteModal from './SaveRouteModal';
 import { Button } from '@/components/ui';
+import { useNavigate } from 'react-router-dom';
+import type { SavedRoute } from '@/types';
 
 export default function RoutePanel() {
   const {
@@ -18,7 +22,12 @@ export default function RoutePanel() {
     setIsPanelExpanded,
   } = useRoute();
 
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleGeneratePdf = async () => {
     setDownloadError(null);
@@ -41,6 +50,20 @@ export default function RoutePanel() {
     if (index < stops.length - 1) {
       reorderStops(index, index + 1);
     }
+  };
+
+  const handleSaveRoute = () => {
+    if (!isAuthenticated) {
+      // Redirect to login with return URL
+      navigate('/login?redirect=' + encodeURIComponent(window.location.pathname));
+      return;
+    }
+    setIsSaveModalOpen(true);
+  };
+
+  const handleRouteSaved = (route: SavedRoute) => {
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 3000);
   };
 
   // Don't render if no stops
@@ -134,6 +157,16 @@ export default function RoutePanel() {
 
         {/* Actions */}
         <div className="p-3 border-t border-forest-100 bg-white rounded-b-2xl">
+          {/* Success message */}
+          {saveSuccess && (
+            <div className="mb-2 px-3 py-2 bg-forest-50 text-forest-700 text-sm rounded-lg flex items-center gap-2">
+              <svg className="w-4 h-4 text-forest-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Route saved! View it in your profile.
+            </div>
+          )}
+
           <div className="flex gap-2 mb-2">
             <button
               onClick={optimizeRoute}
@@ -149,17 +182,39 @@ export default function RoutePanel() {
               Clear All
             </button>
           </div>
-          <Button
-            variant="gold"
-            fullWidth
-            onClick={handleGeneratePdf}
-            loading={isGeneratingPdf}
-            disabled={stops.length === 0}
-          >
-            {isGeneratingPdf ? 'Creating PDF...' : 'Create PDF Route'}
-          </Button>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleSaveRoute}
+              disabled={stops.length < 2}
+              className="flex-1"
+            >
+              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+              </svg>
+              Save Route
+            </Button>
+            <Button
+              variant="gold"
+              onClick={handleGeneratePdf}
+              loading={isGeneratingPdf}
+              disabled={stops.length === 0}
+              className="flex-1"
+            >
+              {isGeneratingPdf ? 'Creating...' : 'PDF Guide'}
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Save Route Modal */}
+      <SaveRouteModal
+        isOpen={isSaveModalOpen}
+        onClose={() => setIsSaveModalOpen(false)}
+        stops={stops}
+        onSaved={handleRouteSaved}
+      />
     </div>
   );
 }
