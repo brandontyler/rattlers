@@ -185,7 +185,7 @@ backend/functions/
 ├── suggestions/     # submit, get, approve, reject, update
 ├── routes/          # generate_pdf
 ├── photos/          # get_upload_url, analyze_photo
-├── users/           # get_profile, get_submissions, update_profile
+├── users/           # get_profile, get_submissions, update_profile, get_leaderboard
 └── auth/            # post_authentication (AI username generation)
 ```
 
@@ -197,6 +197,7 @@ backend/functions/
 - `GET /v1/locations` - List all locations
 - `GET /v1/locations/{id}` - Get location details
 - `POST /v1/locations/suggest-addresses` - Geocode address
+- `GET /v1/leaderboard` - Public contributor rankings
 
 ### Authenticated
 - `POST /v1/suggestions` - Submit location suggestion
