@@ -4,6 +4,8 @@ import json
 import os
 import base64
 import io
+import time
+import random
 import boto3
 from botocore.exceptions import ClientError
 from PIL import Image
@@ -214,23 +216,29 @@ def analyze_photo(bucket: str, key: str) -> dict:
     if content_type not in ["image/jpeg", "image/png", "image/webp", "image/gif"]:
         content_type = "image/jpeg"
     
-    response = bedrock.invoke_model(
-        modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
-        body=json.dumps({
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 512,
-            "tools": [ANALYSIS_TOOL],
-            "tool_choice": {"type": "tool", "name": "record_photo_analysis"},
-            "messages": [{
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {"type": "base64", "media_type": content_type, "data": image_base64},
-                    },
-                    {
-                        "type": "text",
-                        "text": f"""Analyze this Christmas display photo.
+    # Retry with exponential backoff for rate limiting
+    max_retries = 5
+    base_delay = 1.0
+    
+    for attempt in range(max_retries):
+        try:
+            response = bedrock.invoke_model(
+                modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+                body=json.dumps({
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "max_tokens": 512,
+                    "tools": [ANALYSIS_TOOL],
+                    "tool_choice": {"type": "tool", "name": "record_photo_analysis"},
+                    "messages": [{
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {"type": "base64", "media_type": content_type, "data": image_base64},
+                            },
+                            {
+                                "type": "text",
+                                "text": f"""Analyze this Christmas display photo.
 
 **DECORATIONS** - List 5-10 unique items MAX. Use short, specific names:
 - STRICT: No duplicates or variations. Pick ONE name per item type.
@@ -250,18 +258,30 @@ def analyze_photo(bucket: str, key: str) -> dict:
 **QUALITY** - minimal/moderate/impressive/spectacular
 
 Use the record_photo_analysis tool.""",
-                    },
-                ],
-            }],
-        }),
-    )
-    
-    result = json.loads(response["body"].read())
-    
-    # Extract tool use result
-    for block in result.get("content", []):
-        if block.get("type") == "tool_use" and block.get("name") == "record_photo_analysis":
-            return block.get("input", {})
+                            },
+                        ],
+                    }],
+                }),
+            )
+            
+            result = json.loads(response["body"].read())
+            
+            # Extract tool use result
+            for block in result.get("content", []):
+                if block.get("type") == "tool_use" and block.get("name") == "record_photo_analysis":
+                    return block.get("input", {})
+            
+            return {"decorations": [], "categories": [], "theme": None, "description": "", "display_quality": "moderate", "is_christmas_display": True}
+            
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "")
+            if error_code in ("ServiceUnavailableException", "ThrottlingException") and attempt < max_retries - 1:
+                # Exponential backoff with jitter
+                delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                print(f"Bedrock rate limited, retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})")
+                time.sleep(delay)
+                continue
+            raise
     
     return {"decorations": [], "categories": [], "theme": None, "description": "", "display_quality": "moderate", "is_christmas_display": True}
 
