@@ -155,32 +155,44 @@ def geocode_address(address: str) -> Optional[Tuple[float, float]]:
 
 
 def find_place_by_text(query: str) -> Optional[Tuple[float, float]]:
-    """Use Google Places API to find a place by text query."""
+    """Use Google Places Text Search API to find a place."""
     if not GOOGLE_API_KEY:
         return None
     
-    search = query
-    if 'TX' not in query.upper() and 'TEXAS' not in query.upper():
-        search = f"{query}, Dallas-Fort Worth, TX"
+    # Try with different city contexts for ambiguous names
+    search_variants = [
+        f"{query}, Dallas Fort Worth, Texas",
+        f"{query}, Texas",
+    ]
     
-    url = "https://maps.googleapis.com/maps/api/place/findplacefromtext/json"
-    params = {
-        'input': search,
-        'inputtype': 'textquery',
-        'fields': 'geometry',
-        'locationbias': f'circle:80000@{DFW_CENTER[0]},{DFW_CENTER[1]}',
-        'key': GOOGLE_API_KEY
-    }
+    # For generic street/place names, try specific DFW cities
+    dfw_cities = ['Dallas', 'Fort Worth', 'Arlington', 'Plano', 'Frisco', 
+                  'McKinney', 'Denton', 'Lewisville', 'Flower Mound', 'Carrollton']
+    if not any(city.lower() in query.lower() for city in dfw_cities):
+        for city in dfw_cities[:5]:  # Try top 5 cities
+            search_variants.append(f"{query}, {city}, TX")
     
-    try:
-        response = requests.get(url, params=params, timeout=10)
-        data = response.json()
+    for search in search_variants:
+        url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+        params = {
+            'query': search,
+            'location': f'{DFW_CENTER[0]},{DFW_CENTER[1]}',
+            'radius': 150000,
+            'key': GOOGLE_API_KEY
+        }
         
-        if data.get('status') == 'OK' and data.get('candidates'):
-            loc = data['candidates'][0]['geometry']['location']
-            return (loc['lat'], loc['lng'])
-    except Exception as e:
-        print(f"    Find place error: {e}")
+        try:
+            response = requests.get(url, params=params, timeout=10)
+            data = response.json()
+            
+            if data.get('status') == 'OK' and data.get('results'):
+                loc = data['results'][0]['geometry']['location']
+                lat, lng = loc['lat'], loc['lng']
+                # Verify it's in North Texas area
+                if 32.0 < lat < 33.8 and -98.0 < lng < -96.0:
+                    return (lat, lng)
+        except Exception as e:
+            continue
     
     return None
 
