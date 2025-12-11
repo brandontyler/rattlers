@@ -202,14 +202,14 @@ export default function SaveRouteModal({ isOpen, onClose, stops, onSaved }: Save
         {/* Footer */}
         <div className="flex gap-3 p-4 sm:p-6 border-t border-forest-100 bg-forest-50 rounded-b-xl">
           <Button
-            variant="outline"
+            variant="secondary"
             onClick={onClose}
             className="flex-1"
           >
             Cancel
           </Button>
           <Button
-            variant="burgundy"
+            variant="primary"
             onClick={handleSave}
             loading={isSaving}
             disabled={!title.trim()}

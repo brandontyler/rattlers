@@ -61,7 +61,7 @@ export default function RoutePanel() {
     setIsSaveModalOpen(true);
   };
 
-  const handleRouteSaved = (route: SavedRoute) => {
+  const handleRouteSaved = (_route: SavedRoute) => {
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
@@ -185,7 +185,7 @@ export default function RoutePanel() {
 
           <div className="flex gap-2">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={handleSaveRoute}
               disabled={stops.length < 2}
               className="flex-1"
