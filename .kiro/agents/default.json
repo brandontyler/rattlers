@@ -9,6 +9,9 @@
     "file://docs/API.md",
     "file://docs/ARCHITECTURE.md"
   ],
+  "tools": [
+    "@builtin"
+  ],
   "allowedTools": [
     "@builtin"
   ]
