@@ -541,6 +541,7 @@ class ChristmasLightsStack(Stack):
         )
         self.suggestions_table.grant_read_write_data(self.approve_suggestion_fn)
         self.locations_table.grant_write_data(self.approve_suggestion_fn)
+        self.users_table.grant_read_data(self.approve_suggestion_fn)
         # Grant S3 permissions to move photos from pending/ to approved/
         self.photos_bucket.grant_read_write(self.approve_suggestion_fn)
         self.photos_bucket.grant_delete(self.approve_suggestion_fn)
@@ -734,6 +735,20 @@ class ChristmasLightsStack(Stack):
             )
         )
 
+        # Locations leaderboard function (public)
+        self.get_locations_leaderboard_fn = lambda_.Function(
+            self,
+            "GetLocationsLeaderboardFunction",
+            handler="get_locations_leaderboard.handler",
+            code=lambda_.Code.from_asset("../backend/functions/users"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.locations_table.grant_read_data(self.get_locations_leaderboard_fn)
+
         # Post-authentication Lambda (Cognito trigger)
         post_auth_env = {
             "USERS_TABLE_NAME": self.users_table.table_name,
@@ -781,6 +796,7 @@ class ChristmasLightsStack(Stack):
             "generate_route_pdf": self.generate_route_pdf_fn,
             "get_user_profile": self.get_user_profile_fn,
             "get_user_submissions": self.get_user_submissions_fn,
+            "get_locations_leaderboard": self.get_locations_leaderboard_fn,
         }
 
     def create_api_gateway(self):
@@ -1044,6 +1060,13 @@ class ChristmasLightsStack(Stack):
         leaderboard.add_method(
             "GET",
             apigw.LambdaIntegration(self.get_leaderboard_fn),
+        )
+
+        # /leaderboard/locations endpoint (public)
+        leaderboard_locations = leaderboard.add_resource("locations")
+        leaderboard_locations.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.get_locations_leaderboard_fn),
         )
 
     def create_cloudfront_distribution(self):

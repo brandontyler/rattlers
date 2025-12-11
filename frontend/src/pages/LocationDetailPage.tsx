@@ -486,6 +486,18 @@ export default function LocationDetailPage() {
                       </div>
                     </div>
                   )}
+
+                  {location.createdByUsername && (
+                    <div className="flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-full bg-forest-100 flex items-center justify-center text-forest-600 font-semibold text-xs flex-shrink-0 mt-0.5">
+                        {location.createdByUsername.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-medium text-forest-900">Submitted by</p>
+                        <p className="text-sm text-forest-600">{location.createdByUsername}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </Card>
 

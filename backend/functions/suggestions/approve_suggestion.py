@@ -14,6 +14,7 @@ s3_client = boto3.client("s3")
 
 suggestions_table = dynamodb.Table(os.environ.get("SUGGESTIONS_TABLE_NAME", "christmas-lights-suggestions-dev"))
 locations_table = dynamodb.Table(os.environ.get("LOCATIONS_TABLE_NAME", "christmas-lights-locations-dev"))
+users_table = dynamodb.Table(os.environ.get("USERS_TABLE_NAME", "christmas-lights-users-dev"))
 PHOTOS_BUCKET = os.environ.get("PHOTOS_BUCKET_NAME", "christmas-lights-photos-dev")
 PHOTOS_CDN_URL = os.environ.get("PHOTOS_CDN_URL", "")
 
@@ -119,6 +120,17 @@ def handler(event, context):
             "createdAt": now,
             "createdBy": suggestion.get("submittedBy"),
         }
+
+        # Lookup username for the submitter
+        submitter_id = suggestion.get("submittedBy")
+        if submitter_id:
+            try:
+                user_response = users_table.get_item(Key={"userId": submitter_id})
+                user_item = user_response.get("Item", {})
+                if user_item.get("username"):
+                    location_item["createdByUsername"] = user_item["username"]
+            except Exception as e:
+                print(f"Warning: Could not fetch username for {submitter_id}: {e}")
 
         # Copy AI-generated fields from suggestion if they exist
         if suggestion.get("detectedTags"):

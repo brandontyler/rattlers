@@ -18,6 +18,7 @@ Authorization: Bearer {cognito-jwt-token}
 - `GET /locations/{id}`
 - `POST /locations/suggest-addresses`
 - `GET /leaderboard`
+- `GET /leaderboard/locations`
 
 **Authenticated endpoints** (require valid JWT):
 - `POST /suggestions`
@@ -626,6 +627,40 @@ Returns public ranking of top contributors by approved submissions.
 - Public endpoint (no authentication required)
 - Sorted by approved submissions (descending)
 - Includes highest earned badge for each contributor
+
+#### Get Locations Leaderboard
+```
+GET /leaderboard/locations
+```
+
+Returns top locations ranked by like count.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "rank": 1,
+      "locationId": "uuid",
+      "address": "123 Main St, Dallas, TX 75001",
+      "description": "Amazing synchronized lights display",
+      "aiDescription": "AI-generated description",
+      "likeCount": 42,
+      "photos": ["https://..."],
+      "createdBy": "cognito-sub",
+      "createdByUsername": "JollyReindeerRider",
+      "decorations": ["lights", "snowman"],
+      "displayQuality": "elaborate"
+    }
+  ]
+}
+```
+
+**Notes:**
+- Public endpoint (no authentication required)
+- Returns top 50 locations sorted by like count (descending)
+- Only includes active locations
 
 ---
 

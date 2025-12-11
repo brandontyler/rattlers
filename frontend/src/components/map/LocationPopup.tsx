@@ -211,6 +211,16 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
           </div>
         )}
 
+        {/* Submitted by */}
+        {location.createdByUsername && (
+          <div className="flex items-center gap-2 mb-3 text-sm text-forest-500">
+            <div className="w-6 h-6 rounded-full bg-forest-100 flex items-center justify-center text-forest-600 font-semibold text-xs">
+              {location.createdByUsername.charAt(0).toUpperCase()}
+            </div>
+            <span>Submitted by {location.createdByUsername}</span>
+          </div>
+        )}
+
         {/* Stats */}
         <div className="flex items-center gap-4 mb-3 text-sm">
           {/* Like count */}

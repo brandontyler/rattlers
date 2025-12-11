@@ -19,6 +19,7 @@ import type {
   RoutePdfRequest,
   RoutePdfResponse,
   LeaderboardEntry,
+  LocationLeaderboardEntry,
 } from '@/types';
 
 const MAX_RETRIES = 3;
@@ -253,6 +254,12 @@ class ApiService {
   // Leaderboard endpoint
   async getLeaderboard(): Promise<ApiResponse<LeaderboardEntry[]>> {
     const { data } = await this.api.get<ApiResponse<LeaderboardEntry[]>>('/leaderboard');
+    return data;
+  }
+
+  // Locations leaderboard endpoint
+  async getLocationsLeaderboard(): Promise<ApiResponse<LocationLeaderboardEntry[]>> {
+    const { data } = await this.api.get<ApiResponse<LocationLeaderboardEntry[]>>('/leaderboard/locations');
     return data;
   }
 }
