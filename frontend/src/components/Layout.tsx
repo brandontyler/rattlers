@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import Button from './ui/Button';
@@ -6,7 +6,26 @@ import Button from './ui/Button';
 export default function Layout() {
   const { isAuthenticated, user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Close menus on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+    setUserMenuOpen(false);
+  }, [location.pathname]);
 
   return (
     <div className="min-h-screen flex flex-col bg-cream-50">
@@ -23,7 +42,7 @@ export default function Layout() {
                 <h1 className="text-2xl font-display font-bold text-cream-50">
                   DFW Christmas Lights
                 </h1>
-                <p className="text-xs text-cream-200 font-body">
+                <p className="text-xs text-cream-200 font-body hidden sm:block">
                   Discover the magic of the season
                 </p>
               </div>
@@ -31,11 +50,18 @@ export default function Layout() {
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-6">
+              {/* Primary nav - ordered by priority */}
               <Link
                 to="/"
                 className="text-cream-100 hover:text-gold-300 transition-colors font-medium"
               >
                 Explore Map
+              </Link>
+              <Link
+                to="/submit"
+                className="text-cream-100 hover:text-gold-300 transition-colors font-medium"
+              >
+                Submit Location
               </Link>
               <Link
                 to="/leaderboard"
@@ -44,61 +70,80 @@ export default function Layout() {
                 Leaderboard
               </Link>
 
+              {/* User section */}
               {isAuthenticated ? (
-                <>
-                  <Link
-                    to="/submit"
-                    className="text-cream-100 hover:text-gold-300 transition-colors font-medium"
-                  >
-                    Submit Location
-                  </Link>
-                  <Link
-                    to="/profile"
-                    className="text-cream-100 hover:text-gold-300 transition-colors font-medium"
-                  >
-                    Profile
-                  </Link>
-                  {user?.isAdmin && (
-                    <Link
-                      to="/admin"
-                      className="text-cream-100 hover:text-gold-300 transition-colors font-medium flex items-center gap-1"
-                    >
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-                      </svg>
-                      Admin
-                    </Link>
-                  )}
+                <div className="relative" ref={userMenuRef}>
                   <button
-                    onClick={() => logout()}
-                    className="text-cream-100 hover:text-burgundy-300 transition-colors font-medium"
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center gap-2 pl-4 border-l border-cream-300/30 hover:text-gold-300 transition-colors"
                   >
-                    Logout
-                  </button>
-                  <div className="flex items-center gap-2 pl-4 border-l border-cream-300/30">
                     <div className="w-8 h-8 rounded-full bg-gold-500 flex items-center justify-center text-forest-900 font-bold text-sm">
                       {(user?.username || user?.email)?.[0].toUpperCase() || 'U'}
                     </div>
-                    <span className="text-sm text-cream-200 max-w-[120px] truncate">
+                    <span className="text-sm text-cream-100 max-w-[120px] truncate">
                       {user?.username || user?.email}
                     </span>
-                  </div>
-                </>
+                    <svg
+                      className={`w-4 h-4 text-cream-200 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* Dropdown menu */}
+                  {userMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50 animate-fade-in">
+                      <Link
+                        to="/profile"
+                        className="flex items-center gap-2 px-4 py-2 text-forest-700 hover:bg-cream-50 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        Profile
+                      </Link>
+                      {user?.isAdmin && (
+                        <Link
+                          to="/admin"
+                          className="flex items-center gap-2 px-4 py-2 text-forest-700 hover:bg-cream-50 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                          </svg>
+                          Admin
+                        </Link>
+                      )}
+                      <div className="border-t border-cream-200 my-2"></div>
+                      <button
+                        onClick={() => logout()}
+                        className="flex items-center gap-2 w-full px-4 py-2 text-burgundy-600 hover:bg-cream-50 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Sign Out
+                      </button>
+                    </div>
+                  )}
+                </div>
               ) : (
-                <>
+                <div className="flex items-center gap-3 pl-4 border-l border-cream-300/30">
                   <Link
                     to="/login"
                     state={{ from: location.pathname }}
                     className="text-cream-100 hover:text-gold-300 transition-colors font-medium"
                   >
-                    Login
+                    Sign In
                   </Link>
                   <Link to="/signup">
                     <Button variant="gold" size="sm">
                       Sign Up
                     </Button>
                   </Link>
-                </>
+                </div>
               )}
             </nav>
 
@@ -134,77 +179,83 @@ export default function Layout() {
 
           {/* Mobile Navigation */}
           {mobileMenuOpen && (
-            <nav className="md:hidden mt-4 pt-4 border-t border-cream-300/30 space-y-3 animate-fade-in">
-              <Link
-                to="/"
-                className="block text-cream-100 hover:text-gold-300 transition-colors font-medium py-2"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Explore Map
-              </Link>
-              <Link
-                to="/leaderboard"
-                className="block text-cream-100 hover:text-gold-300 transition-colors font-medium py-2"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Leaderboard
-              </Link>
-              {isAuthenticated ? (
-                <>
-                  <Link
-                    to="/submit"
-                    className="block text-cream-100 hover:text-gold-300 transition-colors font-medium py-2"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Submit Location
-                  </Link>
-                  <Link
-                    to="/profile"
-                    className="block text-cream-100 hover:text-gold-300 transition-colors font-medium py-2"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Profile
-                  </Link>
-                  {user?.isAdmin && (
+            <nav className="md:hidden mt-4 pt-4 border-t border-cream-300/30 animate-fade-in">
+              {/* Primary links */}
+              <div className="space-y-1">
+                <Link
+                  to="/"
+                  className="block text-cream-100 hover:text-gold-300 hover:bg-cream-50/10 transition-colors font-medium py-3 px-2 rounded-lg"
+                >
+                  🗺️ Explore Map
+                </Link>
+                <Link
+                  to="/submit"
+                  className="block text-cream-100 hover:text-gold-300 hover:bg-cream-50/10 transition-colors font-medium py-3 px-2 rounded-lg"
+                >
+                  📍 Submit Location
+                </Link>
+                <Link
+                  to="/leaderboard"
+                  className="block text-cream-100 hover:text-gold-300 hover:bg-cream-50/10 transition-colors font-medium py-3 px-2 rounded-lg"
+                >
+                  🏆 Leaderboard
+                </Link>
+              </div>
+
+              {/* User section */}
+              <div className="mt-4 pt-4 border-t border-cream-300/30">
+                {isAuthenticated ? (
+                  <>
+                    {/* User info */}
+                    <div className="flex items-center gap-3 px-2 py-2 mb-3">
+                      <div className="w-10 h-10 rounded-full bg-gold-500 flex items-center justify-center text-forest-900 font-bold">
+                        {(user?.username || user?.email)?.[0].toUpperCase() || 'U'}
+                      </div>
+                      <div>
+                        <div className="text-cream-50 font-medium">{user?.username || 'User'}</div>
+                        <div className="text-cream-300 text-sm truncate max-w-[200px]">{user?.email}</div>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Link
+                        to="/profile"
+                        className="block text-cream-100 hover:text-gold-300 hover:bg-cream-50/10 transition-colors font-medium py-3 px-2 rounded-lg"
+                      >
+                        👤 Profile
+                      </Link>
+                      {user?.isAdmin && (
+                        <Link
+                          to="/admin"
+                          className="block text-cream-100 hover:text-gold-300 hover:bg-cream-50/10 transition-colors font-medium py-3 px-2 rounded-lg"
+                        >
+                          ⚙️ Admin
+                        </Link>
+                      )}
+                      <button
+                        onClick={() => logout()}
+                        className="block w-full text-left text-burgundy-300 hover:text-burgundy-200 hover:bg-cream-50/10 transition-colors font-medium py-3 px-2 rounded-lg"
+                      >
+                        🚪 Sign Out
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-3 px-2">
                     <Link
-                      to="/admin"
-                      className="block text-cream-100 hover:text-gold-300 transition-colors font-medium py-2"
-                      onClick={() => setMobileMenuOpen(false)}
+                      to="/login"
+                      state={{ from: location.pathname }}
+                      className="block text-center text-cream-100 hover:text-gold-300 transition-colors font-medium py-3 border border-cream-300/30 rounded-lg"
                     >
-                      Admin
+                      Sign In
                     </Link>
-                  )}
-                  <button
-                    onClick={() => {
-                      logout();
-                      setMobileMenuOpen(false);
-                    }}
-                    className="block w-full text-left text-cream-100 hover:text-burgundy-300 transition-colors font-medium py-2"
-                  >
-                    Logout
-                  </button>
-                  <div className="pt-2 text-sm text-cream-200">{user?.username || user?.email}</div>
-                </>
-              ) : (
-                <>
-                  <Link
-                    to="/login"
-                    state={{ from: location.pathname }}
-                    className="block text-cream-100 hover:text-gold-300 transition-colors font-medium py-2"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Login
-                  </Link>
-                  <Link
-                    to="/signup"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <Button variant="gold" size="sm" fullWidth>
-                      Sign Up
-                    </Button>
-                  </Link>
-                </>
-              )}
+                    <Link to="/signup" className="block">
+                      <Button variant="gold" size="md" fullWidth>
+                        Sign Up
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </div>
             </nav>
           )}
         </div>
@@ -246,25 +297,17 @@ export default function Layout() {
                   Explore Map
                 </Link>
                 <Link
-                  to="/leaderboard"
-                  className="block text-cream-200 hover:text-gold-300 transition-colors text-sm"
-                >
-                  Leaderboard
-                </Link>
-                <Link
                   to="/submit"
                   className="block text-cream-200 hover:text-gold-300 transition-colors text-sm"
                 >
                   Submit Location
                 </Link>
-                {isAuthenticated && user?.isAdmin && (
-                  <Link
-                    to="/admin"
-                    className="block text-cream-200 hover:text-gold-300 transition-colors text-sm"
-                  >
-                    Admin Dashboard
-                  </Link>
-                )}
+                <Link
+                  to="/leaderboard"
+                  className="block text-cream-200 hover:text-gold-300 transition-colors text-sm"
+                >
+                  Leaderboard
+                </Link>
               </div>
             </div>
 
