@@ -156,7 +156,6 @@ export default function RouteDetailPage() {
     );
   }
 
-  const _isOwner = user?.id === route.createdBy;
   const locations = route.locations || [];
   const mapCenter = locations.length > 0
     ? { lat: locations[0].lat, lng: locations[0].lng }
