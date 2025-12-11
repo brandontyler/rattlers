@@ -93,6 +93,17 @@ export function optimizeRoute(stops: Location[]): Location[] {
     return [...stops];
   }
 
+  // Step 1: Nearest Neighbor to get initial route
+  const initial = nearestNeighbor(stops);
+  
+  // Step 2: 2-opt improvement to reduce crossings
+  return twoOptImprove(initial);
+}
+
+/**
+ * Nearest Neighbor algorithm - greedy approach starting from first stop.
+ */
+function nearestNeighbor(stops: Location[]): Location[] {
   const optimized: Location[] = [];
   const unvisited = [...stops];
 
@@ -124,6 +135,73 @@ export function optimizeRoute(stops: Location[]): Location[] {
   }
 
   return optimized;
+}
+
+/**
+ * 2-opt improvement - iteratively swap pairs of edges to reduce total distance.
+ * Removes route crossings and typically improves routes by 5-15%.
+ */
+function twoOptImprove(route: Location[]): Location[] {
+  if (route.length <= 3) return route;
+
+  let improved = [...route];
+  let betterFound = true;
+
+  while (betterFound) {
+    betterFound = false;
+
+    for (let i = 0; i < improved.length - 2; i++) {
+      for (let j = i + 2; j < improved.length; j++) {
+        // Skip if j is the last element and i is 0 (would just reverse entire route)
+        if (i === 0 && j === improved.length - 1) continue;
+
+        const delta = twoOptDelta(improved, i, j);
+        
+        if (delta < -0.001) { // Small threshold to avoid floating point issues
+          // Reverse the segment between i+1 and j
+          improved = twoOptSwap(improved, i, j);
+          betterFound = true;
+        }
+      }
+    }
+  }
+
+  return improved;
+}
+
+/**
+ * Calculate the change in distance if we reverse segment [i+1, j].
+ * Negative delta means improvement.
+ */
+function twoOptDelta(route: Location[], i: number, j: number): number {
+  const a = route[i];
+  const b = route[i + 1];
+  const c = route[j];
+  const d = route[j + 1] || route[0]; // Wrap to start if at end
+
+  // Current edges: a-b and c-d
+  // New edges after swap: a-c and b-d
+  const currentDist = 
+    haversineDistance(a.lat, a.lng, b.lat, b.lng) +
+    haversineDistance(c.lat, c.lng, d.lat, d.lng);
+  
+  const newDist = 
+    haversineDistance(a.lat, a.lng, c.lat, c.lng) +
+    haversineDistance(b.lat, b.lng, d.lat, d.lng);
+
+  return newDist - currentDist;
+}
+
+/**
+ * Perform 2-opt swap: reverse the segment between i+1 and j.
+ */
+function twoOptSwap(route: Location[], i: number, j: number): Location[] {
+  const newRoute = [
+    ...route.slice(0, i + 1),
+    ...route.slice(i + 1, j + 1).reverse(),
+    ...route.slice(j + 1)
+  ];
+  return newRoute;
 }
 
 /**
