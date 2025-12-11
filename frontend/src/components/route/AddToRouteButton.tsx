@@ -22,6 +22,10 @@ if (typeof window !== 'undefined') {
   window.addEventListener(ROUTE_EVENTS.REMOVE_STOP, ((e: CustomEvent<string>) => {
     globalStops = globalStops.filter(id => id !== e.detail);
   }) as EventListener);
+
+  window.addEventListener(ROUTE_EVENTS.CLEAR_ROUTE, () => {
+    globalStops = [];
+  });
 }
 
 export default function AddToRouteButton({
@@ -44,13 +48,16 @@ export default function AddToRouteButton({
 
     const handleAdd = () => updateState();
     const handleRemove = () => updateState();
+    const handleClear = () => updateState();
 
     window.addEventListener(ROUTE_EVENTS.ADD_STOP, handleAdd);
     window.addEventListener(ROUTE_EVENTS.REMOVE_STOP, handleRemove);
+    window.addEventListener(ROUTE_EVENTS.CLEAR_ROUTE, handleClear);
 
     return () => {
       window.removeEventListener(ROUTE_EVENTS.ADD_STOP, handleAdd);
       window.removeEventListener(ROUTE_EVENTS.REMOVE_STOP, handleRemove);
+      window.removeEventListener(ROUTE_EVENTS.CLEAR_ROUTE, handleClear);
     };
   }, [location.id]);
 

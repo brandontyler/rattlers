@@ -34,6 +34,7 @@ const MAX_STOPS = 15;
 export const ROUTE_EVENTS = {
   ADD_STOP: 'route:addStop',
   REMOVE_STOP: 'route:removeStop',
+  CLEAR_ROUTE: 'route:clearRoute',
 };
 
 // Helper to dispatch route events from anywhere (e.g., popups)
@@ -96,6 +97,7 @@ export function RouteProvider({ children }: { children: ReactNode }) {
   const clearRoute = useCallback(() => {
     setStops([]);
     setIsPanelExpanded(false);
+    window.dispatchEvent(new CustomEvent(ROUTE_EVENTS.CLEAR_ROUTE));
   }, []);
 
   const isInRoute = useCallback(
