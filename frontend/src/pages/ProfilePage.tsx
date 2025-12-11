@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api';
-import type { UserProfile, UserSubmission, Location } from '@/types';
+import type { UserProfile, UserSubmission, Location, SavedRoute } from '@/types';
 import Badge from '@/components/ui/Badge';
 import BadgeDisplay from '@/components/badges/BadgeDisplay';
 
@@ -11,10 +11,12 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [submissions, setSubmissions] = useState<UserSubmission[]>([]);
   const [favorites, setFavorites] = useState<Location[]>([]);
+  const [myRoutes, setMyRoutes] = useState<SavedRoute[]>([]);
+  const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedSubmissionId, setExpandedSubmissionId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'submissions' | 'favorites'>('favorites');
+  const [activeTab, setActiveTab] = useState<'favorites' | 'routes' | 'submissions'>('favorites');
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [usernameError, setUsernameError] = useState<string | null>(null);
@@ -30,11 +32,13 @@ export default function ProfilePage() {
         setLoading(true);
         setError(null);
 
-        // Fetch profile, submissions, and favorites in parallel
-        const [profileResponse, submissionsResponse, favoritesResponse] = await Promise.all([
+        // Fetch profile, submissions, favorites, and routes in parallel
+        const [profileResponse, submissionsResponse, favoritesResponse, myRoutesResponse, savedRoutesResponse] = await Promise.all([
           apiService.getUserProfile(),
           apiService.getUserSubmissions(),
           apiService.getFavorites(),
+          apiService.getUserRoutes(),
+          apiService.getUserSavedRoutes(),
         ]);
 
         if (profileResponse.success && profileResponse.data) {
@@ -47,6 +51,14 @@ export default function ProfilePage() {
 
         if (favoritesResponse.success && favoritesResponse.data) {
           setFavorites(favoritesResponse.data);
+        }
+
+        if (myRoutesResponse.success && myRoutesResponse.data) {
+          setMyRoutes(myRoutesResponse.data);
+        }
+
+        if (savedRoutesResponse.success && savedRoutesResponse.data) {
+          setSavedRoutes(savedRoutesResponse.data);
         }
       } catch (err) {
         console.error('Failed to fetch profile data:', err);
@@ -260,29 +272,42 @@ export default function ProfilePage() {
 
       {/* Tabs */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mt-8">
-        <div className="flex border-b border-forest-200">
+        <div className="flex border-b border-forest-200 overflow-x-auto">
           <button
             onClick={() => setActiveTab('favorites')}
-            className={`flex-1 px-6 py-4 text-center font-medium transition-colors ${
+            className={`flex-1 min-w-fit px-4 py-4 text-center font-medium transition-colors text-sm ${
               activeTab === 'favorites'
                 ? 'text-burgundy-600 border-b-2 border-burgundy-600 bg-burgundy-50'
                 : 'text-forest-600 hover:bg-cream-50'
             }`}
           >
-            <svg className="w-5 h-5 inline mr-2" fill={activeTab === 'favorites' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 inline mr-1" fill={activeTab === 'favorites' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
             </svg>
             Favorites ({favorites.length})
           </button>
           <button
+            onClick={() => setActiveTab('routes')}
+            className={`flex-1 min-w-fit px-4 py-4 text-center font-medium transition-colors text-sm ${
+              activeTab === 'routes'
+                ? 'text-burgundy-600 border-b-2 border-burgundy-600 bg-burgundy-50'
+                : 'text-forest-600 hover:bg-cream-50'
+            }`}
+          >
+            <svg className="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            </svg>
+            Routes ({myRoutes.length + savedRoutes.length})
+          </button>
+          <button
             onClick={() => setActiveTab('submissions')}
-            className={`flex-1 px-6 py-4 text-center font-medium transition-colors ${
+            className={`flex-1 min-w-fit px-4 py-4 text-center font-medium transition-colors text-sm ${
               activeTab === 'submissions'
                 ? 'text-burgundy-600 border-b-2 border-burgundy-600 bg-burgundy-50'
                 : 'text-forest-600 hover:bg-cream-50'
             }`}
           >
-            <svg className="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             Submissions ({submissions.length})
@@ -358,6 +383,142 @@ export default function ProfilePage() {
                 </div>
               )}
             </>
+          )}
+
+          {/* Routes Tab */}
+          {activeTab === 'routes' && (
+            <div className="space-y-8">
+              {/* My Created Routes */}
+              <div>
+                <h3 className="font-display text-lg font-semibold text-forest-900 mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-burgundy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                  </svg>
+                  My Created Routes ({myRoutes.length})
+                </h3>
+                {myRoutes.length === 0 ? (
+                  <div className="text-center py-8 bg-cream-50 rounded-lg">
+                    <svg className="w-12 h-12 mx-auto text-forest-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                    <p className="text-forest-600 mb-2">You haven't created any routes yet</p>
+                    <p className="text-sm text-forest-500 mb-4">
+                      Plan your perfect Christmas lights tour and share it with the community!
+                    </p>
+                    <Link
+                      to="/"
+                      className="inline-block px-6 py-2 bg-burgundy-600 text-cream-50 rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
+                    >
+                      Create a Route
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {myRoutes.map((route) => (
+                      <Link
+                        key={route.id}
+                        to={`/routes/${route.id}`}
+                        className="p-4 border border-forest-200 rounded-lg hover:shadow-md hover:border-burgundy-300 transition-all"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="font-semibold text-forest-900">{route.title}</h4>
+                          {route.isPublic ? (
+                            <span className="text-xs px-2 py-1 bg-forest-100 text-forest-700 rounded-full">Public</span>
+                          ) : (
+                            <span className="text-xs px-2 py-1 bg-forest-200 text-forest-600 rounded-full">Private</span>
+                          )}
+                        </div>
+                        {route.description && (
+                          <p className="text-sm text-forest-600 line-clamp-2 mb-2">{route.description}</p>
+                        )}
+                        <div className="flex items-center gap-4 text-sm text-forest-500">
+                          <span className="flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            </svg>
+                            {route.stopCount} stops
+                          </span>
+                          <span className="flex items-center gap-1 text-burgundy-600">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                            </svg>
+                            {route.likeCount}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+                            </svg>
+                            {route.saveCount}
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Saved Routes */}
+              <div>
+                <h3 className="font-display text-lg font-semibold text-forest-900 mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-burgundy-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+                  </svg>
+                  Saved Routes ({savedRoutes.length})
+                </h3>
+                {savedRoutes.length === 0 ? (
+                  <div className="text-center py-8 bg-cream-50 rounded-lg">
+                    <svg className="w-12 h-12 mx-auto text-forest-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    </svg>
+                    <p className="text-forest-600 mb-2">No saved routes yet</p>
+                    <p className="text-sm text-forest-500 mb-4">
+                      Discover amazing routes created by the community!
+                    </p>
+                    <Link
+                      to="/routes"
+                      className="inline-block px-6 py-2 bg-burgundy-600 text-cream-50 rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
+                    >
+                      Explore Routes
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {savedRoutes.map((route) => (
+                      <Link
+                        key={route.id}
+                        to={`/routes/${route.id}`}
+                        className="p-4 border border-forest-200 rounded-lg hover:shadow-md hover:border-burgundy-300 transition-all"
+                      >
+                        <h4 className="font-semibold text-forest-900 mb-1">{route.title}</h4>
+                        {route.createdByUsername && (
+                          <p className="text-xs text-forest-500 mb-2">by {route.createdByUsername}</p>
+                        )}
+                        {route.description && (
+                          <p className="text-sm text-forest-600 line-clamp-2 mb-2">{route.description}</p>
+                        )}
+                        <div className="flex items-center gap-4 text-sm text-forest-500">
+                          <span className="flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            </svg>
+                            {route.stopCount} stops
+                          </span>
+                          <span className="flex items-center gap-1 text-burgundy-600">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                            </svg>
+                            {route.likeCount}
+                          </span>
+                          {route.totalMiles > 0 && (
+                            <span>~{route.totalMiles} mi</span>
+                          )}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           {/* Submissions Tab */}

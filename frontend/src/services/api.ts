@@ -20,6 +20,13 @@ import type {
   RoutePdfResponse,
   LeaderboardEntry,
   LocationLeaderboardEntry,
+  SavedRoute,
+  CreateRouteRequest,
+  UpdateRouteRequest,
+  RouteFeedbackRequest,
+  RouteFeedbackResponse,
+  RouteFeedbackStatusResponse,
+  RoutesLeaderboardResponse,
 } from '@/types';
 
 const MAX_RETRIES = 3;
@@ -260,6 +267,64 @@ class ApiService {
   // Locations leaderboard endpoint
   async getLocationsLeaderboard(): Promise<ApiResponse<LocationLeaderboardEntry[]>> {
     const { data } = await this.api.get<ApiResponse<LocationLeaderboardEntry[]>>('/leaderboard/locations');
+    return data;
+  }
+
+  // Saved Routes endpoints
+  async getRoutes(sort: 'popular' | 'new' = 'popular', limit: number = 50): Promise<ApiResponse<SavedRoute[]>> {
+    const { data } = await this.api.get<ApiResponse<SavedRoute[]>>('/routes', {
+      params: { sort, limit },
+    });
+    return data;
+  }
+
+  async getRouteById(id: string): Promise<ApiResponse<SavedRoute>> {
+    const { data } = await this.api.get<ApiResponse<SavedRoute>>(`/routes/${id}`);
+    return data;
+  }
+
+  async createRoute(request: CreateRouteRequest): Promise<ApiResponse<SavedRoute>> {
+    const { data } = await this.api.post<ApiResponse<SavedRoute>>('/routes', request);
+    return data;
+  }
+
+  async updateRoute(id: string, updates: UpdateRouteRequest): Promise<ApiResponse<SavedRoute>> {
+    const { data } = await this.api.put<ApiResponse<SavedRoute>>(`/routes/${id}`, updates);
+    return data;
+  }
+
+  async deleteRoute(id: string): Promise<ApiResponse<void>> {
+    const { data } = await this.api.delete<ApiResponse<void>>(`/routes/${id}`);
+    return data;
+  }
+
+  async submitRouteFeedback(routeId: string, feedback: RouteFeedbackRequest): Promise<ApiResponse<RouteFeedbackResponse>> {
+    const { data } = await this.api.post<ApiResponse<RouteFeedbackResponse>>(
+      `/routes/${routeId}/feedback`,
+      feedback
+    );
+    return data;
+  }
+
+  async getRouteFeedbackStatus(routeId: string): Promise<ApiResponse<RouteFeedbackStatusResponse>> {
+    const { data } = await this.api.get<ApiResponse<RouteFeedbackStatusResponse>>(
+      `/routes/${routeId}/feedback/status`
+    );
+    return data;
+  }
+
+  async getUserRoutes(): Promise<ApiResponse<SavedRoute[]>> {
+    const { data } = await this.api.get<ApiResponse<SavedRoute[]>>('/users/routes');
+    return data;
+  }
+
+  async getUserSavedRoutes(): Promise<ApiResponse<SavedRoute[]>> {
+    const { data } = await this.api.get<ApiResponse<SavedRoute[]>>('/users/saved-routes');
+    return data;
+  }
+
+  async getRoutesLeaderboard(): Promise<ApiResponse<RoutesLeaderboardResponse>> {
+    const { data } = await this.api.get<ApiResponse<RoutesLeaderboardResponse>>('/leaderboard/routes');
     return data;
   }
 }

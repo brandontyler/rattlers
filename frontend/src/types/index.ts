@@ -239,3 +239,78 @@ export interface RoutePdfResponse {
   downloadUrl: string;
   expiresIn: number;
 }
+
+// Saved Route types
+export interface SavedRoute {
+  id: string;
+  title: string;
+  description: string;
+  locationIds: string[];
+  locations?: Location[];  // Populated when fetching route details
+  tags: string[];
+  createdBy: string;
+  createdByUsername?: string;
+  createdAt: string;
+  updatedAt: string;
+  status: 'active' | 'draft';
+  likeCount: number;
+  saveCount: number;
+  startCount: number;
+  stopCount: number;
+  estimatedMinutes: number;
+  totalMiles: number;
+  // User's feedback status (when authenticated)
+  userLiked?: boolean;
+  userSaved?: boolean;
+}
+
+export interface CreateRouteRequest {
+  title: string;
+  description: string;
+  locationIds: string[];
+  tags?: string[];
+  isPublic?: boolean;
+}
+
+export interface UpdateRouteRequest {
+  title?: string;
+  description?: string;
+  locationIds?: string[];
+  tags?: string[];
+  isPublic?: boolean;
+}
+
+export interface RouteFeedbackRequest {
+  type: 'like' | 'save';
+}
+
+export interface RouteFeedbackResponse {
+  liked?: boolean;
+  saved?: boolean;
+  id?: string;
+  routeId: string;
+}
+
+export interface RouteFeedbackStatusResponse {
+  routeId: string;
+  liked: boolean;
+  saved: boolean;
+}
+
+export interface RouteCreatorEntry {
+  rank: number;
+  userId: string;
+  username: string;
+  routeCount: number;
+  totalLikes: number;
+  totalSaves: number;
+  badge: {
+    type: 'route-scout' | 'trail-blazer' | 'route-master' | 'legend';
+    label: string;
+  } | null;
+}
+
+export interface RoutesLeaderboardResponse {
+  routes: SavedRoute[];
+  creators: RouteCreatorEntry[];
+}
