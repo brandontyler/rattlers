@@ -5,45 +5,48 @@ Import locations from Google Maps export CSV.
 This script:
 1. Reads a CSV export from Google Takeout
 2. Extracts coordinates from Google Maps URLs when available
-3. Falls back to geocoding for addresses without URL coordinates
-4. Creates locations directly for entries with valid coordinates
-5. Creates suggestions (pending admin review) for entries needing manual review
+3. Uses Google Places API to resolve Place IDs to coordinates
+4. Falls back to Google Geocoding API for street addresses
+5. Creates suggestions for entries that can't be resolved
 
 Usage:
     cd scripts && uv run python import_locations.py "../data/Christmas Lights in DFW Google Map List.csv"
+
+Requires:
+    - .env file with GOOGLE_API_KEY=your_key
 """
 
 import csv
+import os
 import re
 import sys
 import time
 import uuid
 import argparse
+import requests
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import List, Dict, Optional, Tuple
 from pathlib import Path
 
 try:
-    from geopy.geocoders import Nominatim
     import boto3
+    from dotenv import load_dotenv
 except ImportError:
-    print("ERROR: Missing required packages. Run: uv sync")
+    print("ERROR: Missing required packages. Run: uv add python-dotenv requests boto3")
     sys.exit(1)
 
+# Load environment variables
+load_dotenv()
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 
 # DFW center for geocoding bias
 DFW_CENTER = (32.7767, -96.7970)
 
-# Regex patterns for extracting coordinates from Google Maps URLs
-COORD_PATTERNS = [
-    # https://www.google.com/maps/search/33.0831691,-97.1232923
-    r'maps/search/([-\d.]+),([-\d.]+)',
-    # https://www.google.com/maps/place/.../@32.7767,-96.797,15z
-    r'@([-\d.]+),([-\d.]+)',
-    # https://www.google.com/maps?q=32.7767,-96.797
-    r'[?&]q=([-\d.]+),([-\d.]+)',
-]
+# Regex patterns for extracting data from Google Maps URLs
+COORD_PATTERN = r'maps/search/([-\d.]+),([-\d.]+)'
+PLACE_ID_PATTERN = r'!1s(0x[0-9a-f]+:0x[0-9a-f]+)'
+PLACE_NAME_PATTERN = r'maps/place/([^/]+)/data'
 
 
 def extract_coords_from_url(url: str) -> Optional[Tuple[float, float]]:
@@ -51,72 +54,144 @@ def extract_coords_from_url(url: str) -> Optional[Tuple[float, float]]:
     if not url:
         return None
     
-    for pattern in COORD_PATTERNS:
-        match = re.search(pattern, url)
-        if match:
-            try:
-                lat = float(match.group(1))
-                lng = float(match.group(2))
-                # Validate coordinates are in reasonable range for DFW
-                if 25 < lat < 40 and -105 < lng < -90:
-                    return (lat, lng)
-            except (ValueError, IndexError):
-                continue
+    match = re.search(COORD_PATTERN, url)
+    if match:
+        try:
+            lat = float(match.group(1))
+            lng = float(match.group(2))
+            if 25 < lat < 40 and -105 < lng < -90:
+                return (lat, lng)
+        except (ValueError, IndexError):
+            pass
     return None
 
 
-def extract_address_from_place_url(url: str) -> Optional[str]:
-    """Extract address/place name from Google Maps place URL."""
+def extract_place_id_from_url(url: str) -> Optional[str]:
+    """Extract Google Place ID from URL."""
     if not url:
         return None
-    
-    # https://www.google.com/maps/place/9719+Bernard+Rd/data=...
-    match = re.search(r'maps/place/([^/]+)/data', url)
+    match = re.search(PLACE_ID_PATTERN, url)
+    return match.group(1) if match else None
+
+
+def extract_place_name_from_url(url: str) -> Optional[str]:
+    """Extract place name from URL path."""
+    if not url:
+        return None
+    match = re.search(PLACE_NAME_PATTERN, url)
     if match:
-        # URL decode the address
         import urllib.parse
-        address = urllib.parse.unquote_plus(match.group(1))
-        return address
+        return urllib.parse.unquote_plus(match.group(1))
     return None
 
 
 def is_street_address(text: str) -> bool:
-    """Check if text looks like a street address (has numbers and street words)."""
+    """Check if text looks like a street address."""
     if not text:
         return False
-    # Has a number at the start
     has_number = bool(re.match(r'^\d+', text.strip()))
-    # Has common street words
     street_words = ['st', 'street', 'ave', 'avenue', 'rd', 'road', 'dr', 'drive', 
-                    'ln', 'lane', 'ct', 'court', 'blvd', 'way', 'pl', 'place', 'cir', 'circle']
-    has_street_word = any(word in text.lower() for word in street_words)
+                    'ln', 'lane', 'ct', 'court', 'blvd', 'way', 'pl', 'place', 'cir', 
+                    'circle', 'trail', 'pkwy', 'hwy', 'fm']
+    has_street_word = any(word in text.lower().split() for word in street_words)
     return has_number and has_street_word
 
 
-def geocode_address(geocoder, address: str, rate_limit: float = 1.0) -> Optional[Tuple[float, float]]:
-    """Geocode an address using Nominatim."""
+def geocode_place_id(place_id: str) -> Optional[Tuple[float, float]]:
+    """Use Google Places API to get coordinates from Place ID."""
+    if not GOOGLE_API_KEY:
+        return None
+    
+    # Google Place IDs from URLs are in format "0x...:0x..."
+    # We need to convert to the API format
+    url = f"https://maps.googleapis.com/maps/api/place/details/json"
+    params = {
+        'place_id': place_id,
+        'fields': 'geometry',
+        'key': GOOGLE_API_KEY
+    }
+    
+    try:
+        # First try with the raw place_id
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        if data.get('status') == 'OK':
+            loc = data['result']['geometry']['location']
+            return (loc['lat'], loc['lng'])
+    except Exception as e:
+        pass
+    
+    return None
+
+
+def geocode_address(address: str) -> Optional[Tuple[float, float]]:
+    """Use Google Geocoding API to get coordinates from address."""
+    if not GOOGLE_API_KEY:
+        return None
+    
     search = address
     if 'TX' not in address.upper() and 'TEXAS' not in address.upper():
         search = f"{address}, Dallas-Fort Worth, TX"
     
+    url = "https://maps.googleapis.com/maps/api/geocode/json"
+    params = {
+        'address': search,
+        'key': GOOGLE_API_KEY,
+        'bounds': '32.0,-97.5|33.5,-96.0'  # DFW bounding box
+    }
+    
     try:
-        time.sleep(rate_limit)
-        location = geocoder.geocode(search)
-        if location:
-            return (location.latitude, location.longitude)
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        if data.get('status') == 'OK' and data.get('results'):
+            loc = data['results'][0]['geometry']['location']
+            return (loc['lat'], loc['lng'])
     except Exception as e:
         print(f"    Geocoding error: {e}")
+    
+    return None
+
+
+def find_place_by_text(query: str) -> Optional[Tuple[float, float]]:
+    """Use Google Places API to find a place by text query."""
+    if not GOOGLE_API_KEY:
+        return None
+    
+    search = query
+    if 'TX' not in query.upper() and 'TEXAS' not in query.upper():
+        search = f"{query}, Dallas-Fort Worth, TX"
+    
+    url = "https://maps.googleapis.com/maps/api/place/findplacefromtext/json"
+    params = {
+        'input': search,
+        'inputtype': 'textquery',
+        'fields': 'geometry',
+        'locationbias': f'circle:80000@{DFW_CENTER[0]},{DFW_CENTER[1]}',
+        'key': GOOGLE_API_KEY
+    }
+    
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        if data.get('status') == 'OK' and data.get('candidates'):
+            loc = data['candidates'][0]['geometry']['location']
+            return (loc['lat'], loc['lng'])
+    except Exception as e:
+        print(f"    Find place error: {e}")
+    
     return None
 
 
 def read_csv(file_path: str) -> List[Dict]:
-    """Read Google Maps export CSV, handling the messy format."""
+    """Read Google Maps export CSV."""
     locations = []
     
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
     
-    # Find where the actual CSV data starts (after header comments)
     lines = content.split('\n')
     header_idx = None
     for i, line in enumerate(lines):
@@ -128,7 +203,6 @@ def read_csv(file_path: str) -> List[Dict]:
         print("ERROR: Could not find CSV header row")
         return []
     
-    # Parse from header onwards
     csv_content = '\n'.join(lines[header_idx:])
     reader = csv.DictReader(csv_content.split('\n'))
     
@@ -137,12 +211,7 @@ def read_csv(file_path: str) -> List[Dict]:
         note = (row.get('Note') or '').strip()
         url = (row.get('URL') or '').strip()
         
-        # Skip empty rows
         if not title and not url:
-            continue
-        
-        # Skip the empty row after header
-        if not title and not note and not url:
             continue
             
         locations.append({
@@ -156,33 +225,30 @@ def read_csv(file_path: str) -> List[Dict]:
 
 
 def process_locations(entries: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
-    """
-    Process entries and split into:
-    - ready_for_import: Have valid coordinates from URL, can go directly to locations table
-    - needs_review: Need admin review, go to suggestions table
-    """
+    """Process entries using Google APIs to get coordinates."""
     ready = []
     needs_review = []
     
     print(f"\n📍 Processing {len(entries)} entries...")
+    print(f"   Using Google API Key: {'✓ Found' if GOOGLE_API_KEY else '✗ Missing!'}")
+    
+    if not GOOGLE_API_KEY:
+        print("\nERROR: No GOOGLE_API_KEY found in .env file")
+        sys.exit(1)
     
     for i, entry in enumerate(entries, 1):
         title = entry['title']
         note = entry['note']
         url = entry['url']
         
-        print(f"[{i}/{len(entries)}] {title[:50]}...", end=' ')
+        print(f"[{i}/{len(entries)}] {title[:45]}...", end=' ')
         
-        # Step 1: Try to extract coordinates from URL
+        # Method 1: Direct coordinates in URL
         coords = extract_coords_from_url(url)
         if coords:
-            print(f"✓ coords from URL")
-            
-            # Use title as address
-            address = title
-            
+            print(f"✓ URL coords")
             ready.append({
-                'address': address,
+                'address': title,
                 'description': note,
                 'lat': coords[0],
                 'lng': coords[1],
@@ -191,13 +257,42 @@ def process_locations(entries: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
             })
             continue
         
-        # Step 2: No coords in URL - extract address from Place URL if available
-        place_address = extract_address_from_place_url(url)
-        address = place_address or title
+        # Method 2: Geocode if it's a street address
+        if is_street_address(title):
+            coords = geocode_address(title)
+            if coords:
+                print(f"✓ Geocoded address")
+                ready.append({
+                    'address': title,
+                    'description': note,
+                    'lat': coords[0],
+                    'lng': coords[1],
+                    'googleMapsUrl': url,
+                    'source': 'google-maps-import',
+                })
+                time.sleep(0.1)  # Rate limit
+                continue
         
-        print(f"→ needs review")
+        # Method 3: Find place by name (for non-address entries)
+        place_name = extract_place_name_from_url(url) or title
+        coords = find_place_by_text(place_name)
+        if coords:
+            print(f"✓ Found place")
+            ready.append({
+                'address': place_name,
+                'description': note,
+                'lat': coords[0],
+                'lng': coords[1],
+                'googleMapsUrl': url,
+                'source': 'google-maps-import',
+            })
+            time.sleep(0.1)  # Rate limit
+            continue
+        
+        # Failed all methods - needs manual review
+        print(f"⚠ Needs review")
         needs_review.append({
-            'address': address,
+            'address': title,
             'description': note,
             'googleMapsUrl': url,
             'source': 'google-maps-import',
@@ -228,8 +323,8 @@ def import_to_locations(locations: List[Dict], table_name: str):
                 'SK': 'metadata',
                 'id': location_id,
                 'address': loc['address'],
-                'lat': Decimal(str(loc['lat'])),
-                'lng': Decimal(str(loc['lng'])),
+                'lat': Decimal(str(round(loc['lat'], 6))),
+                'lng': Decimal(str(round(loc['lng'], 6))),
                 'description': loc.get('description', ''),
                 'photos': [],
                 'status': 'active',
@@ -259,7 +354,7 @@ def import_to_suggestions(entries: List[Dict], table_name: str):
     dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
     table = dynamodb.Table(table_name)
     
-    print(f"\n📤 Creating {len(entries)} suggestions for review in {table_name}...")
+    print(f"\n📤 Creating {len(entries)} suggestions for review...")
     
     now = datetime.now(timezone.utc).isoformat()
     imported = 0
@@ -273,9 +368,9 @@ def import_to_suggestions(entries: List[Dict], table_name: str):
                 'SK': 'METADATA',
                 'id': suggestion_id,
                 'address': entry['address'],
-                'description': entry.get('description', '') or 'Imported from Google Maps list - needs address/coordinates',
-                'lat': Decimal('0'),  # Placeholder - admin needs to set
-                'lng': Decimal('0'),  # Placeholder - admin needs to set
+                'description': entry.get('description', '') or 'Imported - needs coordinates',
+                'lat': Decimal('0'),
+                'lng': Decimal('0'),
                 'photos': [],
                 'status': 'pending',
                 'submittedBy': 'import-script',
@@ -306,36 +401,35 @@ def main():
         print(f"ERROR: File not found: {args.input_csv}")
         sys.exit(1)
     
-    print("🎄 DFW Christmas Lights - Location Importer v2")
+    print("🎄 DFW Christmas Lights - Location Importer v3")
     print("=" * 50)
     
-    # Read CSV
     entries = read_csv(args.input_csv)
     if not entries:
         print("ERROR: No entries found")
         sys.exit(1)
     
-    # Process and split
     ready, needs_review = process_locations(entries)
     
-    # Summary
     print("\n" + "=" * 50)
     print("📊 Summary:")
     print(f"   Total entries: {len(entries)}")
-    print(f"   Ready for import (have coords): {len(ready)}")
-    print(f"   Need admin review (no coords): {len(needs_review)}")
+    print(f"   Ready for import: {len(ready)}")
+    print(f"   Need admin review: {len(needs_review)}")
     
     if args.dry_run:
         print("\n🔍 DRY RUN - No changes made")
+        if needs_review:
+            print("\nEntries needing review:")
+            for e in needs_review:
+                print(f"  - {e['address']}")
         return
     
-    # Confirm
     confirm = input(f"\n⚠️  Import {len(ready)} locations and create {len(needs_review)} suggestions? (yes/no): ")
     if confirm.lower() != 'yes':
         print("Aborted.")
         return
     
-    # Import
     if ready:
         import_to_locations(ready, args.locations_table)
     
@@ -343,8 +437,6 @@ def main():
         import_to_suggestions(needs_review, args.suggestions_table)
     
     print("\n✅ Import complete!")
-    if needs_review:
-        print(f"   → Review {len(needs_review)} pending suggestions in Admin dashboard")
 
 
 if __name__ == '__main__':
