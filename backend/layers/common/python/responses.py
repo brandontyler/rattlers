@@ -136,6 +136,16 @@ def not_found_error(message: str = "Resource not found", request_origin: str = "
     )
 
 
+def bad_request(message: str, request_origin: str = "") -> Dict[str, Any]:
+    """Create a bad request error response."""
+    return error_response(
+        code="BAD_REQUEST",
+        message=message,
+        status_code=HTTPStatus.BAD_REQUEST,
+        request_origin=request_origin,
+    )
+
+
 def internal_error(message: str = "An unexpected error occurred", request_origin: str = "") -> Dict[str, Any]:
     """Create an internal server error response."""
     return error_response(
