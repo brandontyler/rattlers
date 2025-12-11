@@ -4,396 +4,451 @@ Import locations from Google Maps export CSV.
 
 This script:
 1. Reads a CSV export from Google Takeout
-2. Geocodes addresses to get lat/lng coordinates
-3. Cleans and validates the data
-4. Imports locations into DynamoDB
+2. Extracts coordinates from Google Maps URLs when available
+3. Uses Google Places API to resolve Place IDs to coordinates
+4. Falls back to Google Geocoding API for street addresses
+5. Creates suggestions for entries that can't be resolved
 
 Usage:
-    python import_locations.py input.csv [--geocode-api google|nominatim]
+    cd scripts && uv run python import_locations.py "../data/Christmas Lights in DFW Google Map List.csv"
+
+Requires:
+    - .env file with GOOGLE_API_KEY=your_key
 """
 
 import csv
-import json
+import os
+import re
 import sys
 import time
+import uuid
 import argparse
+import requests
+from datetime import datetime, timezone
+from decimal import Decimal
 from typing import List, Dict, Optional, Tuple
 from pathlib import Path
-import os
 
-# Run with: uv run python import_locations.py
 try:
-    from geopy.geocoders import Nominatim, GoogleV3
-    from geopy.exc import GeocoderTimedOut, GeocoderServiceError
     import boto3
-    from boto3.dynamodb.conditions import Key
+    from dotenv import load_dotenv
 except ImportError:
-    print("ERROR: Missing required packages.")
-    print("Run: uv sync")
+    print("ERROR: Missing required packages. Run: uv add python-dotenv requests boto3")
     sys.exit(1)
 
+# Load environment variables
+load_dotenv()
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 
-class LocationImporter:
-    """Import and geocode locations from Google Maps export."""
+# DFW center for geocoding bias
+DFW_CENTER = (32.7767, -96.7970)
 
-    def __init__(self, geocode_service: str = "nominatim", google_api_key: Optional[str] = None):
-        """
-        Initialize the importer.
+# Regex patterns for extracting data from Google Maps URLs
+COORD_PATTERN = r'maps/search/([-\d.]+),([-\d.]+)'
+PLACE_ID_PATTERN = r'!1s(0x[0-9a-f]+:0x[0-9a-f]+)'
+PLACE_NAME_PATTERN = r'maps/place/([^/]+)/data'
 
-        Args:
-            geocode_service: 'nominatim' (free, slow) or 'google' (paid, fast)
-            google_api_key: Google Geocoding API key (required if using 'google')
-        """
-        self.geocode_service = geocode_service
 
-        if geocode_service == "nominatim":
-            self.geocoder = Nominatim(user_agent="dfw-christmas-lights-importer")
-            self.rate_limit = 1.0  # Nominatim requires 1 second between requests
-        elif geocode_service == "google":
-            if not google_api_key:
-                raise ValueError("Google API key required for Google geocoding")
-            self.geocoder = GoogleV3(api_key=google_api_key)
-            self.rate_limit = 0.1  # Google allows higher rate
-        elif geocode_service == "aws":
-            self.geocoder = None  # Will use boto3 directly
-            self.location_client = boto3.client('location')
-            self.place_index = "christmas-lights-geocoder"
-            self.rate_limit = 0.1  # AWS allows high rate
-        else:
-            raise ValueError(f"Unknown geocoding service: {geocode_service}")
-
-        # DynamoDB client (will initialize when needed)
-        self.dynamodb = None
-        self.locations_table = None
-
-    def read_csv(self, file_path: str) -> List[Dict]:
-        """
-        Read Google Maps export CSV.
-
-        Expected columns: Title, Note, URL, Address
-        (or variations like: Name, Description, Link, Location)
-        """
-        locations = []
-
-        with open(file_path, 'r', encoding='utf-8') as f:
-            # Try to detect the CSV format
-            sample = f.read(1024)
-            f.seek(0)
-
-            # Check if it's a Google Takeout format
-            reader = csv.DictReader(f)
-
-            for row in reader:
-                # Handle different possible column names
-                location = {
-                    'title': (
-                        row.get('Title') or
-                        row.get('Name') or
-                        row.get('title') or
-                        row.get('name') or
-                        ''
-                    ).strip(),
-                    'note': (
-                        row.get('Note') or
-                        row.get('Description') or
-                        row.get('note') or
-                        row.get('description') or
-                        ''
-                    ).strip(),
-                    'address': (
-                        row.get('Address') or
-                        row.get('Location') or
-                        row.get('address') or
-                        row.get('location') or
-                        row.get('Title')  # Sometimes address is in title
-                    ).strip(),
-                    'url': (
-                        row.get('URL') or
-                        row.get('Link') or
-                        row.get('url') or
-                        row.get('link') or
-                        ''
-                    ).strip(),
-                }
-
-                # Skip empty rows
-                if location['address'] or location['title']:
-                    locations.append(location)
-
-        print(f"✓ Read {len(locations)} locations from CSV")
-        return locations
-
-    def geocode_address(self, address: str, retry: int = 3) -> Optional[Tuple[float, float]]:
-        """
-        Geocode an address to get latitude and longitude.
-
-        Args:
-            address: The address to geocode
-            retry: Number of retries on failure
-
-        Returns:
-            Tuple of (latitude, longitude) or None if geocoding fails
-        """
-        # Add DFW area context to improve accuracy
-        search_address = address
-        if 'TX' not in address.upper() and 'TEXAS' not in address.upper():
-            search_address = f"{address}, Dallas-Fort Worth, TX"
-
-        for attempt in range(retry):
-            try:
-                if self.geocode_service == "aws":
-                    # Use Amazon Location Service
-                    response = self.location_client.search_place_index_for_text(
-                        IndexName=self.place_index,
-                        Text=search_address,
-                        MaxResults=1,
-                        BiasPosition=[-96.7970, 32.7767],  # DFW center,
-                    )
-                    if response.get('Results'):
-                        point = response['Results'][0]['Place']['Geometry']['Point']
-                        # AWS returns [lng, lat], we need (lat, lng)
-                        time.sleep(self.rate_limit)
-                        return (point[1], point[0])
-                    else:
-                        print(f"  ⚠ Could not geocode: {address}")
-                        return None
-                else:
-                    # Use geopy geocoder (Nominatim or Google)
-                    location = self.geocoder.geocode(search_address)
-                    if location:
-                        time.sleep(self.rate_limit)
-                        return (location.latitude, location.longitude)
-                    else:
-                        print(f"  ⚠ Could not geocode: {address}")
-                        return None
-
-            except Exception as e:
-                if attempt < retry - 1:
-                    print(f"  ⚠ Geocoding error, retrying... ({attempt + 1}/{retry})")
-                    time.sleep(2)
-                else:
-                    print(f"  ✗ Failed to geocode after {retry} attempts: {address}")
-                    return None
-
+def extract_coords_from_url(url: str) -> Optional[Tuple[float, float]]:
+    """Extract lat/lng from Google Maps URL if present."""
+    if not url:
         return None
+    
+    match = re.search(COORD_PATTERN, url)
+    if match:
+        try:
+            lat = float(match.group(1))
+            lng = float(match.group(2))
+            if 25 < lat < 40 and -105 < lng < -90:
+                return (lat, lng)
+        except (ValueError, IndexError):
+            pass
+    return None
 
-    def geocode_locations(self, locations: List[Dict]) -> List[Dict]:
-        """
-        Geocode all locations that don't have coordinates.
 
-        Args:
-            locations: List of location dictionaries
+def extract_place_id_from_url(url: str) -> Optional[str]:
+    """Extract Google Place ID from URL."""
+    if not url:
+        return None
+    match = re.search(PLACE_ID_PATTERN, url)
+    return match.group(1) if match else None
 
-        Returns:
-            List of locations with lat/lng added
-        """
-        geocoded = []
-        failed = []
 
-        print(f"\n📍 Geocoding {len(locations)} addresses...")
-        print(f"   Using: {self.geocode_service}")
-        print(f"   Rate limit: {self.rate_limit}s between requests")
-        print()
+def extract_place_name_from_url(url: str) -> Optional[str]:
+    """Extract place name from URL path."""
+    if not url:
+        return None
+    match = re.search(PLACE_NAME_PATTERN, url)
+    if match:
+        import urllib.parse
+        return urllib.parse.unquote_plus(match.group(1))
+    return None
 
-        for i, loc in enumerate(locations, 1):
-            address = loc['address']
-            print(f"[{i}/{len(locations)}] {address[:60]}...", end=' ')
 
-            # Check if coordinates already exist
-            if 'lat' in loc and 'lng' in loc:
-                print("✓ (already has coordinates)")
-                geocoded.append(loc)
-                continue
+def is_street_address(text: str) -> bool:
+    """Check if text looks like a street address."""
+    if not text:
+        return False
+    has_number = bool(re.match(r'^\d+', text.strip()))
+    street_words = ['st', 'street', 'ave', 'avenue', 'rd', 'road', 'dr', 'drive', 
+                    'ln', 'lane', 'ct', 'court', 'blvd', 'way', 'pl', 'place', 'cir', 
+                    'circle', 'trail', 'pkwy', 'hwy', 'fm']
+    has_street_word = any(word in text.lower().split() for word in street_words)
+    return has_number and has_street_word
 
-            # Geocode the address
-            coords = self.geocode_address(address)
 
+def geocode_place_id(place_id: str) -> Optional[Tuple[float, float]]:
+    """Use Google Places API to get coordinates from Place ID."""
+    if not GOOGLE_API_KEY:
+        return None
+    
+    # Google Place IDs from URLs are in format "0x...:0x..."
+    # We need to convert to the API format
+    url = f"https://maps.googleapis.com/maps/api/place/details/json"
+    params = {
+        'place_id': place_id,
+        'fields': 'geometry',
+        'key': GOOGLE_API_KEY
+    }
+    
+    try:
+        # First try with the raw place_id
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        if data.get('status') == 'OK':
+            loc = data['result']['geometry']['location']
+            return (loc['lat'], loc['lng'])
+    except Exception as e:
+        pass
+    
+    return None
+
+
+def geocode_address(address: str) -> Optional[Tuple[float, float]]:
+    """Use Google Geocoding API to get coordinates from address."""
+    if not GOOGLE_API_KEY:
+        return None
+    
+    search = address
+    if 'TX' not in address.upper() and 'TEXAS' not in address.upper():
+        search = f"{address}, Dallas-Fort Worth, TX"
+    
+    url = "https://maps.googleapis.com/maps/api/geocode/json"
+    params = {
+        'address': search,
+        'key': GOOGLE_API_KEY,
+        'bounds': '32.0,-97.5|33.5,-96.0'  # DFW bounding box
+    }
+    
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        if data.get('status') == 'OK' and data.get('results'):
+            loc = data['results'][0]['geometry']['location']
+            return (loc['lat'], loc['lng'])
+    except Exception as e:
+        print(f"    Geocoding error: {e}")
+    
+    return None
+
+
+def find_place_by_text(query: str) -> Optional[Tuple[float, float]]:
+    """Use Google Places Text Search API to find a place."""
+    if not GOOGLE_API_KEY:
+        return None
+    
+    # Try with different city contexts for ambiguous names
+    search_variants = [
+        f"{query}, Dallas Fort Worth, Texas",
+        f"{query}, Texas",
+    ]
+    
+    # For generic street/place names, try specific DFW cities
+    dfw_cities = ['Dallas', 'Fort Worth', 'Arlington', 'Plano', 'Frisco', 
+                  'McKinney', 'Denton', 'Lewisville', 'Flower Mound', 'Carrollton']
+    if not any(city.lower() in query.lower() for city in dfw_cities):
+        for city in dfw_cities[:5]:  # Try top 5 cities
+            search_variants.append(f"{query}, {city}, TX")
+    
+    for search in search_variants:
+        url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+        params = {
+            'query': search,
+            'location': f'{DFW_CENTER[0]},{DFW_CENTER[1]}',
+            'radius': 150000,
+            'key': GOOGLE_API_KEY
+        }
+        
+        try:
+            response = requests.get(url, params=params, timeout=10)
+            data = response.json()
+            
+            if data.get('status') == 'OK' and data.get('results'):
+                loc = data['results'][0]['geometry']['location']
+                lat, lng = loc['lat'], loc['lng']
+                # Verify it's in North Texas area
+                if 32.0 < lat < 33.8 and -98.0 < lng < -96.0:
+                    return (lat, lng)
+        except Exception as e:
+            continue
+    
+    return None
+
+
+def read_csv(file_path: str) -> List[Dict]:
+    """Read Google Maps export CSV."""
+    locations = []
+    
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    lines = content.split('\n')
+    header_idx = None
+    for i, line in enumerate(lines):
+        if line.startswith('Title,'):
+            header_idx = i
+            break
+    
+    if header_idx is None:
+        print("ERROR: Could not find CSV header row")
+        return []
+    
+    csv_content = '\n'.join(lines[header_idx:])
+    reader = csv.DictReader(csv_content.split('\n'))
+    
+    for row in reader:
+        title = (row.get('Title') or '').strip()
+        note = (row.get('Note') or '').strip()
+        url = (row.get('URL') or '').strip()
+        
+        if not title and not url:
+            continue
+            
+        locations.append({
+            'title': title,
+            'note': note,
+            'url': url,
+        })
+    
+    print(f"✓ Read {len(locations)} entries from CSV")
+    return locations
+
+
+def process_locations(entries: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
+    """Process entries using Google APIs to get coordinates."""
+    ready = []
+    needs_review = []
+    
+    print(f"\n📍 Processing {len(entries)} entries...")
+    print(f"   Using Google API Key: {'✓ Found' if GOOGLE_API_KEY else '✗ Missing!'}")
+    
+    if not GOOGLE_API_KEY:
+        print("\nERROR: No GOOGLE_API_KEY found in .env file")
+        sys.exit(1)
+    
+    for i, entry in enumerate(entries, 1):
+        title = entry['title']
+        note = entry['note']
+        url = entry['url']
+        
+        print(f"[{i}/{len(entries)}] {title[:45]}...", end=' ')
+        
+        # Method 1: Direct coordinates in URL
+        coords = extract_coords_from_url(url)
+        if coords:
+            print(f"✓ URL coords")
+            ready.append({
+                'address': title,
+                'description': note,
+                'lat': coords[0],
+                'lng': coords[1],
+                'googleMapsUrl': url,
+                'source': 'google-maps-import',
+            })
+            continue
+        
+        # Method 2: Geocode if it's a street address
+        if is_street_address(title):
+            coords = geocode_address(title)
             if coords:
-                loc['lat'] = coords[0]
-                loc['lng'] = coords[1]
-                print(f"✓ ({coords[0]:.4f}, {coords[1]:.4f})")
-                geocoded.append(loc)
-            else:
-                print("✗ Failed")
-                failed.append(loc)
-
-        print(f"\n✓ Successfully geocoded: {len(geocoded)}/{len(locations)}")
-
-        if failed:
-            print(f"✗ Failed to geocode: {len(failed)}")
-            print("\nFailed addresses:")
-            for loc in failed:
-                print(f"  - {loc['address']}")
-
-        return geocoded, failed
-
-    def save_to_csv(self, locations: List[Dict], output_path: str):
-        """Save geocoded locations to a CSV file."""
-        fieldnames = ['address', 'description', 'lat', 'lng', 'photos', 'url', 'title']
-
-        with open(output_path, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-
-            for loc in locations:
-                writer.writerow({
-                    'address': loc['address'],
-                    'description': loc.get('note', ''),
-                    'lat': loc.get('lat', ''),
-                    'lng': loc.get('lng', ''),
-                    'photos': '',  # Photos not included in export
-                    'url': loc.get('url', ''),
-                    'title': loc.get('title', ''),
+                print(f"✓ Geocoded address")
+                ready.append({
+                    'address': title,
+                    'description': note,
+                    'lat': coords[0],
+                    'lng': coords[1],
+                    'googleMapsUrl': url,
+                    'source': 'google-maps-import',
                 })
+                time.sleep(0.1)  # Rate limit
+                continue
+        
+        # Method 3: Find place by name (for non-address entries)
+        place_name = extract_place_name_from_url(url) or title
+        coords = find_place_by_text(place_name)
+        if coords:
+            print(f"✓ Found place")
+            ready.append({
+                'address': place_name,
+                'description': note,
+                'lat': coords[0],
+                'lng': coords[1],
+                'googleMapsUrl': url,
+                'source': 'google-maps-import',
+            })
+            time.sleep(0.1)  # Rate limit
+            continue
+        
+        # Failed all methods - needs manual review
+        print(f"⚠ Needs review")
+        needs_review.append({
+            'address': title,
+            'description': note,
+            'googleMapsUrl': url,
+            'source': 'google-maps-import',
+        })
+    
+    print(f"\n✓ Ready for import: {len(ready)}")
+    print(f"⚠ Needs admin review: {len(needs_review)}")
+    
+    return ready, needs_review
 
-        print(f"✓ Saved geocoded locations to: {output_path}")
 
-    def save_to_json(self, locations: List[Dict], output_path: str):
-        """Save locations to JSON for easy inspection."""
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(locations, f, indent=2)
+def import_to_locations(locations: List[Dict], table_name: str):
+    """Import locations directly to locations table."""
+    dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+    table = dynamodb.Table(table_name)
+    
+    print(f"\n📤 Importing {len(locations)} locations to {table_name}...")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    imported = 0
+    
+    with table.batch_writer() as batch:
+        for loc in locations:
+            location_id = str(uuid.uuid4())
+            
+            item = {
+                'PK': f'location#{location_id}',
+                'SK': 'metadata',
+                'id': location_id,
+                'address': loc['address'],
+                'lat': Decimal(str(round(loc['lat'], 6))),
+                'lng': Decimal(str(round(loc['lng'], 6))),
+                'description': loc.get('description', ''),
+                'photos': [],
+                'status': 'active',
+                'feedbackCount': 0,
+                'averageRating': Decimal('0'),
+                'likeCount': 0,
+                'reportCount': 0,
+                'createdAt': now,
+                'createdBy': 'import-script',
+                'source': loc.get('source', 'google-maps-import'),
+            }
+            
+            if loc.get('googleMapsUrl'):
+                item['googleMapsUrl'] = loc['googleMapsUrl']
+            
+            batch.put_item(Item=item)
+            imported += 1
+            
+            if imported % 25 == 0:
+                print(f"  Imported {imported}/{len(locations)}...")
+    
+    print(f"✅ Imported {imported} locations")
 
-        print(f"✓ Saved JSON to: {output_path}")
 
-    def init_dynamodb(self, table_name: str = None):
-        """Initialize DynamoDB connection."""
-        if not self.dynamodb:
-            self.dynamodb = boto3.resource('dynamodb')
-
-        if not table_name:
-            table_name = os.environ.get('LOCATIONS_TABLE_NAME', 'christmas-lights-locations-dev')
-
-        self.locations_table = self.dynamodb.Table(table_name)
-        print(f"✓ Connected to DynamoDB table: {table_name}")
-
-    def import_to_dynamodb(self, locations: List[Dict], batch_size: int = 25):
-        """
-        Import locations to DynamoDB in batches.
-
-        Args:
-            locations: List of location dictionaries with lat/lng
-            batch_size: Number of items to write per batch (max 25 for DynamoDB)
-        """
-        if not self.locations_table:
-            raise RuntimeError("DynamoDB not initialized. Call init_dynamodb() first.")
-
-        print(f"\n📤 Importing {len(locations)} locations to DynamoDB...")
-
-        imported = 0
-        failed = []
-
-        # Process in batches
-        for i in range(0, len(locations), batch_size):
-            batch = locations[i:i + batch_size]
-
-            with self.locations_table.batch_writer() as writer:
-                for loc in batch:
-                    try:
-                        # Generate UUID for location
-                        import uuid
-                        location_id = str(uuid.uuid4())
-
-                        item = {
-                            'PK': f'location#{location_id}',
-                            'SK': 'metadata',
-                            'id': location_id,
-                            'address': loc['address'],
-                            'lat': float(loc['lat']),
-                            'lng': float(loc['lng']),
-                            'description': loc.get('note', ''),
-                            'photos': [],
-                            'status': 'active',
-                            'feedbackCount': 0,
-                            'averageRating': 0.0,
-                            'likeCount': 0,
-                            'reportCount': 0,
-                            'createdBy': 'import-script',
-                        }
-
-                        writer.put_item(Item=item)
-                        imported += 1
-                        print(f"  ✓ Imported [{imported}/{len(locations)}]: {loc['address'][:50]}...")
-
-                    except Exception as e:
-                        print(f"  ✗ Failed to import: {loc['address']} - {str(e)}")
-                        failed.append(loc)
-
-        print(f"\n✓ Successfully imported: {imported}/{len(locations)}")
-
-        if failed:
-            print(f"✗ Failed to import: {len(failed)}")
-            for loc in failed:
-                print(f"  - {loc['address']}")
+def import_to_suggestions(entries: List[Dict], table_name: str):
+    """Import entries needing review to suggestions table."""
+    dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+    table = dynamodb.Table(table_name)
+    
+    print(f"\n📤 Creating {len(entries)} suggestions for review...")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    imported = 0
+    
+    with table.batch_writer() as batch:
+        for entry in entries:
+            suggestion_id = str(uuid.uuid4())
+            
+            item = {
+                'PK': f'SUGGESTION#{suggestion_id}',
+                'SK': 'METADATA',
+                'id': suggestion_id,
+                'address': entry['address'],
+                'description': entry.get('description', '') or 'Imported - needs coordinates',
+                'lat': Decimal('0'),
+                'lng': Decimal('0'),
+                'photos': [],
+                'status': 'pending',
+                'submittedBy': 'import-script',
+                'submittedByEmail': 'import@system.local',
+                'createdAt': now,
+                'source': entry.get('source', 'google-maps-import'),
+            }
+            
+            if entry.get('googleMapsUrl'):
+                item['googleMapsUrl'] = entry['googleMapsUrl']
+            
+            batch.put_item(Item=item)
+            imported += 1
+    
+    print(f"✅ Created {imported} suggestions for admin review")
 
 
 def main():
-    """Main entry point."""
     parser = argparse.ArgumentParser(description='Import Google Maps locations')
     parser.add_argument('input_csv', help='Path to Google Maps export CSV')
-    parser.add_argument('--geocode', choices=['nominatim', 'google', 'aws'], default='nominatim',
-                        help='Geocoding service to use (default: nominatim)')
-    parser.add_argument('--google-api-key', help='Google Geocoding API key (required for --geocode google)')
-    parser.add_argument('--output-csv', help='Output CSV file path (optional)')
-    parser.add_argument('--output-json', help='Output JSON file path (optional)')
-    parser.add_argument('--import-to-dynamodb', action='store_true',
-                        help='Import to DynamoDB after geocoding')
-    parser.add_argument('--table-name', help='DynamoDB table name')
-
+    parser.add_argument('--dry-run', action='store_true', help='Process but do not import')
+    parser.add_argument('--locations-table', default='christmas-lights-locations-dev')
+    parser.add_argument('--suggestions-table', default='christmas-lights-suggestions-dev')
+    
     args = parser.parse_args()
-
-    # Validate input file
+    
     if not Path(args.input_csv).exists():
         print(f"ERROR: File not found: {args.input_csv}")
         sys.exit(1)
-
-    # Initialize importer
-    try:
-        importer = LocationImporter(
-            geocode_service=args.geocode,
-            google_api_key=args.google_api_key
-        )
-    except ValueError as e:
-        print(f"ERROR: {e}")
-        sys.exit(1)
-
-    # Read CSV
-    print("🎄 DFW Christmas Lights - Location Importer")
+    
+    print("🎄 DFW Christmas Lights - Location Importer v3")
     print("=" * 50)
-    locations = importer.read_csv(args.input_csv)
-
-    if not locations:
-        print("ERROR: No locations found in CSV")
+    
+    entries = read_csv(args.input_csv)
+    if not entries:
+        print("ERROR: No entries found")
         sys.exit(1)
-
-    # Geocode locations
-    geocoded, failed = importer.geocode_locations(locations)
-
-    # Save outputs
-    if args.output_csv:
-        importer.save_to_csv(geocoded, args.output_csv)
-
-    if args.output_json:
-        importer.save_to_json(geocoded, args.output_json)
-
-    # Import to DynamoDB
-    if args.import_to_dynamodb:
-        if not geocoded:
-            print("\nNo locations to import (all geocoding failed)")
-            sys.exit(1)
-
-        importer.init_dynamodb(args.table_name)
-        importer.import_to_dynamodb(geocoded)
-
-    # Summary
+    
+    ready, needs_review = process_locations(entries)
+    
     print("\n" + "=" * 50)
-    print("✅ Import complete!")
-    print(f"   Total locations: {len(locations)}")
-    print(f"   Successfully geocoded: {len(geocoded)}")
-    print(f"   Failed: {len(failed)}")
-
-    if failed:
-        print("\n⚠️  You may need to manually fix failed addresses")
-        print("   Check the addresses and try geocoding again")
+    print("📊 Summary:")
+    print(f"   Total entries: {len(entries)}")
+    print(f"   Ready for import: {len(ready)}")
+    print(f"   Need admin review: {len(needs_review)}")
+    
+    if args.dry_run:
+        print("\n🔍 DRY RUN - No changes made")
+        if needs_review:
+            print("\nEntries needing review:")
+            for e in needs_review:
+                print(f"  - {e['address']}")
+        return
+    
+    confirm = input(f"\n⚠️  Import {len(ready)} locations and create {len(needs_review)} suggestions? (yes/no): ")
+    if confirm.lower() != 'yes':
+        print("Aborted.")
+        return
+    
+    if ready:
+        import_to_locations(ready, args.locations_table)
+    
+    if needs_review:
+        import_to_suggestions(needs_review, args.suggestions_table)
+    
+    print("\n✅ Import complete!")
 
 
 if __name__ == '__main__':

@@ -14,6 +14,7 @@ export interface Location {
   googleMapsUrl?: string;
   createdBy?: string;
   createdByUsername?: string;
+  source?: 'google-maps-import' | 'user-submission' | 'bot-scraper' | 'admin-created';
   // AI-generated fields
   decorations?: string[];  // Specific items like "Grinch inflatable", "nativity scene"
   categories?: string[];   // Broad categories like "inflatables", "string lights"
