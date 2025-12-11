@@ -22,7 +22,7 @@ const createNumberedIcon = (number: number) => {
 export default function RouteDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { addStop, clearRoute } = useRoute();
 
   const [route, setRoute] = useState<SavedRoute | null>(null);
