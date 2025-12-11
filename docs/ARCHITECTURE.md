@@ -1,6 +1,6 @@
 # Architecture Documentation
 
-**Last Updated:** December 10, 2025
+**Last Updated:** December 11, 2025
 
 ## System Overview
 
@@ -65,6 +65,8 @@ DFW Christmas Lights Finder is a serverless web application built entirely on AW
 **Key Pages:**
 - `/` - Home with map view
 - `/location/:id` - Location details
+- `/routes` - Browse community routes
+- `/routes/:id` - Route details with map
 - `/admin` - Admin dashboard (protected)
 - `/login` - Authentication
 - `/submit` - Submit new location (protected)
@@ -164,6 +166,53 @@ DFW Christmas Lights Finder is a serverless web application built entirely on AW
     - Returns ranked list of contributors by approved submissions
     - Includes username, join date, and highest earned badge
     - Badge thresholds: First Light (1), Scout (5), Enthusiast (15), Expert (50)
+
+19. **CreateRoute** (`POST /routes`)
+    - Requires authentication
+    - Creates a new route from planned stops
+    - Calculates stats: stopCount, estimatedMinutes, totalMiles
+    - Supports public or draft (private) routes
+
+20. **GetRoutes** (`GET /routes`)
+    - Public endpoint
+    - Lists public routes sorted by popularity or creation date
+    - Query params: sort (popular/new), limit
+
+21. **GetRouteById** (`GET /routes/{id}`)
+    - Public endpoint (for active routes)
+    - Returns route with full location details
+    - Increments startCount for analytics
+    - Draft routes only visible to owner
+
+22. **UpdateRoute** (`PUT /routes/{id}`)
+    - Requires authentication (owner only)
+    - Updates route title, description, stops, tags, visibility
+
+23. **DeleteRoute** (`DELETE /routes/{id}`)
+    - Requires authentication (owner only)
+    - Deletes route and all associated feedback
+
+24. **RouteFeedback** (`POST /routes/{id}/feedback`)
+    - Requires authentication
+    - Like or save a route (toggles on/off)
+    - Atomic writes prevent race conditions
+
+25. **GetRouteFeedbackStatus** (`GET /routes/{id}/feedback/status`)
+    - Requires authentication
+    - Returns user's like/save status for a route
+
+26. **GetUserRoutes** (`GET /users/routes`)
+    - Requires authentication
+    - Returns routes created by the user
+
+27. **GetUserSavedRoutes** (`GET /users/saved-routes`)
+    - Requires authentication
+    - Returns routes the user has saved/bookmarked
+
+28. **GetRoutesLeaderboard** (`GET /leaderboard/routes`)
+    - Public endpoint
+    - Returns top routes by likes and top route creators
+    - Creator badges: Route Scout (1), Trail Blazer (3), Route Master (5), Legend (10+)
 
 ### Database (DynamoDB)
 
@@ -274,6 +323,68 @@ Attributes:
 GSI-1 (username-index):
   PK: username
   (For checking username uniqueness during updates)
+```
+
+#### Routes Table
+```
+PK: route#{uuid}
+SK: metadata
+
+Attributes:
+{
+  "id": "uuid",
+  "title": "string",
+  "description": "string",
+  "locationIds": ["loc-id-1", "loc-id-2"],
+  "tags": ["tag1", "tag2"],
+  "createdBy": "user-id",
+  "createdByUsername": "JollyReindeerRider",
+  "createdAt": "ISO-8601",
+  "updatedAt": "ISO-8601",
+  "status": "active|draft",
+  "isPublic": boolean,
+  "likeCount": number,
+  "saveCount": number,
+  "startCount": number,
+  "stopCount": number,
+  "estimatedMinutes": number,
+  "totalMiles": number
+}
+
+GSI-1 (status-likeCount-index):
+  PK: status
+  SK: likeCount
+  (For querying popular routes)
+
+GSI-2 (status-createdAt-index):
+  PK: status
+  SK: createdAt
+  (For querying newest routes)
+
+GSI-3 (createdBy-createdAt-index):
+  PK: createdBy
+  SK: createdAt
+  (For querying user's routes)
+```
+
+#### Route Feedback Table
+```
+PK: routeFeedback#{id}
+SK: route#{routeId}
+
+Attributes:
+{
+  "id": "uuid",
+  "routeId": "uuid",
+  "userId": "cognito-sub",
+  "type": "like|save",
+  "createdAt": "ISO-8601"
+}
+
+GSI-1 (userId-routeId-index):
+  PK: userId
+  SK: routeId
+  (For efficient user feedback lookups)
 ```
 
 ### Authentication (Cognito)
