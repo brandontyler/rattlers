@@ -272,6 +272,7 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
+- **Dec 10, 2025 (Late PM):** Rewrote import script to extract coordinates from Google Maps URLs. Entries without coords go to suggestions table for admin review. Added `source` field to track data origin. Admin page now shows Google Maps link for suggestions.
 - **Dec 10, 2025 (PM):** Added Leaderboards with tabs (Contributors + Most Loved locations). Added "Submitted by [avatar] username" attribution on location popups and detail pages. New endpoint: GET /leaderboard/locations.
 - **Dec 10, 2025:** Added AI-generated Christmas-themed usernames using Bedrock Claude (e.g., "JollyReindeerRider", "TwinklingStarCollector"). Users can edit their username on the profile page.
 - **Dec 9, 2025:** Added admin edit functionality for locations and suggestions - can now edit descriptions, AI descriptions, categories, themes, and display quality before approval. Fixed route panel to stay minimized when adding stops.

@@ -317,6 +317,20 @@ export default function AdminPage() {
                               </svg>
                               {suggestion.lat.toFixed(4)}, {suggestion.lng.toFixed(4)}
                             </span>
+                            {(suggestion as any).googleMapsUrl && (
+                              <a
+                                href={(suggestion as any).googleMapsUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                                Google Maps
+                              </a>
+                            )}
                             {suggestion.photos.length > 0 && (
                               <span className="flex items-center gap-1 text-gold-600">
                                 <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
