@@ -13,6 +13,7 @@ export interface Location {
   updatedAt?: string;
   googleMapsUrl?: string;
   createdBy?: string;
+  createdByUsername?: string;
   // AI-generated fields
   decorations?: string[];  // Specific items like "Grinch inflatable", "nativity scene"
   categories?: string[];   // Broad categories like "inflatables", "string lights"
@@ -137,6 +138,20 @@ export interface LeaderboardEntry {
     type: 'first-light' | 'scout' | 'enthusiast' | 'expert';
     label: string;
   } | null;
+}
+
+export interface LocationLeaderboardEntry {
+  rank: number;
+  locationId: string;
+  address: string;
+  description: string;
+  aiDescription?: string;
+  likeCount: number;
+  photos: string[];
+  createdBy?: string;
+  createdByUsername?: string;
+  decorations?: string[];
+  displayQuality?: string;
 }
 
 // API Response types

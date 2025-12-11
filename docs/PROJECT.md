@@ -52,7 +52,8 @@ cd backend && uv run pytest
 | User profiles | ✅ | ✅ | Profile page with stats, submission history |
 | Search & filter | ✅ | - | Search by address/description, filter by category/quality |
 | "My Favorites" filter | ✅ | ✅ | Toggle to show only saved locations on map |
-| Leaderboard | ✅ | ✅ | Public ranking of top contributors by approved submissions |
+| Leaderboards | ✅ | ✅ | Contributors + Most Loved locations tabs |
+| Submitter attribution | ✅ | ✅ | "Submitted by [avatar] username" on popups/details |
 
 ### ✅ Photo Features (Complete End-to-End)
 
@@ -271,6 +272,7 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
+- **Dec 10, 2025 (PM):** Added Leaderboards with tabs (Contributors + Most Loved locations). Added "Submitted by [avatar] username" attribution on location popups and detail pages. New endpoint: GET /leaderboard/locations.
 - **Dec 10, 2025:** Added AI-generated Christmas-themed usernames using Bedrock Claude (e.g., "JollyReindeerRider", "TwinklingStarCollector"). Users can edit their username on the profile page.
 - **Dec 9, 2025:** Added admin edit functionality for locations and suggestions - can now edit descriptions, AI descriptions, categories, themes, and display quality before approval. Fixed route panel to stay minimized when adding stops.
 - **Dec 9, 2025:** Enhanced AI photo analysis - now triggers on suggestion submit (not just photo upload), ensuring all photos get analyzed regardless of upload order.
