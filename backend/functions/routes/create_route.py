@@ -137,6 +137,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "createdAt": now,
             "updatedAt": now,
             "status": "active" if is_public else "draft",
+            "isPublic": is_public,
             "likeCount": 0,
             "saveCount": 0,
             "startCount": 0,

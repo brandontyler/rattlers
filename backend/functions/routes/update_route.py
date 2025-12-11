@@ -125,6 +125,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if "isPublic" in body:
             is_public = body["isPublic"]
             updates["status"] = "active" if is_public else "draft"
+            updates["isPublic"] = is_public
 
         if not updates:
             return validation_error({"body": "No valid updates provided"})
