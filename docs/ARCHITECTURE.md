@@ -69,6 +69,7 @@ DFW Christmas Lights Finder is a serverless web application built entirely on AW
 - `/login` - Authentication
 - `/submit` - Submit new location (protected)
 - `/profile` - User profile with stats and favorites (protected)
+- `/leaderboard` - Public contributor rankings
 
 **State Management:**
 - React Context for auth state
@@ -157,6 +158,12 @@ DFW Christmas Lights Finder is a serverless web application built entirely on AW
     - Generates Christmas-themed username using Bedrock Claude
     - Examples: "JollyReindeerRider", "TwinklingStarCollector"
     - Stores username in Users DynamoDB table
+
+18. **GetLeaderboard** (`GET /leaderboard`)
+    - Public endpoint (no authentication required)
+    - Returns ranked list of contributors by approved submissions
+    - Includes username, join date, and highest earned badge
+    - Badge thresholds: First Light (1), Scout (5), Enthusiast (15), Expert (50)
 
 ### Database (DynamoDB)
 

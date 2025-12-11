@@ -17,6 +17,7 @@ Authorization: Bearer {cognito-jwt-token}
 - `GET /locations`
 - `GET /locations/{id}`
 - `POST /locations/suggest-addresses`
+- `GET /leaderboard`
 
 **Authenticated endpoints** (require valid JWT):
 - `POST /suggestions`
@@ -583,6 +584,48 @@ Returns authenticated user's saved favorite locations.
 **Notes:**
 - Only returns active locations (inactive locations are filtered out)
 - `favoritedAt` indicates when user saved the location
+
+---
+
+### Leaderboard
+
+#### Get Leaderboard
+```
+GET /leaderboard
+```
+
+Returns public ranking of top contributors by approved submissions.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "rank": 1,
+      "userId": "cognito-sub",
+      "username": "JollyReindeerRider",
+      "approvedSubmissions": 12,
+      "joinDate": "2024-12-01T00:00:00Z",
+      "badge": {
+        "type": "enthusiast",
+        "label": "Enthusiast"
+      }
+    }
+  ]
+}
+```
+
+**Badge Thresholds:**
+- First Light: 1 approved submission
+- Scout: 5 approved submissions
+- Enthusiast: 15 approved submissions
+- Expert: 50 approved submissions
+
+**Notes:**
+- Public endpoint (no authentication required)
+- Sorted by approved submissions (descending)
+- Includes highest earned badge for each contributor
 
 ---
 
