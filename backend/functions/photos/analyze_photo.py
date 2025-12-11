@@ -43,7 +43,8 @@ ANALYSIS_TOOL = {
             "decorations": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Short, unique item names. No duplicates. Examples: 'Grinch inflatable', 'reindeer figures', 'nativity scene', 'JOY sign'. Keep it concise.",
+                "maxItems": 8,
+                "description": "List 5-8 MAIN decorations only. Group similar items (e.g., 'wooden cutout figures' not separate entries for each). No duplicates or variations.",
             },
             "categories": {
                 "type": "array",
@@ -56,7 +57,7 @@ ANALYSIS_TOOL = {
             },
             "description": {
                 "type": "string",
-                "description": "One factual sentence listing the main items visible. NO marketing language. Example: 'Display features Grinch and Max inflatables, white wire reindeer, and multicolor string lights on the roofline.'",
+                "description": "One natural sentence summarizing the display highlights. Example: 'Elaborate wooden cutout display featuring a gingerbread house archway, Peanuts characters, and nativity scene with multicolor lights throughout.'",
             },
             "display_quality": {
                 "type": "string",
@@ -240,20 +241,20 @@ def analyze_photo(bucket: str, key: str) -> dict:
                                 "type": "text",
                                 "text": f"""Analyze this Christmas display photo.
 
-**DECORATIONS** - List 5-10 unique items MAX. Use short, specific names:
-- STRICT: No duplicates or variations. Pick ONE name per item type.
-- STRICT: Be specific about TYPE (inflatable/blow mold/figure/wooden) + SUBJECT (snowman/reindeer/etc)
-- BAD: "wreaths", "Christmas wreaths" (duplicate)
-- BAD: "snowman figures", "snowmen" (duplicate - pick one)
-- BAD: "JOY sign", "word signs" (too generic - pick specific)
-- GOOD: "inflatable snowmen", "white reindeer figures", "JOY signs", "nativity scene"
-- GOOD: "gingerbread blow molds", not just "gingerbread decorations"
+**DECORATIONS** - List 5-8 MAIN items only. STRICT MAXIMUM OF 8.
+- Group similar items: "wooden cutout figures" NOT separate entries for snowman, Santa, reindeer
+- One entry per category: "candy cane decorations" NOT path markers + lights + house facade
+- Focus on standout/unique items, not every single decoration
+- GOOD: "gingerbread house archway", "Peanuts character cutouts", "nativity scene", "Santa sleigh", "multicolor string lights"
+- BAD: Listing 20+ individual items
 
 **CATEGORIES** - Select from: {', '.join(DECORATION_CATEGORIES)}
 
-**THEME** - Only if clearly themed (Grinch, Star Wars, etc). Otherwise null.
+**THEME** - Only if clearly themed (Grinch, Peanuts, etc). Otherwise null.
 
-**DESCRIPTION** - One short factual sentence.
+**DESCRIPTION** - One natural sentence highlighting 3-4 main features. NOT a list of all items.
+- GOOD: "Elaborate wooden cutout display featuring a gingerbread house archway, Peanuts characters, and nativity scene with multicolor lights."
+- BAD: "Display features item1, item2, item3, item4, item5, item6, item7..."
 
 **QUALITY** - minimal/moderate/impressive/spectacular
 
@@ -365,28 +366,6 @@ def deduplicate_tags_semantically(tags: list[str]) -> list[str]:
     return sorted(result)  # Sort for consistency
 
 
-def generate_description_from_tags(tags: list[str]) -> str:
-    """Generate a natural description from a list of decoration tags.
-
-    Examples:
-    - ["inflatable snowmen", "white reindeer figures"]
-      -> "Display features inflatable snowmen and white reindeer figures."
-    - ["nativity scene", "wreaths", "string lights"]
-      -> "Display features nativity scene, wreaths, and string lights."
-    """
-    if not tags:
-        return ""
-
-    if len(tags) == 1:
-        return f"Display features {tags[0]}."
-    elif len(tags) == 2:
-        return f"Display features {tags[0]} and {tags[1]}."
-    else:
-        # Join all but last with commas, then add "and" before the last item
-        items = ", ".join(tags[:-1])
-        return f"Display features {items}, and {tags[-1]}."
-
-
 def update_suggestion_tags(suggestion_id: str, photo_key: str, analysis: dict):
     """Update suggestion record with photo analysis tags, categories, and theme."""
 
@@ -408,6 +387,10 @@ def update_suggestion_tags(suggestion_id: str, photo_key: str, analysis: dict):
 
         # Apply semantic deduplication to remove redundant variations
         merged_tags = deduplicate_tags_semantically(merged_tags)
+        
+        # Hard cap at 10 tags to keep UI clean
+        if len(merged_tags) > 10:
+            merged_tags = merged_tags[:10]
 
         # Merge categories with existing (broad categories for filtering)
         existing_categories = set(suggestion.get("categories", []))
@@ -427,12 +410,12 @@ def update_suggestion_tags(suggestion_id: str, photo_key: str, analysis: dict):
             update_expr += ", theme = :theme"
             expr_values[":theme"] = theme
 
-        # Generate comprehensive description from merged tags (combines all photos)
-        # This ensures the description reflects decorations visible across ALL submitted photos
-        if analysis.get("is_christmas_display") and merged_tags:
-            comprehensive_description = generate_description_from_tags(merged_tags)
-            update_expr += ", aiDescription = :desc"
-            expr_values[":desc"] = comprehensive_description
+        # Use AI-generated description directly (not generated from tags)
+        if analysis.get("is_christmas_display"):
+            ai_description = analysis.get("description", "")
+            if ai_description and (not suggestion.get("aiDescription") or len(ai_description) > len(suggestion.get("aiDescription", ""))):
+                update_expr += ", aiDescription = :desc"
+                expr_values[":desc"] = ai_description
 
             # Track the highest quality level across all photos
             quality_levels = {"minimal": 1, "moderate": 2, "impressive": 3, "spectacular": 4}
