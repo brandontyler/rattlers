@@ -22,6 +22,7 @@ Authorization: Bearer {cognito-jwt-token}
 - `GET /leaderboard/routes`
 - `GET /routes`
 - `GET /routes/{id}`
+- `POST /routes/generate-pdf`
 
 **Authenticated endpoints** (require valid JWT):
 - `POST /suggestions`
@@ -41,7 +42,6 @@ Authorization: Bearer {cognito-jwt-token}
 - `DELETE /routes/{id}`
 - `POST /routes/{id}/feedback`
 - `GET /routes/{id}/feedback/status`
-- `POST /routes/generate-pdf`
 
 **Admin endpoints** (require Cognito `Admins` group):
 - `GET /suggestions`
@@ -1071,7 +1071,6 @@ Returns top routes and top route creators.
 #### Generate PDF Route Guide
 ```
 POST /routes/generate-pdf
-Authorization: Required
 ```
 
 Generates a printable PDF route guide with map, directions, and QR codes.

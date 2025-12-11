@@ -1,6 +1,6 @@
 # Test Plan - DFW Christmas Lights Finder
 
-**Last Updated:** December 6, 2025
+**Last Updated:** December 11, 2025
 **Test Environment:** https://d173b693cir3zc.cloudfront.net (dev)
 **API Endpoint:** https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1
 
@@ -249,6 +249,63 @@ curl -s -X POST "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/s
 
 ---
 
+## 14. Community Routes
+
+| # | Test | Steps | Expected | Pass |
+|---|------|-------|----------|------|
+| 14.1 | Routes page loads | Go to `/routes` | Shows list of public routes | [ ] |
+| 14.2 | Sort by popular | Click "Popular" tab | Routes sorted by like count | [ ] |
+| 14.3 | Sort by new | Click "New" tab | Routes sorted by creation date | [ ] |
+| 14.4 | Route card info | Check route card | Shows title, creator, stops, likes, saves | [ ] |
+| 14.5 | Route detail page | Click route card | Navigates to `/routes/:id` | [ ] |
+| 14.6 | Route map display | View route detail | Map shows numbered markers and route line | [ ] |
+| 14.7 | Route stops list | Check stops section | Lists all stops with addresses | [ ] |
+| 14.8 | Like route | Click heart icon (logged in) | Like count increments, icon fills | [ ] |
+| 14.9 | Unlike route | Click filled heart | Like count decrements, icon unfills | [ ] |
+| 14.10 | Save route | Click bookmark icon (logged in) | Save count increments, icon fills | [ ] |
+| 14.11 | Unsave route | Click filled bookmark | Save count decrements, icon unfills | [ ] |
+| 14.12 | Like requires auth | Click heart (logged out) | Redirects to login | [ ] |
+
+---
+
+## 15. Save Route from Planner
+
+| # | Test | Steps | Expected | Pass |
+|---|------|-------|----------|------|
+| 15.1 | Save button visible | Build route with 2+ stops | "Save Route" button visible in panel | [ ] |
+| 15.2 | Save modal opens | Click "Save Route" | Modal opens with title/description fields | [ ] |
+| 15.3 | Title required | Submit without title | Shows validation error | [ ] |
+| 15.4 | Save success | Fill form and submit | Route saved, success message shown | [ ] |
+| 15.5 | Route appears | After save, go to `/routes` | New route appears in list | [ ] |
+| 15.6 | Public/private toggle | Check visibility toggle | Can set route as public or draft | [ ] |
+| 15.7 | Tags input | Add tags to route | Tags saved and displayed | [ ] |
+
+---
+
+## 16. User Routes (Profile)
+
+| # | Test | Steps | Expected | Pass |
+|---|------|-------|----------|------|
+| 16.1 | My Routes tab | Go to profile, click "My Routes" | Shows routes created by user | [ ] |
+| 16.2 | Saved Routes tab | Click "Saved Routes" tab | Shows routes user has bookmarked | [ ] |
+| 16.3 | Edit route | Click edit on own route | Can modify title, description, stops | [ ] |
+| 16.4 | Delete route | Click delete on own route | Route removed after confirmation | [ ] |
+| 16.5 | Empty state | User with no routes | Shows "No routes yet" message | [ ] |
+
+---
+
+## 17. Routes Leaderboard
+
+| # | Test | Steps | Expected | Pass |
+|---|------|-------|----------|------|
+| 17.1 | Routes tab visible | Go to `/leaderboard` | "Top Routes" tab visible | [ ] |
+| 17.2 | Top routes list | Click "Top Routes" tab | Shows routes ranked by likes | [ ] |
+| 17.3 | Route creators | Check creators section | Shows top route creators with badges | [ ] |
+| 17.4 | Creator badges | Check badge display | Route Scout, Trail Blazer, Route Master, Legend | [ ] |
+| 17.5 | Route link | Click route in leaderboard | Navigates to route detail page | [ ] |
+
+---
+
 ## Test Summary
 
 | Section | Total | Passed | Failed |
@@ -266,7 +323,11 @@ curl -s -X POST "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/s
 | 11. Map Popup Photos | 4 | | |
 | 12. Error Handling | 5 | | |
 | 13. UI/UX | 6 | | |
-| **TOTAL** | **113** | | |
+| 14. Community Routes | 12 | | |
+| 15. Save Route | 7 | | |
+| 16. User Routes | 5 | | |
+| 17. Routes Leaderboard | 5 | | |
+| **TOTAL** | **142** | | |
 
 ---
 
@@ -283,6 +344,7 @@ curl -s -X POST "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/s
 
 | Date | Tester | Version | Result |
 |------|--------|---------|--------|
+| 2025-12-11 | - | v1.4 | Community Routes feature added - save, browse, like/save routes |
 | 2025-12-06 | - | v1.3 | Photo features complete - upload, compression, gallery, lightbox |
 | 2025-12-04 | Brandon | v1.0 | Initial testing - core flows working |
 | 2025-12-04 | - | v1.1 | Route planner + PDF generation added |
@@ -320,3 +382,11 @@ Quick smoke test checklist:
 - [ ] Can like/unlike locations
 - [ ] Like count updates immediately (optimistic UI)
 - [ ] Can report inactive displays
+
+### Community Routes
+- [ ] Routes page loads with public routes
+- [ ] Can save route from route planner
+- [ ] Can like/save routes (logged in)
+- [ ] Routes leaderboard tab shows top routes
+- [ ] User's created routes appear on profile
+- [ ] User's saved routes appear on profile

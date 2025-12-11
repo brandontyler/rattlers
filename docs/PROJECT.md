@@ -199,12 +199,12 @@ Frontend (React)  →  API Gateway  →  Lambda  →  DynamoDB
 **Backend Functions:**
 ```
 backend/functions/
-├── locations/       # get_locations, get_location_by_id, suggest_addresses, update_location, delete_location
+├── locations/       # get_locations, get_location_by_id, suggest_addresses, update_location, delete_location, create_location
 ├── feedback/        # submit_feedback, get_feedback_status, report_inactive, toggle_favorite, get_favorites
-├── suggestions/     # submit, get, approve, reject, update
-├── routes/          # generate_pdf, create, get, get_by_id, update, delete, feedback, get_user_routes, get_saved_routes, leaderboard
+├── suggestions/     # submit_suggestion, get_suggestions, approve_suggestion, reject_suggestion, update_suggestion
+├── routes/          # generate_pdf, create_route, get_routes, get_route_by_id, update_route, delete_route, route_feedback, get_route_feedback_status, get_user_routes, get_user_saved_routes, get_routes_leaderboard
 ├── photos/          # get_upload_url, analyze_photo
-├── users/           # get_profile, get_submissions, update_profile, get_leaderboard
+├── users/           # get_profile, get_submissions, update_profile, get_leaderboard, get_locations_leaderboard
 └── auth/            # post_authentication (AI username generation)
 ```
 
