@@ -26,7 +26,13 @@ import argparse
 import requests
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, NamedTuple
+
+class GeoResult(NamedTuple):
+    """Result from geocoding with coordinates and formatted address."""
+    lat: float
+    lng: float
+    formatted_address: Optional[str] = None
 from pathlib import Path
 
 try:
@@ -125,8 +131,8 @@ def geocode_place_id(place_id: str) -> Optional[Tuple[float, float]]:
     return None
 
 
-def geocode_address(address: str) -> Optional[Tuple[float, float]]:
-    """Use Google Geocoding API to get coordinates from address."""
+def geocode_address(address: str) -> Optional[GeoResult]:
+    """Use Google Geocoding API to get coordinates and formatted address."""
     if not GOOGLE_API_KEY:
         return None
     
@@ -146,15 +152,17 @@ def geocode_address(address: str) -> Optional[Tuple[float, float]]:
         data = response.json()
         
         if data.get('status') == 'OK' and data.get('results'):
-            loc = data['results'][0]['geometry']['location']
-            return (loc['lat'], loc['lng'])
+            result = data['results'][0]
+            loc = result['geometry']['location']
+            formatted = result.get('formatted_address')
+            return GeoResult(loc['lat'], loc['lng'], formatted)
     except Exception as e:
         print(f"    Geocoding error: {e}")
     
     return None
 
 
-def find_place_by_text(query: str) -> Optional[Tuple[float, float]]:
+def find_place_by_text(query: str) -> Optional[GeoResult]:
     """Use Google Places Text Search API to find a place."""
     if not GOOGLE_API_KEY:
         return None
@@ -186,11 +194,13 @@ def find_place_by_text(query: str) -> Optional[Tuple[float, float]]:
             data = response.json()
             
             if data.get('status') == 'OK' and data.get('results'):
-                loc = data['results'][0]['geometry']['location']
+                result = data['results'][0]
+                loc = result['geometry']['location']
                 lat, lng = loc['lat'], loc['lng']
                 # Verify it's in North Texas area
                 if 32.0 < lat < 33.8 and -98.0 < lng < -96.0:
-                    return (lat, lng)
+                    formatted = result.get('formatted_address')
+                    return GeoResult(lat, lng, formatted)
         except Exception as e:
             continue
     
@@ -255,7 +265,7 @@ def process_locations(entries: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
         
         print(f"[{i}/{len(entries)}] {title[:45]}...", end=' ')
         
-        # Method 1: Direct coordinates in URL
+        # Method 1: Direct coordinates in URL (no formatted address available)
         coords = extract_coords_from_url(url)
         if coords:
             print(f"✓ URL coords")
@@ -271,14 +281,16 @@ def process_locations(entries: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
         
         # Method 2: Geocode if it's a street address
         if is_street_address(title):
-            coords = geocode_address(title)
-            if coords:
-                print(f"✓ Geocoded address")
+            result = geocode_address(title)
+            if result:
+                # Use formatted address from Google (includes city, state, zip)
+                address = result.formatted_address or title
+                print(f"✓ Geocoded")
                 ready.append({
-                    'address': title,
+                    'address': address,
                     'description': note,
-                    'lat': coords[0],
-                    'lng': coords[1],
+                    'lat': result.lat,
+                    'lng': result.lng,
                     'googleMapsUrl': url,
                     'source': 'google-maps-import',
                 })
@@ -287,14 +299,16 @@ def process_locations(entries: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
         
         # Method 3: Find place by name (for non-address entries)
         place_name = extract_place_name_from_url(url) or title
-        coords = find_place_by_text(place_name)
-        if coords:
+        result = find_place_by_text(place_name)
+        if result:
+            # Use formatted address from Google
+            address = result.formatted_address or place_name
             print(f"✓ Found place")
             ready.append({
-                'address': place_name,
+                'address': address,
                 'description': note,
-                'lat': coords[0],
-                'lng': coords[1],
+                'lat': result.lat,
+                'lng': result.lng,
                 'googleMapsUrl': url,
                 'source': 'google-maps-import',
             })
