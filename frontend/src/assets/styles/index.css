@@ -11,7 +11,7 @@
 }
 
 .cluster-icon {
-  @apply bg-burgundy-600 text-cream-50 rounded-full w-10 h-10 flex items-center justify-center font-bold text-sm shadow-lg border-2 border-cream-50;
+  @apply bg-burgundy-600 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-sm shadow-lg border-2 border-white;
 }
 
 /* Base styles with sophisticated holiday theme */
@@ -41,7 +41,7 @@
 @layer components {
   /* Primary button - warm burgundy with gold glow on hover */
   .btn-primary {
-    @apply px-6 py-3 bg-burgundy-600 text-cream-50 rounded-lg font-medium
+    @apply px-6 py-3 bg-burgundy-600 text-white rounded-lg font-medium
            transition-all duration-300 ease-out
            hover:bg-burgundy-700 hover:shadow-glow
            active:scale-95
