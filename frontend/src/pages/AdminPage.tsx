@@ -5,10 +5,11 @@ import EditEntryModal from '@/components/EditEntryModal';
 
 interface Suggestion {
   id: string;
-  address: string;
-  description: string;
-  lat: number;
-  lng: number;
+  type?: 'new_location' | 'photo_update';
+  address?: string;
+  description?: string;
+  lat?: number;
+  lng?: number;
   photos: string[];
   status: string;
   submittedBy: string;
@@ -20,6 +21,9 @@ interface Suggestion {
   aiDescription?: string;
   displayQuality?: 'minimal' | 'moderate' | 'impressive' | 'spectacular';
   flaggedForReview?: boolean;
+  // For photo_update type
+  targetLocationId?: string;
+  targetAddress?: string;
 }
 
 interface Location {
@@ -285,9 +289,12 @@ export default function AdminPage() {
                         <div>
                           <div className="flex flex-wrap items-start sm:items-center gap-2 mb-2">
                             <h3 className="font-display text-base sm:text-lg font-semibold text-forest-900 break-words">
-                              {suggestion.address}
+                              {suggestion.type === 'photo_update' ? suggestion.targetAddress : suggestion.address}
                             </h3>
                             <div className="flex flex-wrap items-center gap-1.5">
+                              {suggestion.type === 'photo_update' && (
+                                <Badge variant="gold">📷 Photo Update</Badge>
+                              )}
                               {suggestion.flaggedForReview && (
                                 <Badge variant="burgundy">⚠️ Flagged</Badge>
                               )}
@@ -311,12 +318,14 @@ export default function AdminPage() {
                               </svg>
                               {formatDate(suggestion.createdAt)}
                             </span>
-                            <span className="hidden md:flex items-center gap-1">
-                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                              </svg>
-                              {suggestion.lat.toFixed(4)}, {suggestion.lng.toFixed(4)}
-                            </span>
+                            {suggestion.lat && suggestion.lng && (
+                              <span className="hidden md:flex items-center gap-1">
+                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                </svg>
+                                {suggestion.lat.toFixed(4)}, {suggestion.lng.toFixed(4)}
+                              </span>
+                            )}
                             {(suggestion as any).googleMapsUrl && (
                               <a
                                 href={(suggestion as any).googleMapsUrl}
@@ -343,8 +352,14 @@ export default function AdminPage() {
                         </div>
                       </div>
                       
-                      {/* User Description */}
-                      <p className="text-forest-700 leading-relaxed mb-3">{suggestion.description}</p>
+                      {/* User Description or Photo Update Notice */}
+                      {suggestion.type === 'photo_update' ? (
+                        <p className="text-forest-600 italic mb-3">
+                          Photo submission for existing location (no description required)
+                        </p>
+                      ) : (
+                        <p className="text-forest-700 leading-relaxed mb-3">{suggestion.description}</p>
+                      )}
                       
                       {/* AI Description */}
                       {suggestion.aiDescription && (

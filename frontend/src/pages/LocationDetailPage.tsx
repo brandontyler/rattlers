@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api';
 import { useLocation as useLocationData } from '@/hooks';
 import { getShortAddress, getDirectionsUrl } from '@/utils/address';
+import AddPhotoModal from '@/components/AddPhotoModal';
 
 export default function LocationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +21,9 @@ export default function LocationDetailPage() {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showLightbox, setShowLightbox] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
+  const [showAddPhotoModal, setShowAddPhotoModal] = useState(false);
+  const [hasPendingPhotoSubmission, setHasPendingPhotoSubmission] = useState(false);
+  const [photoSubmissionSuccess, setPhotoSubmissionSuccess] = useState(false);
 
   // Refs for bulletproof click protection (state updates are async, refs are sync)
   const isLikingRef = useRef(false);
@@ -48,6 +52,38 @@ export default function LocationDetailPage() {
 
     fetchFeedbackStatus();
   }, [id, isAuthenticated]);
+
+  // Check for pending photo submission (only for locations without photos)
+  useEffect(() => {
+    if (!isAuthenticated || !id || !location) {
+      return;
+    }
+
+    // Only check if location has no photos
+    if (location.photos && location.photos.length > 0) {
+      return;
+    }
+
+    const checkPendingPhotoSubmission = async () => {
+      try {
+        const response = await apiService.hasPendingPhotoSubmission(id);
+        if (response.success && response.data) {
+          setHasPendingPhotoSubmission(response.data.hasPending);
+        }
+      } catch (err) {
+        console.error('Failed to check pending photo submission:', err);
+      }
+    };
+
+    checkPendingPhotoSubmission();
+  }, [id, isAuthenticated, location]);
+
+  const handlePhotoSubmissionSuccess = () => {
+    setHasPendingPhotoSubmission(true);
+    setPhotoSubmissionSuccess(true);
+    // Hide success message after 5 seconds
+    setTimeout(() => setPhotoSubmissionSuccess(false), 5000);
+  };
 
   const handleFavorite = async () => {
     if (!isAuthenticated || !id || isFavoritingRef.current) return;
@@ -331,7 +367,42 @@ export default function LocationDetailPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                     <p className="text-forest-600">No photos available yet</p>
-                    <p className="text-sm text-forest-500 mt-1">Be the first to share a photo!</p>
+
+                    {/* Photo submission success message */}
+                    {photoSubmissionSuccess && (
+                      <div className="mt-3 bg-gold-100 border border-gold-300 text-gold-800 px-4 py-2 rounded-lg">
+                        <p className="text-sm font-medium">Photo submitted successfully!</p>
+                        <p className="text-xs mt-1">Your photo is pending review.</p>
+                      </div>
+                    )}
+
+                    {/* Show pending message or add photo button */}
+                    {hasPendingPhotoSubmission && !photoSubmissionSuccess ? (
+                      <div className="mt-3 bg-gold-50 border border-gold-200 text-gold-700 px-4 py-2 rounded-lg">
+                        <p className="text-sm">Your photo is pending approval</p>
+                      </div>
+                    ) : !photoSubmissionSuccess && (
+                      <>
+                        <p className="text-sm text-forest-500 mt-1">Be the first to share a photo!</p>
+                        {isAuthenticated ? (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            className="mt-4"
+                            onClick={() => setShowAddPhotoModal(true)}
+                          >
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add a Photo
+                          </Button>
+                        ) : (
+                          <p className="text-xs text-forest-400 mt-3">
+                            <Link to="/login" className="underline hover:text-forest-600">Sign in</Link> to add a photo
+                          </p>
+                        )}
+                      </>
+                    )}
                   </div>
                 </Card>
               )}
@@ -581,6 +652,15 @@ export default function LocationDetailPage() {
           altText={location.address}
         />
       )}
+
+      {/* Add Photo Modal */}
+      <AddPhotoModal
+        isOpen={showAddPhotoModal}
+        onClose={() => setShowAddPhotoModal(false)}
+        locationId={location.id}
+        locationAddress={getShortAddress(location.address)}
+        onSuccess={handlePhotoSubmissionSuccess}
+      />
     </div>
   );
 }

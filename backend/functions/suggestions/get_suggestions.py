@@ -70,22 +70,32 @@ def handler(event, context):
                     if url:
                         photo_urls.append(url)
 
-            suggestions.append({
+            suggestion_data = {
                 "id": item.get("id"),
+                "type": item.get("type", "new_location"),
                 "address": item.get("address"),
                 "description": item.get("description"),
-                "lat": float(item.get("lat", 0)),
-                "lng": float(item.get("lng", 0)),
+                "lat": float(item.get("lat", 0)) if item.get("lat") else None,
+                "lng": float(item.get("lng", 0)) if item.get("lng") else None,
                 "photos": photo_urls,
                 "status": item.get("status"),
                 "submittedBy": item.get("submittedBy"),
                 "submittedByEmail": item.get("submittedByEmail"),
                 "createdAt": item.get("createdAt"),
                 "detectedTags": item.get("detectedTags", []),
+                "categories": item.get("categories", []),
+                "theme": item.get("theme"),
                 "aiDescription": item.get("aiDescription"),
                 "displayQuality": item.get("displayQuality"),
                 "flaggedForReview": item.get("flaggedForReview", False),
-            })
+            }
+
+            # Add photo_update specific fields
+            if item.get("type") == "photo_update":
+                suggestion_data["targetLocationId"] = item.get("targetLocationId")
+                suggestion_data["targetAddress"] = item.get("targetAddress")
+
+            suggestions.append(suggestion_data)
 
         suggestions.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
 

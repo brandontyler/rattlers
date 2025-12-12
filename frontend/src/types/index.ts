@@ -84,11 +84,15 @@ export interface Suggestion {
 }
 
 export interface SuggestionRequest {
-  address: string;
-  description: string;
-  lat: number;
-  lng: number;
+  // For new_location type (default)
+  address?: string;
+  description?: string;
+  lat?: number;
+  lng?: number;
   photos?: string[];
+  // For photo_update type
+  type?: 'new_location' | 'photo_update';
+  targetLocationId?: string;
 }
 
 // User types

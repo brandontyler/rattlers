@@ -489,6 +489,20 @@ class ChristmasLightsStack(Stack):
         )
         self.locations_table.grant_read_write_data(self.update_location_fn)
 
+        # Check pending photo submission for a location
+        self.check_pending_photo_fn = lambda_.Function(
+            self,
+            "CheckPendingPhotoFunction",
+            handler="check_pending_photo.handler",
+            code=lambda_.Code.from_asset("../backend/functions/locations"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(5),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.suggestions_table.grant_read_data(self.check_pending_photo_fn)
+
         # Feedback functions
         self.submit_feedback_fn = lambda_.Function(
             self,
@@ -586,7 +600,8 @@ class ChristmasLightsStack(Stack):
             environment=common_env,
             layers=[self.common_layer],
         )
-        self.suggestions_table.grant_write_data(self.submit_suggestion_fn)
+        self.suggestions_table.grant_read_write_data(self.submit_suggestion_fn)
+        self.locations_table.grant_read_data(self.submit_suggestion_fn)
 
         # Get suggestions function (admin)
         self.get_suggestions_fn = lambda_.Function(
@@ -616,7 +631,7 @@ class ChristmasLightsStack(Stack):
             layers=[self.common_layer],
         )
         self.suggestions_table.grant_read_write_data(self.approve_suggestion_fn)
-        self.locations_table.grant_write_data(self.approve_suggestion_fn)
+        self.locations_table.grant_read_write_data(self.approve_suggestion_fn)
         self.users_table.grant_read_data(self.approve_suggestion_fn)
         # Grant S3 permissions to move photos from pending/ to approved/
         self.photos_bucket.grant_read_write(self.approve_suggestion_fn)
@@ -1185,6 +1200,15 @@ class ChristmasLightsStack(Stack):
         favorite.add_method(
             "POST",
             apigw.LambdaIntegration(self.toggle_favorite_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # /locations/{id}/pending-photo endpoint
+        pending_photo = location_by_id.add_resource("pending-photo")
+        pending_photo.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.check_pending_photo_fn),
             authorizer=authorizer,
             authorization_type=apigw.AuthorizationType.COGNITO,
         )

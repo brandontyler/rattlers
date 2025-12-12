@@ -1,4 +1,4 @@
-"""Lambda function to submit a new location suggestion."""
+"""Lambda function to submit a new location suggestion or photo update."""
 
 import json
 import os
@@ -11,6 +11,7 @@ from botocore.exceptions import ClientError
 dynamodb = boto3.resource("dynamodb")
 lambda_client = boto3.client("lambda")
 table = dynamodb.Table(os.environ.get("SUGGESTIONS_TABLE_NAME", "christmas-lights-suggestions-dev"))
+locations_table = dynamodb.Table(os.environ.get("LOCATIONS_TABLE_NAME", "christmas-lights-locations-dev"))
 ANALYZE_PHOTO_FUNCTION = os.environ.get("ANALYZE_PHOTO_FUNCTION_NAME", "")
 PHOTOS_BUCKET = os.environ.get("PHOTOS_BUCKET_NAME", "")
 
@@ -23,9 +24,144 @@ CORS_HEADERS = {
 }
 
 
+def handle_photo_update(body, user_id, user_email, target_location_id):
+    """Handle photo submission for an existing location."""
+
+    # Validate target location ID
+    if not target_location_id:
+        return {
+            "statusCode": 400,
+            "headers": CORS_HEADERS,
+            "body": json.dumps({"success": False, "message": "Target location ID is required for photo updates"}),
+        }
+
+    photos = body.get("photos", [])
+    if not photos:
+        return {
+            "statusCode": 400,
+            "headers": CORS_HEADERS,
+            "body": json.dumps({"success": False, "message": "At least one photo is required"}),
+        }
+
+    if len(photos) > 3:
+        return {
+            "statusCode": 400,
+            "headers": CORS_HEADERS,
+            "body": json.dumps({"success": False, "message": "Maximum 3 photos allowed"}),
+        }
+
+    # Verify the target location exists and has no photos
+    try:
+        response = locations_table.get_item(
+            Key={"PK": f"location#{target_location_id}", "SK": "metadata"}
+        )
+        location = response.get("Item")
+
+        if not location:
+            return {
+                "statusCode": 404,
+                "headers": CORS_HEADERS,
+                "body": json.dumps({"success": False, "message": "Target location not found"}),
+            }
+
+        # Check if location already has photos
+        existing_photos = location.get("photos", [])
+        if existing_photos and len(existing_photos) > 0:
+            return {
+                "statusCode": 400,
+                "headers": CORS_HEADERS,
+                "body": json.dumps({"success": False, "message": "This location already has photos"}),
+            }
+
+    except ClientError as e:
+        print(f"Error fetching location: {e}")
+        return {
+            "statusCode": 500,
+            "headers": CORS_HEADERS,
+            "body": json.dumps({"success": False, "message": "Failed to verify location"}),
+        }
+
+    # Check if user already has a pending photo submission for this location
+    try:
+        scan_response = table.scan(
+            FilterExpression="SK = :sk AND #type = :type AND targetLocationId = :locId AND submittedBy = :userId AND #status = :status",
+            ExpressionAttributeNames={"#type": "type", "#status": "status"},
+            ExpressionAttributeValues={
+                ":sk": "METADATA",
+                ":type": "photo_update",
+                ":locId": target_location_id,
+                ":userId": user_id,
+                ":status": "pending",
+            },
+        )
+        if scan_response.get("Items"):
+            return {
+                "statusCode": 400,
+                "headers": CORS_HEADERS,
+                "body": json.dumps({"success": False, "message": "You already have a pending photo submission for this location"}),
+            }
+    except ClientError:
+        pass  # Continue if check fails
+
+    # Create photo update suggestion
+    suggestion_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+
+    item = {
+        "PK": f"SUGGESTION#{suggestion_id}",
+        "SK": "METADATA",
+        "id": suggestion_id,
+        "type": "photo_update",
+        "targetLocationId": target_location_id,
+        "targetAddress": location.get("address", "Unknown"),
+        "photos": photos,
+        "status": "pending",
+        "submittedBy": user_id,
+        "submittedByEmail": user_email,
+        "createdAt": now,
+    }
+
+    table.put_item(Item=item)
+
+    # Trigger AI analysis for each photo (async)
+    if ANALYZE_PHOTO_FUNCTION and PHOTOS_BUCKET:
+        for photo_key in photos[:3]:
+            try:
+                s3_event = {
+                    "Records": [{
+                        "s3": {
+                            "bucket": {"name": PHOTOS_BUCKET},
+                            "object": {"key": photo_key}
+                        }
+                    }]
+                }
+                lambda_client.invoke(
+                    FunctionName=ANALYZE_PHOTO_FUNCTION,
+                    InvocationType="Event",
+                    Payload=json.dumps(s3_event),
+                )
+            except Exception as e:
+                print(f"Failed to trigger analysis for {photo_key}: {e}")
+
+    return {
+        "statusCode": 201,
+        "headers": CORS_HEADERS,
+        "body": json.dumps({
+            "success": True,
+            "data": {"id": suggestion_id},
+            "message": "Photo submission received and pending approval",
+        }),
+    }
+
+
 def handler(event, context):
-    """Handle POST /suggestions request."""
-    
+    """Handle POST /suggestions request.
+
+    Supports two types of suggestions:
+    - new_location: Submit a new location (default)
+    - photo_update: Submit photos for an existing location without photos
+    """
+
     # Handle preflight
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS_HEADERS, "body": ""}
@@ -45,11 +181,18 @@ def handler(event, context):
 
         # Parse request body
         body = json.loads(event.get("body", "{}"))
+        suggestion_type = body.get("type", "new_location")  # new_location or photo_update
+        target_location_id = body.get("targetLocationId")  # Required for photo_update
+
+        # Handle photo_update type
+        if suggestion_type == "photo_update":
+            return handle_photo_update(body, user_id, user_email, target_location_id)
+
+        # Handle new_location type (default)
         address = body.get("address", "").strip()
         description = body.get("description", "").strip()
         lat = body.get("lat")
         lng = body.get("lng")
-        # photos field reserved for future use
         photos = body.get("photos", [])
 
         # Validation
@@ -82,6 +225,7 @@ def handler(event, context):
             "PK": f"SUGGESTION#{suggestion_id}",
             "SK": "METADATA",
             "id": suggestion_id,
+            "type": "new_location",
             "address": address,
             "description": description,
             "lat": str(lat),
