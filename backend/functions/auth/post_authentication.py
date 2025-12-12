@@ -24,8 +24,10 @@ def handler(event, context):
         # Get user info from Cognito event
         user_id = event["request"]["userAttributes"]["sub"]
         email = event["request"]["userAttributes"]["email"]
+        # Get name if provided (optional field during signup)
+        name = event["request"]["userAttributes"].get("name", "")
 
-        print(f"Post-authentication for user {user_id} ({email})")
+        print(f"Post-authentication for user {user_id} ({email}, name: {name})")
 
         # Check if user profile already exists
         try:
@@ -36,14 +38,15 @@ def handler(event, context):
         except Exception as e:
             print(f"Error checking for existing profile: {e}")
 
-        # Generate a fun Christmas username
-        print(f"Generating username for new user {email}")
-        username = generate_christmas_username(email)
+        # Generate a fun Christmas username - prefer name over email for more fun!
+        inspiration = name if name else email
+        print(f"Generating username for new user using: {inspiration}")
+        username = generate_christmas_username(inspiration)
 
         # Fallback if Bedrock fails
         if not username:
             print("Bedrock username generation failed, using fallback")
-            username = generate_fallback_username(email)
+            username = generate_fallback_username(inspiration)
 
         print(f"Generated username: {username}")
 
