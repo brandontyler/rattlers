@@ -43,16 +43,17 @@ cd backend && uv run pytest
 | Address autocomplete | ✅ | ✅ | Nominatim geocoding |
 | Admin dashboard | ✅ | ✅ | View/approve/reject suggestions |
 | Admin edit entries | ✅ | ✅ | Edit descriptions, tags, quality before approval |
-| Route planner | ✅ | - | Up to 15 stops, optimize |
+| Route planner | ✅ | - | Up to 20 stops, optimize with 2-opt |
 | Route visualization | ✅ | - | Numbered markers + polyline |
 | PDF route generation | ✅ | ✅ | ReportLab with page decorations, QR codes |
+| Community routes | ✅ | ✅ | Save, share, like, browse routes |
 | Mobile responsive | ✅ | - | Layout adapts |
 | Like/unlike locations | ✅ | ✅ | Optimistic UI updates |
 | Report inactive | ✅ | ✅ | Flag displays for review |
 | User profiles | ✅ | ✅ | Profile page with stats, submission history |
 | Search & filter | ✅ | - | Search by address/description, filter by category/quality |
 | "My Favorites" filter | ✅ | ✅ | Toggle to show only saved locations on map |
-| Leaderboards | ✅ | ✅ | Contributors + Most Loved locations tabs |
+| Leaderboards | ✅ | ✅ | Contributors, Most Loved locations, Top Routes tabs |
 | Submitter attribution | ✅ | ✅ | "Submitted by [avatar] username" on popups/details |
 
 ### ✅ Route Sharing Features (Complete)
@@ -98,6 +99,23 @@ cd backend && uv run pytest
 | Protected routes | ✅ | ✅ | Authentication required for /profile |
 | Navigation link | ✅ | - | Profile link in nav (authenticated users only) |
 | Contributor badges | ✅ | - | First Light, Scout, Enthusiast, Expert badges |
+
+### ✅ Community Routes (Complete)
+
+| Feature | Frontend | Backend | Notes |
+|---------|----------|---------|-------|
+| Save routes | ✅ | ✅ | Save planned routes with title, description, tags |
+| Browse routes | ✅ | ✅ | `/routes` page with popular/new sorting |
+| Route details | ✅ | ✅ | Full route view with map, stops, stats |
+| Like routes | ✅ | ✅ | Toggle like with optimistic UI |
+| Save to collection | ✅ | ✅ | Bookmark routes for later |
+| My Routes | ✅ | ✅ | View created routes on profile |
+| Saved Routes | ✅ | ✅ | View bookmarked routes on profile |
+| Route stats | ✅ | ✅ | Stop count, estimated time, total miles |
+| Routes leaderboard | ✅ | ✅ | Top routes + top route creators |
+| Creator badges | ✅ | ✅ | Route Scout, Trail Blazer, Route Master, Legend |
+| Public/Draft | ✅ | ✅ | Routes can be public or private drafts |
+| Edit/Delete | ✅ | ✅ | Owners can modify their routes |
 
 ### 📋 Future Enhancements
 
@@ -218,6 +236,10 @@ backend/functions/
 - `GET /v1/locations/{id}` - Get location details
 - `POST /v1/locations/suggest-addresses` - Geocode address
 - `GET /v1/leaderboard` - Public contributor rankings
+- `GET /v1/leaderboard/locations` - Top locations by likes
+- `GET /v1/leaderboard/routes` - Top routes + route creators
+- `GET /v1/routes` - Browse public routes (sort: popular/new)
+- `GET /v1/routes/{id}` - Get route details with locations
 
 ### Authenticated
 - `POST /v1/suggestions` - Submit location suggestion
@@ -229,6 +251,14 @@ backend/functions/
 - `PUT /v1/users/profile` - Update user profile (username)
 - `GET /v1/users/submissions` - Get user's submission history
 - `GET /v1/users/favorites` - Get user's saved favorites
+- `GET /v1/users/routes` - Get user's created routes
+- `GET /v1/users/saved-routes` - Get user's saved routes
+- `POST /v1/routes` - Create a new route
+- `PUT /v1/routes/{id}` - Update route (owner only)
+- `DELETE /v1/routes/{id}` - Delete route (owner only)
+- `POST /v1/routes/{id}/feedback` - Like/save route
+- `GET /v1/routes/{id}/feedback/status` - Get user's route feedback status
+- `POST /v1/routes/generate-pdf` - Generate PDF route guide
 
 ### Admin Only
 - `GET /v1/suggestions` - List pending suggestions
@@ -237,9 +267,6 @@ backend/functions/
 - `POST /v1/suggestions/{id}/reject` - Reject suggestion
 - `PUT /v1/locations/{id}` - Update location (description, tags, quality, status)
 - `DELETE /v1/locations/{id}` - Delete location (for testing)
-
-### Routes
-- `POST /v1/routes/generate-pdf` - Generate PDF route guide
 
 Full API docs: `docs/API.md`
 
@@ -291,6 +318,7 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
+- **Dec 11, 2025:** Added Community Routes feature - users can save routes from route planner, browse public routes, like/save routes, view on profile. New leaderboard tab for top routes and route creators. Route creator badges: Route Scout (1), Trail Blazer (3), Route Master (5), Legend (10+).
 - **Dec 10, 2025 (Late PM):** Rewrote import script to extract coordinates from Google Maps URLs. Entries without coords go to suggestions table for admin review. Added `source` field to track data origin. Admin page now shows Google Maps link for suggestions.
 - **Dec 10, 2025 (PM):** Added Leaderboards with tabs (Contributors + Most Loved locations). Added "Submitted by [avatar] username" attribution on location popups and detail pages. New endpoint: GET /leaderboard/locations.
 - **Dec 10, 2025:** Added AI-generated Christmas-themed usernames using Bedrock Claude (e.g., "JollyReindeerRider", "TwinklingStarCollector"). Users can edit their username on the profile page.
@@ -338,6 +366,7 @@ _Add notes, blockers, or decisions here:_
 - [x] Search and filter - Search by address/description, filter by category/quality
 - [x] AI-generated usernames - Christmas-themed usernames via Bedrock Claude
 - [x] Admin edit entries - Edit descriptions, tags, quality before approval
+- [x] Community routes - Save, share, browse, like routes with leaderboard
 - [ ] Geographic expansion (Houston, Austin, San Antonio)
 - [ ] Photo reporting/flagging
 - [ ] Social sharing features

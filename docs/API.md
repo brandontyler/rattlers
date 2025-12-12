@@ -726,6 +726,348 @@ Generates a presigned S3 URL for uploading photos.
 
 ### Routes
 
+#### Get Routes (Browse)
+```
+GET /routes
+```
+
+Returns public routes sorted by popularity or creation date.
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| sort | string | No | `popular` (default) or `new` |
+| limit | number | No | Max results (default: 50, max: 100) |
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "title": "Best of Frisco",
+      "description": "Top 10 displays in Frisco area",
+      "locationIds": ["loc-1", "loc-2"],
+      "tags": ["frisco", "family-friendly"],
+      "createdBy": "user-id",
+      "createdByUsername": "JollyReindeerRider",
+      "createdAt": "2024-12-10T00:00:00Z",
+      "status": "active",
+      "isPublic": true,
+      "likeCount": 15,
+      "saveCount": 8,
+      "startCount": 42,
+      "stopCount": 10,
+      "estimatedMinutes": 90,
+      "totalMiles": 12.5
+    }
+  ]
+}
+```
+
+#### Get Route by ID
+```
+GET /routes/{id}
+```
+
+Returns route details with full location data.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "title": "Best of Frisco",
+    "description": "Top 10 displays in Frisco area",
+    "locationIds": ["loc-1", "loc-2"],
+    "locations": [
+      {
+        "id": "loc-1",
+        "address": "123 Main St, Frisco, TX",
+        "lat": 33.1507,
+        "lng": -96.8236,
+        "description": "Amazing display",
+        "photos": ["https://..."],
+        "likeCount": 25,
+        "displayQuality": "spectacular"
+      }
+    ],
+    "tags": ["frisco", "family-friendly"],
+    "createdBy": "user-id",
+    "createdByUsername": "JollyReindeerRider",
+    "createdAt": "2024-12-10T00:00:00Z",
+    "status": "active",
+    "isPublic": true,
+    "likeCount": 15,
+    "saveCount": 8,
+    "startCount": 43,
+    "stopCount": 10,
+    "estimatedMinutes": 90,
+    "totalMiles": 12.5,
+    "userLiked": false,
+    "userSaved": true
+  }
+}
+```
+
+**Notes:**
+- `locations` array contains full location details in route order
+- `userLiked` and `userSaved` only present for authenticated users
+- `startCount` incremented on each view (analytics)
+- Draft routes only visible to owner
+
+#### Create Route
+```
+POST /routes
+Authorization: Required
+```
+
+Creates a new route from planned stops.
+
+**Request Body:**
+```json
+{
+  "title": "Best of Frisco",
+  "description": "Top 10 displays in Frisco area",
+  "locationIds": ["loc-1", "loc-2", "loc-3"],
+  "tags": ["frisco", "family-friendly"],
+  "isPublic": true
+}
+```
+
+**Validation:**
+- `title`: Required, max 100 characters
+- `locationIds`: Required, 1-20 locations
+- `description`: Optional, max 500 characters
+- `tags`: Optional, max 10 tags
+- `isPublic`: Optional, default true
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "title": "Best of Frisco",
+    "stopCount": 3,
+    "estimatedMinutes": 45,
+    "totalMiles": 8.2,
+    ...
+  },
+  "message": "Route created successfully!"
+}
+```
+
+#### Update Route
+```
+PUT /routes/{id}
+Authorization: Required (Owner only)
+```
+
+Updates an existing route.
+
+**Request Body:**
+```json
+{
+  "title": "Updated Title",
+  "description": "Updated description",
+  "locationIds": ["loc-1", "loc-2"],
+  "tags": ["updated-tag"],
+  "isPublic": false
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": { ... },
+  "message": "Route updated successfully"
+}
+```
+
+#### Delete Route
+```
+DELETE /routes/{id}
+Authorization: Required (Owner only)
+```
+
+Permanently deletes a route and all associated feedback.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Route deleted successfully"
+}
+```
+
+#### Submit Route Feedback (Like/Save)
+```
+POST /routes/{id}/feedback
+Authorization: Required
+```
+
+Like or save a route. Toggles on/off.
+
+**Request Body:**
+```json
+{
+  "type": "like"
+}
+```
+or
+```json
+{
+  "type": "save"
+}
+```
+
+**Response (Like):**
+```json
+{
+  "success": true,
+  "data": {
+    "liked": true,
+    "id": "feedback-id",
+    "routeId": "route-id"
+  },
+  "message": "Route liked!"
+}
+```
+
+**Response (Save):**
+```json
+{
+  "success": true,
+  "data": {
+    "saved": true,
+    "id": "feedback-id",
+    "routeId": "route-id"
+  },
+  "message": "Route saved!"
+}
+```
+
+#### Get Route Feedback Status
+```
+GET /routes/{id}/feedback/status
+Authorization: Required
+```
+
+Returns user's feedback status for a route.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "routeId": "uuid",
+    "liked": true,
+    "saved": false
+  }
+}
+```
+
+#### Get User's Created Routes
+```
+GET /users/routes
+Authorization: Required
+```
+
+Returns routes created by the authenticated user.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "title": "My Route",
+      "status": "active",
+      "likeCount": 5,
+      ...
+    }
+  ]
+}
+```
+
+#### Get User's Saved Routes
+```
+GET /users/saved-routes
+Authorization: Required
+```
+
+Returns routes the user has saved (bookmarked).
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "title": "Saved Route",
+      "createdByUsername": "OtherUser",
+      ...
+    }
+  ]
+}
+```
+
+#### Get Routes Leaderboard
+```
+GET /leaderboard/routes
+```
+
+Returns top routes and top route creators.
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| limit | number | No | Max routes (default: 20, max: 50) |
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "routes": [
+      {
+        "id": "uuid",
+        "title": "Best Route Ever",
+        "likeCount": 50,
+        "createdByUsername": "TopCreator",
+        ...
+      }
+    ],
+    "creators": [
+      {
+        "rank": 1,
+        "userId": "user-id",
+        "username": "TopCreator",
+        "routeCount": 5,
+        "totalLikes": 120,
+        "totalSaves": 45,
+        "badge": {
+          "type": "route-master",
+          "label": "Route Master"
+        }
+      }
+    ]
+  }
+}
+```
+
+**Route Creator Badge Thresholds:**
+- Route Scout: 1 route
+- Trail Blazer: 3 routes
+- Route Master: 5 routes
+- Legend: 10+ routes
+
 #### Generate PDF Route Guide
 ```
 POST /routes/generate-pdf
