@@ -36,12 +36,12 @@ Authorization: Bearer {cognito-jwt-token}
 - `GET /users/favorites`
 - `GET /users/routes`
 - `GET /users/saved-routes`
+- `POST /routes/generate-pdf`
 - `POST /routes`
 - `PUT /routes/{id}`
 - `DELETE /routes/{id}`
 - `POST /routes/{id}/feedback`
 - `GET /routes/{id}/feedback/status`
-- `POST /routes/generate-pdf`
 
 **Admin endpoints** (require Cognito `Admins` group):
 - `GET /suggestions`
@@ -1114,6 +1114,317 @@ Generates a printable PDF route guide with map, directions, and QR codes.
 
 ---
 
+### Saved Routes (Community Routes)
+
+#### List Public Routes
+```
+GET /routes
+```
+
+Returns public community routes sorted by popularity or creation date.
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| sort | string | No | "popular" (default) or "new" |
+| limit | number | No | Max results (default: 50, max: 100) |
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "title": "Best of Frisco",
+      "description": "Top 10 displays in Frisco area",
+      "locationIds": ["uuid1", "uuid2"],
+      "tags": ["family-friendly", "synchronized"],
+      "createdBy": "cognito-sub",
+      "createdByUsername": "JollyReindeerRider",
+      "createdAt": "2025-12-10T00:00:00Z",
+      "status": "active",
+      "isPublic": true,
+      "likeCount": 42,
+      "saveCount": 15,
+      "startCount": 128,
+      "stopCount": 10,
+      "estimatedMinutes": 90,
+      "totalMiles": 12.5
+    }
+  ]
+}
+```
+
+#### Get Route by ID
+```
+GET /routes/{id}
+```
+
+Returns full route details with location data.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "title": "Best of Frisco",
+    "description": "Top 10 displays in Frisco area",
+    "locationIds": ["uuid1", "uuid2"],
+    "locations": [
+      {
+        "id": "uuid1",
+        "address": "123 Main St, Frisco, TX",
+        "lat": 33.1507,
+        "lng": -96.8236,
+        "description": "Amazing display",
+        "photos": ["https://..."],
+        "likeCount": 25
+      }
+    ],
+    "tags": ["family-friendly"],
+    "createdBy": "cognito-sub",
+    "createdByUsername": "JollyReindeerRider",
+    "likeCount": 42,
+    "saveCount": 15,
+    "startCount": 128,
+    "stopCount": 10,
+    "estimatedMinutes": 90,
+    "totalMiles": 12.5,
+    "userLiked": false,
+    "userSaved": true
+  }
+}
+```
+
+**Notes:**
+- `userLiked` and `userSaved` only included if user is authenticated
+- `locations` array includes full details for each stop
+- `startCount` incremented on each view (analytics)
+
+#### Create Route
+```
+POST /routes
+Authorization: Required
+```
+
+**Request Body:**
+```json
+{
+  "title": "Best of Frisco",
+  "description": "Top 10 displays in Frisco area",
+  "locationIds": ["uuid1", "uuid2", "uuid3"],
+  "tags": ["family-friendly", "synchronized"],
+  "isPublic": true
+}
+```
+
+**Validation:**
+- `title`: Required, max 100 characters
+- `description`: Optional, max 500 characters
+- `locationIds`: Required, 1-20 locations
+- `tags`: Optional, max 10 tags
+- `isPublic`: Optional, defaults to true
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "title": "Best of Frisco",
+    "stopCount": 3,
+    "estimatedMinutes": 45,
+    "totalMiles": 8.2
+  },
+  "message": "Route created successfully!"
+}
+```
+
+**Notes:**
+- Route statistics (stopCount, estimatedMinutes, totalMiles) calculated automatically
+- Distance uses Haversine formula
+- Time estimate: 10 min/stop viewing + 2 min/mile driving
+
+#### Update Route
+```
+PUT /routes/{id}
+Authorization: Required (owner only)
+```
+
+**Request Body:**
+```json
+{
+  "title": "Updated Title",
+  "description": "Updated description",
+  "locationIds": ["uuid1", "uuid2"],
+  "tags": ["updated-tag"],
+  "isPublic": false
+}
+```
+
+**Notes:**
+- Only route owner can update
+- Stats recalculated if locationIds changed
+
+#### Delete Route
+```
+DELETE /routes/{id}
+Authorization: Required (owner only)
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Route deleted successfully"
+}
+```
+
+#### Submit Route Feedback (Like/Save)
+```
+POST /routes/{id}/feedback
+Authorization: Required
+```
+
+**Request Body:**
+```json
+{
+  "type": "like"
+}
+```
+
+**Validation:**
+- `type`: Required, must be "like" or "save"
+- Toggles on/off (unlike if already liked, unsave if already saved)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "liked": true,
+    "saved": false
+  }
+}
+```
+
+#### Get Route Feedback Status
+```
+GET /routes/{id}/feedback/status
+Authorization: Required
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "routeId": "uuid",
+    "liked": true,
+    "saved": false
+  }
+}
+```
+
+#### Get User's Created Routes
+```
+GET /users/routes
+Authorization: Required
+```
+
+Returns routes created by the authenticated user.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "title": "My Favorite Route",
+      "isPublic": true,
+      "likeCount": 5,
+      "saveCount": 2,
+      "stopCount": 8
+    }
+  ]
+}
+```
+
+#### Get User's Saved Routes
+```
+GET /users/saved-routes
+Authorization: Required
+```
+
+Returns routes saved/bookmarked by the authenticated user.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "title": "Best of Dallas",
+      "createdByUsername": "SantaHelper123",
+      "likeCount": 42,
+      "stopCount": 10
+    }
+  ]
+}
+```
+
+#### Get Routes Leaderboard
+```
+GET /leaderboard/routes
+```
+
+Returns top routes and top route creators.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "topRoutes": [
+      {
+        "rank": 1,
+        "id": "uuid",
+        "title": "Ultimate DFW Tour",
+        "createdByUsername": "JollyReindeerRider",
+        "likeCount": 150,
+        "saveCount": 45,
+        "stopCount": 15
+      }
+    ],
+    "topCreators": [
+      {
+        "rank": 1,
+        "userId": "cognito-sub",
+        "username": "JollyReindeerRider",
+        "routeCount": 5,
+        "totalLikes": 200,
+        "badge": {
+          "type": "legend",
+          "label": "Legend"
+        }
+      }
+    ]
+  }
+}
+```
+
+**Route Creator Badge Thresholds:**
+- Route Scout: 1 route with 5+ likes
+- Trail Blazer: 3 routes with 10+ total likes
+- Route Master: 5 routes with 50+ total likes
+- Legend: 10 routes with 100+ total likes
+
+---
+
 ## Error Responses
 
 ### 400 Bad Request
@@ -1197,13 +1508,14 @@ CORS headers are included on all responses, including error responses (4XX/5XX).
 ### Routes Table
 - **PK:** `route#{id}`
 - **SK:** `metadata`
-- **GSI:** status-likeCount-index (for popular routes)
-- **GSI:** status-createdAt-index (for new routes)
-- **GSI:** createdBy-createdAt-index (for user's routes)
-- **Attributes:** id, title, description, locationIds, tags, createdBy, createdByUsername, createdAt, updatedAt, status, isPublic, likeCount, saveCount, startCount, stopCount, estimatedMinutes, totalMiles
+- **GSI-1:** status-likeCount-index (for popular routes)
+- **GSI-2:** createdBy-createdAt-index (for user's routes)
+- **GSI-3:** status-createdAt-index (for newest routes)
+- **Attributes:** id, title, description, locationIds, tags, createdBy, createdByUsername, status, isPublic, likeCount, saveCount, startCount, stopCount, estimatedMinutes, totalMiles, createdAt, updatedAt
 
 ### Route Feedback Table
-- **PK:** `routeFeedback#{id}`
-- **SK:** `route#{routeId}`
-- **GSI:** userId-routeId-index (for user feedback lookups)
+- **PK:** `{type}#{userId}#{routeId}` (deterministic ID for idempotent toggles)
+- **SK:** `feedback`
+- **GSI-1:** userId-routeId-index (for user's feedback on a route)
+- **GSI-2:** routeId-type-index (for all feedback on a route)
 - **Attributes:** id, routeId, userId, type (like/save), createdAt
