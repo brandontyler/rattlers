@@ -23,18 +23,23 @@ USERNAME_TOOL = {
 }
 
 
-def generate_christmas_username(email: str) -> Optional[str]:
+def generate_christmas_username(inspiration: str) -> Optional[str]:
     """Generate an epic Christmas lights adventure username.
 
     Args:
-        email: User's email address (used as inspiration)
+        inspiration: User's name or email (used as creative inspiration)
 
     Returns:
         An epic Christmas-themed username, or None if generation fails
     """
     try:
-        # Extract name part from email for inspiration (before @)
-        email_prefix = email.split("@")[0] if "@" in email else email
+        # Clean up the inspiration - could be a name like "BT Tyler" or email like "tyler@example.com"
+        if "@" in inspiration:
+            # It's an email, extract the prefix
+            clean_inspiration = inspiration.split("@")[0]
+        else:
+            # It's a name - keep it as is for more creative possibilities!
+            clean_inspiration = inspiration
 
         response = bedrock.invoke_model(
             modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
@@ -49,13 +54,14 @@ def generate_christmas_username(email: str) -> Optional[str]:
 
 This person LOVES Christmas lights. They drive around neighborhoods looking at amazing light displays. They're passionate, festive, and ready for adventure!
 
-Their email starts with: {email_prefix}
+Their name/identity for inspiration: {clean_inspiration}
 
 Create ONE epic username that:
 - Is FUN and makes people SMILE or LAUGH
 - Sounds like someone who is OBSESSED with Christmas lights
 - Uses creative word combinations (not just adjective+noun)
 - Has personality and tells a story
+- Incorporate their name creatively if possible!
 - NO NUMBERS - be creative with words instead!
 - CamelCase format, 15-25 characters ideal
 
@@ -87,7 +93,7 @@ AMAZING username examples (be THIS creative):
 - LightsOutLegend
 - JingleJetPilot
 
-Now create a UNIQUE, FUN username inspired by "{email_prefix}" - make it MEMORABLE!"""
+Now create a UNIQUE, FUN username inspired by "{clean_inspiration}" - make it MEMORABLE!"""
                 }],
             }),
         )
@@ -108,15 +114,15 @@ Now create a UNIQUE, FUN username inspired by "{email_prefix}" - make it MEMORAB
         return None
 
     except Exception as e:
-        print(f"Error generating username for {email}: {e}")
+        print(f"Error generating username for {inspiration}: {e}")
         return None
 
 
-def generate_fallback_username(email: str) -> str:
+def generate_fallback_username(inspiration: str) -> str:
     """Generate a fun fallback username if Bedrock fails.
 
     Args:
-        email: User's email address
+        inspiration: User's name or email
 
     Returns:
         A fun Christmas-themed fallback username (no numbers!)
@@ -124,11 +130,17 @@ def generate_fallback_username(email: str) -> str:
     import random
     import hashlib
 
-    email_prefix = email.split("@")[0] if "@" in email else email
-    # Clean the prefix and capitalize first letter
-    clean_prefix = "".join(c for c in email_prefix if c.isalnum())[:12]
-    if clean_prefix:
-        clean_prefix = clean_prefix[0].upper() + clean_prefix[1:].lower()
+    # Handle both names and emails
+    if "@" in inspiration:
+        name_part = inspiration.split("@")[0]
+    else:
+        # It's a name - extract just alphanumeric chars
+        name_part = inspiration
+    
+    # Clean and capitalize
+    clean_name = "".join(c for c in name_part if c.isalnum())[:12]
+    if clean_name:
+        clean_name = clean_name[0].upper() + clean_name[1:].lower()
 
     # Fun title/role words
     titles = [
@@ -148,28 +160,28 @@ def generate_fallback_username(email: str) -> str:
         "Safari", "Voyage", "Journey", "Mission", "Adventure", "Expedition"
     ]
 
-    # Use email hash to consistently pick words (same email = same fallback)
-    hash_val = int(hashlib.md5(email.lower().encode()).hexdigest(), 16)
+    # Use inspiration hash to consistently pick words (same input = same fallback)
+    hash_val = int(hashlib.md5(inspiration.lower().encode()).hexdigest(), 16)
 
     # Different patterns for variety
     pattern = hash_val % 4
 
-    if pattern == 0 and clean_prefix:
+    if pattern == 0 and clean_name:
         # TinselTornado + Name style
         theme = themes[hash_val % len(themes)]
-        return f"{theme}{adventures[hash_val % len(adventures)]}{clean_prefix}"
-    elif pattern == 1 and clean_prefix:
+        return f"{theme}{adventures[hash_val % len(adventures)]}{clean_name}"
+    elif pattern == 1 and clean_name:
         # Name + Title style
         title = titles[hash_val % len(titles)]
         theme = themes[(hash_val >> 4) % len(themes)]
-        return f"{theme}{title}{clean_prefix}"
+        return f"{theme}{title}{clean_name}"
     elif pattern == 2:
         # Double theme style
         theme1 = themes[hash_val % len(themes)]
         theme2 = themes[(hash_val >> 4) % len(themes)]
         if theme1 == theme2:
             theme2 = adventures[hash_val % len(adventures)]
-        return f"{theme1}{theme2}{'Hero' if clean_prefix else 'Legend'}"
+        return f"{theme1}{theme2}{'Hero' if clean_name else 'Legend'}"
     else:
         # Title + Adventure style
         title = titles[hash_val % len(titles)]
