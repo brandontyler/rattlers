@@ -27,6 +27,138 @@ CORS_HEADERS = {
 }
 
 
+def handle_photo_update_approval(suggestion, admin_id, now):
+    """Handle approval of a photo update suggestion.
+
+    Instead of creating a new location, this appends photos to an existing location.
+    """
+    suggestion_id = suggestion.get("id")
+    target_location_id = suggestion.get("targetLocationId")
+
+    if not target_location_id:
+        return {
+            "statusCode": 400,
+            "headers": CORS_HEADERS,
+            "body": json.dumps({"success": False, "message": "Photo update missing target location ID"}),
+        }
+
+    # Get the target location
+    try:
+        response = locations_table.get_item(
+            Key={"PK": f"location#{target_location_id}", "SK": "metadata"}
+        )
+        location = response.get("Item")
+
+        if not location:
+            return {
+                "statusCode": 404,
+                "headers": CORS_HEADERS,
+                "body": json.dumps({"success": False, "message": "Target location not found"}),
+            }
+    except ClientError as e:
+        print(f"Error fetching location: {e}")
+        return {
+            "statusCode": 500,
+            "headers": CORS_HEADERS,
+            "body": json.dumps({"success": False, "message": "Failed to fetch location"}),
+        }
+
+    # Move photos from pending/ to approved/ for the target location
+    pending_photos = suggestion.get("photos", [])
+    approved_photo_urls = []
+
+    for photo_key in pending_photos:
+        if photo_key and photo_key.startswith("pending/"):
+            try:
+                filename = photo_key.split("/")[-1]
+                approved_key = f"approved/{target_location_id}/{filename}"
+
+                # Copy to approved location
+                s3_client.copy_object(
+                    Bucket=PHOTOS_BUCKET,
+                    CopySource={"Bucket": PHOTOS_BUCKET, "Key": photo_key},
+                    Key=approved_key,
+                )
+
+                # Delete from pending location
+                s3_client.delete_object(Bucket=PHOTOS_BUCKET, Key=photo_key)
+
+                # Add CDN URL to list
+                cdn_path = f"{target_location_id}/{filename}"
+                if PHOTOS_CDN_URL:
+                    approved_photo_urls.append(f"{PHOTOS_CDN_URL}/{cdn_path}")
+                else:
+                    approved_photo_urls.append(f"https://{PHOTOS_BUCKET}.s3.amazonaws.com/{approved_key}")
+
+            except ClientError as e:
+                print(f"Error moving photo {photo_key}: {e}")
+
+    # Update the existing location with the new photos and AI-generated fields
+    update_expression = "SET photos = :photos, updatedAt = :updatedAt"
+    expression_values = {
+        ":photos": approved_photo_urls,
+        ":updatedAt": now,
+    }
+
+    # Add AI-generated fields from the suggestion
+    if suggestion.get("detectedTags"):
+        update_expression += ", decorations = :decorations"
+        expression_values[":decorations"] = suggestion["detectedTags"]
+    if suggestion.get("categories"):
+        update_expression += ", categories = :categories"
+        expression_values[":categories"] = suggestion["categories"]
+    if suggestion.get("theme"):
+        update_expression += ", theme = :theme"
+        expression_values[":theme"] = suggestion["theme"]
+    if suggestion.get("aiDescription"):
+        update_expression += ", aiDescription = :aiDescription"
+        expression_values[":aiDescription"] = suggestion["aiDescription"]
+    if suggestion.get("displayQuality"):
+        update_expression += ", displayQuality = :displayQuality"
+        expression_values[":displayQuality"] = suggestion["displayQuality"]
+
+    # Track who submitted the photo
+    if suggestion.get("submittedBy"):
+        update_expression += ", photoSubmittedBy = :photoSubmittedBy"
+        expression_values[":photoSubmittedBy"] = suggestion["submittedBy"]
+
+    try:
+        locations_table.update_item(
+            Key={"PK": f"location#{target_location_id}", "SK": "metadata"},
+            UpdateExpression=update_expression,
+            ExpressionAttributeValues=expression_values,
+        )
+    except ClientError as e:
+        print(f"Error updating location: {e}")
+        return {
+            "statusCode": 500,
+            "headers": CORS_HEADERS,
+            "body": json.dumps({"success": False, "message": "Failed to update location with photos"}),
+        }
+
+    # Update suggestion status
+    suggestions_table.update_item(
+        Key={"PK": f"SUGGESTION#{suggestion_id}", "SK": "METADATA"},
+        UpdateExpression="SET #status = :status, reviewedAt = :reviewedAt, reviewedBy = :reviewedBy",
+        ExpressionAttributeNames={"#status": "status"},
+        ExpressionAttributeValues={
+            ":status": "approved",
+            ":reviewedAt": now,
+            ":reviewedBy": admin_id,
+        },
+    )
+
+    return {
+        "statusCode": 200,
+        "headers": CORS_HEADERS,
+        "body": json.dumps({
+            "success": True,
+            "message": "Photo update approved",
+            "data": {"locationId": target_location_id},
+        }),
+    }
+
+
 def handler(event, context):
     """Handle POST /suggestions/{id}/approve request."""
     
@@ -68,6 +200,12 @@ def handler(event, context):
             }
 
         now = datetime.now(timezone.utc).isoformat()
+        suggestion_type = suggestion.get("type", "new_location")
+
+        # Handle photo_update type differently
+        if suggestion_type == "photo_update":
+            return handle_photo_update_approval(suggestion, admin_id, now)
+
         location_id = str(uuid.uuid4())
 
         # Move photos from pending/ to approved/ and generate CDN URLs

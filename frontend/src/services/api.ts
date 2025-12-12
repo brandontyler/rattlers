@@ -327,6 +327,12 @@ class ApiService {
     const { data } = await this.api.get<ApiResponse<RoutesLeaderboardResponse>>('/leaderboard/routes');
     return data;
   }
+
+  // Check if user has pending photo submission for a location
+  async hasPendingPhotoSubmission(locationId: string): Promise<ApiResponse<{ hasPending: boolean }>> {
+    const { data } = await this.api.get<ApiResponse<{ hasPending: boolean }>>(`/locations/${locationId}/pending-photo`);
+    return data;
+  }
 }
 
 export const apiService = new ApiService();
