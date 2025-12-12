@@ -319,3 +319,28 @@ export interface RoutesLeaderboardResponse {
   routes: SavedRoute[];
   creators: RouteCreatorEntry[];
 }
+
+// Duplicate check types
+export interface DuplicateCheckRequest {
+  lat: number;
+  lng: number;
+  address: string;
+}
+
+export interface DuplicateLocation {
+  id: string;
+  address: string;
+  description?: string;
+  aiDescription?: string;
+  photos: string[];
+  hasPhotos: boolean;
+  likeCount: number;
+  displayQuality?: string;
+  decorations?: string[];
+}
+
+export interface DuplicateCheckResponse {
+  isDuplicate: boolean;
+  location: DuplicateLocation | null;
+  hasPendingSuggestion: boolean;
+}

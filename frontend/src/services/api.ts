@@ -333,6 +333,26 @@ class ApiService {
     const { data } = await this.api.get<ApiResponse<{ hasPending: boolean }>>(`/locations/${locationId}/pending-photo`);
     return data;
   }
+
+  // Check for duplicate location before submission
+  async checkDuplicate(request: { lat: number; lng: number; address: string }): Promise<ApiResponse<{
+    isDuplicate: boolean;
+    location: {
+      id: string;
+      address: string;
+      description?: string;
+      aiDescription?: string;
+      photos: string[];
+      hasPhotos: boolean;
+      likeCount: number;
+      displayQuality?: string;
+      decorations?: string[];
+    } | null;
+    hasPendingSuggestion: boolean;
+  }>> {
+    const { data } = await this.api.post('/locations/check-duplicate', request);
+    return data;
+  }
 }
 
 export const apiService = new ApiService();

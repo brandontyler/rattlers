@@ -503,6 +503,21 @@ class ChristmasLightsStack(Stack):
         )
         self.suggestions_table.grant_read_data(self.check_pending_photo_fn)
 
+        # Check for duplicate locations before submission
+        self.check_duplicate_fn = lambda_.Function(
+            self,
+            "CheckDuplicateFunction",
+            handler="check_duplicate.handler",
+            code=lambda_.Code.from_asset("../backend/functions/locations"),
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=common_env,
+            layers=[self.common_layer],
+        )
+        self.locations_table.grant_read_data(self.check_duplicate_fn)
+        self.suggestions_table.grant_read_data(self.check_duplicate_fn)
+
         # Feedback functions
         self.submit_feedback_fn = lambda_.Function(
             self,
@@ -1150,6 +1165,13 @@ class ChristmasLightsStack(Stack):
         suggest_addresses.add_method(
             "POST",
             apigw.LambdaIntegration(self.suggest_addresses_fn),
+        )
+
+        # /locations/check-duplicate endpoint
+        check_duplicate = locations.add_resource("check-duplicate")
+        check_duplicate.add_method(
+            "POST",
+            apigw.LambdaIntegration(self.check_duplicate_fn),
         )
 
         # /locations/{id} endpoints
