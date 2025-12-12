@@ -12,7 +12,7 @@ backend/
 │   ├── suggestions/       # Suggestion functions
 │   ├── users/             # User profile functions
 │   ├── photos/            # Photo upload functions
-│   ├── routes/            # PDF route generation
+│   ├── routes/            # Route sharing and PDF generation
 │   └── auth/              # Cognito triggers (username generation)
 ├── layers/                # Lambda layers
 │   └── common/           # Shared code (models, utilities)
@@ -59,6 +59,16 @@ backend/
 
 ### Routes
 - **generate_pdf.py** - `POST /routes/generate-pdf` - Generate PDF route guide with map and QR codes
+- **create_route.py** - `POST /routes` - Save a route with title, description, locations (auth required)
+- **get_routes.py** - `GET /routes` - List public routes (sorted by popular/new)
+- **get_route_by_id.py** - `GET /routes/{id}` - Get route details with locations
+- **update_route.py** - `PUT /routes/{id}` - Update route (owner only)
+- **delete_route.py** - `DELETE /routes/{id}` - Delete route (owner only)
+- **route_feedback.py** - `POST /routes/{id}/feedback` - Like/save route (auth required)
+- **get_route_feedback_status.py** - `GET /routes/{id}/feedback/status` - Get user's feedback status
+- **get_user_routes.py** - `GET /users/routes` - Get user's created routes (auth required)
+- **get_user_saved_routes.py** - `GET /users/saved-routes` - Get user's saved routes (auth required)
+- **get_routes_leaderboard.py** - `GET /leaderboard/routes` - Top routes and route creators
 
 ### Photos
 - **get_upload_url.py** - `POST /photos/upload-url` - Get S3 presigned URL (auth required)
@@ -83,6 +93,8 @@ Lambda functions expect these environment variables (set by CDK):
 - `FEEDBACK_TABLE_NAME` - DynamoDB table for feedback
 - `SUGGESTIONS_TABLE_NAME` - DynamoDB table for suggestions
 - `USERS_TABLE_NAME` - DynamoDB table for user profiles
+- `ROUTES_TABLE_NAME` - DynamoDB table for saved routes
+- `ROUTE_FEEDBACK_TABLE_NAME` - DynamoDB table for route likes/saves
 - `PHOTOS_BUCKET_NAME` - S3 bucket for photos
 - `USER_POOL_ID` - Cognito user pool ID
 - `AWS_REGION` - AWS region

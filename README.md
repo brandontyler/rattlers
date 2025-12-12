@@ -9,6 +9,8 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - 🔐 User authentication (Cognito)
 - 📝 Submit and moderate location suggestions
 - 🚗 Route planner with PDF generation
+- 🛤️ **Route sharing** - Save, share, and discover community routes
+- 🏆 **Route leaderboard** - Popular routes and top route creators
 - 📸 Photo uploads with AI analysis
 - ❤️ Like, favorite, and report locations
 - 👤 User profiles with contributor badges

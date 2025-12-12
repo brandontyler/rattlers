@@ -65,6 +65,11 @@ src/
 - ✅ Photo gallery with carousel and lightbox
 - ✅ User profiles with submission history
 - ✅ Location popups with full details (photos, tags, actions)
+- ✅ Route sharing (save, share, discover community routes)
+- ✅ Route detail page with map and numbered stops
+- ✅ Route leaderboard (top routes and route creators)
+- ✅ Like and save routes
+- ✅ Routes tab on profile page
 
 ## Tech Stack
 

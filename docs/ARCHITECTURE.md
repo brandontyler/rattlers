@@ -47,7 +47,8 @@ DFW Christmas Lights Finder is a serverless web application built entirely on AW
              │ - Locations │       │             │       │  AI Photo   │
              │ - Feedback  │       │  S3 Trigger │       │  Analysis   │
              │ - Users     │       │      ↓      │       │  + Username │
-             │ - Reports   │       │  Lambda     │───────│  Generator  │
+             │ - Routes    │       │  Lambda     │───────│  Generator  │
+             │ - RouteFB   │       │             │       │             │
              └─────────────┘       └─────────────┘       └─────────────┘
 ```
 
@@ -70,8 +71,10 @@ DFW Christmas Lights Finder is a serverless web application built entirely on AW
 - `/admin` - Admin dashboard (protected)
 - `/login` - Authentication
 - `/submit` - Submit new location (protected)
-- `/profile` - User profile with stats and favorites (protected)
-- `/leaderboard` - Public contributor rankings
+- `/profile` - User profile with stats, favorites, and routes (protected)
+- `/leaderboard` - Public contributor and route rankings
+- `/routes` - Browse community routes
+- `/routes/:id` - Route details with map and stops
 
 **State Management:**
 - React Context for auth state
@@ -369,12 +372,12 @@ GSI-3 (createdBy-createdAt-index):
 
 #### Route Feedback Table
 ```
-PK: routeFeedback#{id}
-SK: route#{routeId}
+PK: {type}#{userId}#{routeId}
+SK: feedback
 
 Attributes:
 {
-  "id": "uuid",
+  "id": "like#user123#route456",
   "routeId": "uuid",
   "userId": "cognito-sub",
   "type": "like|save",
@@ -384,8 +387,18 @@ Attributes:
 GSI-1 (userId-routeId-index):
   PK: userId
   SK: routeId
-  (For efficient user feedback lookups)
+  (For checking user's feedback on routes)
+
+GSI-2 (routeId-type-index):
+  PK: routeId
+  SK: type
+  (For listing all feedback on a route)
 ```
+
+**Notes:**
+- Deterministic PK enables idempotent toggle operations
+- Prevents duplicate likes/saves from race conditions
+- Atomic increments/decrements on route counts
 
 ### Authentication (Cognito)
 

@@ -56,6 +56,21 @@ cd backend && uv run pytest
 | Leaderboards | ✅ | ✅ | Contributors, Most Loved locations, Top Routes tabs |
 | Submitter attribution | ✅ | ✅ | "Submitted by [avatar] username" on popups/details |
 
+### ✅ Route Sharing Features (Complete)
+
+| Feature | Frontend | Backend | Notes |
+|---------|----------|---------|-------|
+| Save routes | ✅ | ✅ | Save planned routes with title, description, tags |
+| Route discovery | ✅ | ✅ | Browse popular/newest community routes |
+| Route detail page | ✅ | ✅ | Map with numbered markers, stop list |
+| Like/save routes | ✅ | ✅ | Toggle like and save, atomic operations |
+| Route leaderboard | ✅ | ✅ | Top routes and top route creators |
+| Route creator badges | ✅ | ✅ | Route Scout, Trail Blazer, Route Master, Legend |
+| My Routes (profile) | ✅ | ✅ | Created and saved routes tabs |
+| Routes navigation | ✅ | - | Header, mobile nav, footer links |
+| Public/private routes | ✅ | ✅ | Toggle visibility when saving |
+| Route statistics | - | ✅ | Auto-calculated stops, time, miles |
+
 ### ✅ Photo Features (Complete End-to-End)
 
 | Feature | Frontend | Backend | Notes |
@@ -195,6 +210,8 @@ Frontend (React)  →  API Gateway  →  Lambda  →  DynamoDB
 - `christmas-lights-locations-dev` - 147 locations
 - `christmas-lights-feedback-dev` - Likes, ratings, reports
 - `christmas-lights-suggestions-dev` - User submissions
+- `christmas-lights-routes-dev` - Saved community routes
+- `christmas-lights-route-feedback-dev` - Route likes/saves
 
 **Backend Functions:**
 ```
@@ -202,7 +219,9 @@ backend/functions/
 ├── locations/       # get_locations, get_location_by_id, suggest_addresses, update_location, delete_location, create_location
 ├── feedback/        # submit_feedback, get_feedback_status, report_inactive, toggle_favorite, get_favorites
 ├── suggestions/     # submit_suggestion, get_suggestions, approve_suggestion, reject_suggestion, update_suggestion
-├── routes/          # generate_pdf, create_route, get_routes, get_route_by_id, update_route, delete_route, route_feedback, get_route_feedback_status, get_user_routes, get_user_saved_routes, get_routes_leaderboard
+├── routes/          # generate_pdf, create_route, get_routes, get_route_by_id, update_route, delete_route,
+│                    # route_feedback, get_route_feedback_status, get_user_routes, get_user_saved_routes,
+│                    # get_routes_leaderboard
 ├── photos/          # get_upload_url, analyze_photo
 ├── users/           # get_profile, get_submissions, update_profile, get_leaderboard, get_locations_leaderboard
 └── auth/            # post_authentication (AI username generation)
