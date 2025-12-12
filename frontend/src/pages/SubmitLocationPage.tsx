@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Card } from '@/components/ui';
 import AddressAutocomplete, { AddressAutocompleteRef } from '@/components/ui/AddressAutocomplete';
+import DuplicateLocationModal from '@/components/DuplicateLocationModal';
 import { apiService } from '@/services/api';
-import type { AddressSuggestion } from '@/types';
+import type { AddressSuggestion, DuplicateLocation } from '@/types';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB (photos are compressed on backend)
 const MAX_PHOTOS = 3;
@@ -63,6 +64,12 @@ export default function SubmitLocationPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+
+  // Duplicate detection state
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateLocation, setDuplicateLocation] = useState<DuplicateLocation | null>(null);
+  const [hasPendingSuggestion, setHasPendingSuggestion] = useState(false);
 
   const addressRef = useRef<AddressAutocompleteRef>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -189,8 +196,32 @@ export default function SubmitLocationPage() {
     setPhotoPreviewUrls(photoPreviewUrls.filter((_, i) => i !== index));
   };
 
-  const handleAddressSelect = (_suggestion: AddressSuggestion) => {
+  const handleAddressSelect = async (suggestion: AddressSuggestion) => {
     setError('');
+    setIsCheckingDuplicate(true);
+
+    try {
+      const response = await apiService.checkDuplicate({
+        lat: suggestion.lat,
+        lng: suggestion.lng,
+        address: suggestion.address,
+      });
+
+      if (response.success && response.data) {
+        if (response.data.isDuplicate || response.data.hasPendingSuggestion) {
+          setDuplicateLocation(response.data.location);
+          setHasPendingSuggestion(response.data.hasPendingSuggestion);
+          setShowDuplicateModal(true);
+          // Clear the selection since it's a duplicate
+          addressRef.current?.clearSelection();
+        }
+      }
+    } catch (err) {
+      console.error('Error checking for duplicate:', err);
+      // Don't block submission if duplicate check fails - let backend handle it
+    } finally {
+      setIsCheckingDuplicate(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -558,6 +589,31 @@ export default function SubmitLocationPage() {
           </div>
         </div>
       </div>
+
+      {/* Duplicate Location Modal */}
+      <DuplicateLocationModal
+        isOpen={showDuplicateModal}
+        onClose={() => {
+          setShowDuplicateModal(false);
+          setDuplicateLocation(null);
+          setHasPendingSuggestion(false);
+        }}
+        location={duplicateLocation}
+        hasPendingSuggestion={hasPendingSuggestion}
+      />
+
+      {/* Loading overlay for duplicate check */}
+      {isCheckingDuplicate && (
+        <div className="fixed inset-0 bg-black/30 z-40 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 shadow-xl flex items-center gap-3">
+            <svg className="animate-spin h-5 w-5 text-forest-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span className="text-forest-700">Checking location...</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
