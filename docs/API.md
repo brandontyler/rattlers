@@ -1,6 +1,6 @@
 # API Documentation
 
-**Last Updated:** December 11, 2025
+**Last Updated:** December 12, 2025
 
 Base URL: `https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1`
 
@@ -17,6 +17,7 @@ Authorization: Bearer {cognito-jwt-token}
 - `GET /locations`
 - `GET /locations/{id}`
 - `POST /locations/suggest-addresses`
+- `POST /locations/check-duplicate`
 - `GET /leaderboard`
 - `GET /leaderboard/locations`
 - `GET /leaderboard/routes`
@@ -28,6 +29,7 @@ Authorization: Bearer {cognito-jwt-token}
 - `POST /suggestions`
 - `POST /locations/{id}/feedback`
 - `GET /locations/{id}/feedback/status`
+- `GET /locations/{id}/pending-photo`
 - `POST /locations/{id}/report`
 - `POST /locations/{id}/favorite`
 - `POST /photos/upload-url`
@@ -158,6 +160,61 @@ Geocodes a partial address query and returns suggestions with coordinates.
 - Results filtered to North Texas area (DFW region)
 - Uses Nominatim (OpenStreetMap) for geocoding
 - 10 second timeout with retry logic
+
+#### Check Duplicate Location
+```
+POST /locations/check-duplicate
+```
+
+Checks if a location already exists before submission. Uses coordinate matching (~11m accuracy) and address normalization.
+
+**Request Body:**
+```json
+{
+  "lat": 33.238452,
+  "lng": -97.1375457,
+  "address": "424 Headlee St, Denton, TX 76201"
+}
+```
+
+**Response (No Duplicate):**
+```json
+{
+  "success": true,
+  "data": {
+    "isDuplicate": false,
+    "location": null,
+    "hasPendingSuggestion": false
+  }
+}
+```
+
+**Response (Duplicate Found):**
+```json
+{
+  "success": true,
+  "data": {
+    "isDuplicate": true,
+    "location": {
+      "id": "uuid",
+      "address": "424 Headlee Street, Denton, TX 76201",
+      "description": "Beautiful light display",
+      "aiDescription": "AI-generated description",
+      "photos": ["https://..."],
+      "hasPhotos": true,
+      "likeCount": 15,
+      "displayQuality": "elaborate",
+      "decorations": ["lights", "snowman"]
+    },
+    "hasPendingSuggestion": false
+  }
+}
+```
+
+**Notes:**
+- Coordinates rounded to 4 decimal places (~11m accuracy)
+- Checks both approved locations and pending suggestions
+- `hasPhotos` indicates if user can add photos to existing location
 
 #### Update Location (Admin Only)
 ```
@@ -411,6 +468,29 @@ Returns current user's feedback for a location.
   }
 }
 ```
+
+#### Get Pending Photo Status
+```
+GET /locations/{id}/pending-photo
+Authorization: Required
+```
+
+Checks if the authenticated user has a pending photo submission for a location.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "hasPending": true,
+    "suggestionId": "uuid"
+  }
+}
+```
+
+**Notes:**
+- Used to prevent duplicate photo submissions
+- Returns `hasPending: false` if no pending submission exists
 
 #### Toggle Favorite
 ```

@@ -1,6 +1,6 @@
 # DFW Christmas Lights Finder - Project Guide
 
-**Last Updated:** December 11, 2025
+**Last Updated:** December 12, 2025
 
 > Start here when resuming work. This is the single source of truth for project status.
 
@@ -27,7 +27,7 @@ cd backend && uv run pytest
 
 ---
 
-## Current Status (December 11, 2025)
+## Current Status (December 12, 2025)
 
 ### ✅ Complete & Working
 
@@ -39,8 +39,10 @@ cd backend && uv run pytest
 | Location detail page | ✅ | ✅ | Full details, Get Directions, photo gallery |
 | User authentication | ✅ | ✅ | Cognito login/signup |
 | Login redirect | ✅ | - | Returns to previous page |
-| Submit location suggestion | ✅ | ✅ | With address autocomplete |
+| Submit location suggestion | ✅ | ✅ | With address autocomplete, duplicate detection |
 | Address autocomplete | ✅ | ✅ | Nominatim geocoding |
+| Duplicate detection | ✅ | ✅ | Warns if location already exists before submission |
+| Add photos to existing | ✅ | ✅ | Submit photos for locations without photos |
 | Admin dashboard | ✅ | ✅ | View/approve/reject suggestions |
 | Admin edit entries | ✅ | ✅ | Edit descriptions, tags, quality before approval |
 | Route planner | ✅ | - | Up to 20 stops, optimize with 2-opt |
@@ -83,6 +85,7 @@ cd backend && uv run pytest
 | Photo gallery | ✅ | - | Carousel with thumbnails on detail pages |
 | Full-screen lightbox | ✅ | - | Keyboard navigation, click outside to close |
 | Photo count badges | ✅ | - | Shows "📸 3" on map popups |
+| Add photos to existing | ✅ | ✅ | Submit photos for locations without photos |
 
 ### ✅ User Profile Features (MVP Complete)
 
@@ -185,6 +188,8 @@ User uploads (iPhone) → Frontend validation (HEIC support)
 
 ### Components
 - **SubmitLocationPage** - Upload up to 3 photos with enhanced iPhone support
+- **AddPhotoModal** - Submit photos for existing locations without photos
+- **DuplicateLocationModal** - Warns user if location already exists, offers to add photos
 - **AdminPage** - Moderate photos with thumbnail grid and lightbox
 - **LocationDetailPage** - Photo carousel with prev/next navigation
 - **LocationPopup** - Photo preview with count badge
@@ -195,6 +200,8 @@ User uploads (iPhone) → Frontend validation (HEIC support)
 - **analyze_photo.py** - Compress photos and run AI analysis
 - **approve_suggestion.py** - Move photos to approved folder
 - **reject_suggestion.py** - Delete photos from pending
+- **check_duplicate.py** - Check for duplicate locations before submission
+- **check_pending_photo.py** - Check if user has pending photo submission
 
 ---
 
@@ -216,7 +223,7 @@ Frontend (React)  →  API Gateway  →  Lambda  →  DynamoDB
 **Backend Functions:**
 ```
 backend/functions/
-├── locations/       # get_locations, get_location_by_id, suggest_addresses, update_location, delete_location, create_location
+├── locations/       # get_locations, get_location_by_id, suggest_addresses, update_location, delete_location, create_location, check_duplicate, check_pending_photo
 ├── feedback/        # submit_feedback, get_feedback_status, report_inactive, toggle_favorite, get_favorites
 ├── suggestions/     # submit_suggestion, get_suggestions, approve_suggestion, reject_suggestion, update_suggestion
 ├── routes/          # generate_pdf, create_route, get_routes, get_route_by_id, update_route, delete_route,
@@ -235,6 +242,7 @@ backend/functions/
 - `GET /v1/locations` - List all locations
 - `GET /v1/locations/{id}` - Get location details
 - `POST /v1/locations/suggest-addresses` - Geocode address
+- `POST /v1/locations/check-duplicate` - Check for duplicate location
 - `GET /v1/leaderboard` - Public contributor rankings
 - `GET /v1/leaderboard/locations` - Top locations by likes
 - `GET /v1/leaderboard/routes` - Top routes + route creators
@@ -242,9 +250,10 @@ backend/functions/
 - `GET /v1/routes/{id}` - Get route details with locations
 
 ### Authenticated
-- `POST /v1/suggestions` - Submit location suggestion
+- `POST /v1/suggestions` - Submit location suggestion or photo update
 - `POST /v1/locations/{id}/feedback` - Like location
 - `GET /v1/locations/{id}/feedback/status` - Get user's feedback status (like, report, favorite)
+- `GET /v1/locations/{id}/pending-photo` - Check if user has pending photo submission
 - `POST /v1/locations/{id}/report` - Report inactive
 - `POST /v1/locations/{id}/favorite` - Toggle favorite
 - `GET /v1/users/profile` - Get user profile with stats
@@ -318,6 +327,7 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
+- **Dec 12, 2025:** Added duplicate location detection - warns users before submission if location already exists. Added photo submission for existing locations - users can add photos to locations that don't have any via AddPhotoModal. New endpoints: POST /locations/check-duplicate, GET /locations/{id}/pending-photo.
 - **Dec 11, 2025:** Added Community Routes feature - users can save routes from route planner, browse public routes, like/save routes, view on profile. New leaderboard tab for top routes and route creators. Route creator badges: Route Scout (1), Trail Blazer (3), Route Master (5), Legend (10+).
 - **Dec 10, 2025 (Late PM):** Rewrote import script to extract coordinates from Google Maps URLs. Entries without coords go to suggestions table for admin review. Added `source` field to track data origin. Admin page now shows Google Maps link for suggestions.
 - **Dec 10, 2025 (PM):** Added Leaderboards with tabs (Contributors + Most Loved locations). Added "Submitted by [avatar] username" attribution on location popups and detail pages. New endpoint: GET /leaderboard/locations.
