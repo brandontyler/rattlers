@@ -329,7 +329,7 @@ export default function ProfilePage() {
                   </p>
                   <Link
                     to="/"
-                    className="inline-block mt-4 px-6 py-2 bg-burgundy-600 text-cream-50 rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
+                    className="inline-block mt-4 px-6 py-2 bg-burgundy-600 text-white rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
                   >
                     Explore Map
                   </Link>
@@ -407,7 +407,7 @@ export default function ProfilePage() {
                     </p>
                     <Link
                       to="/"
-                      className="inline-block px-6 py-2 bg-burgundy-600 text-cream-50 rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
+                      className="inline-block px-6 py-2 bg-burgundy-600 text-white rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
                     >
                       Create a Route
                     </Link>
@@ -476,7 +476,7 @@ export default function ProfilePage() {
                     </p>
                     <Link
                       to="/routes"
-                      className="inline-block px-6 py-2 bg-burgundy-600 text-cream-50 rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
+                      className="inline-block px-6 py-2 bg-burgundy-600 text-white rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
                     >
                       Explore Routes
                     </Link>
@@ -535,7 +535,7 @@ export default function ProfilePage() {
                   </p>
                   <Link
                     to="/submit"
-                    className="inline-block mt-4 px-6 py-2 bg-burgundy-600 text-cream-50 rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
+                    className="inline-block mt-4 px-6 py-2 bg-burgundy-600 text-white rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
                   >
                     Submit a Location
                   </Link>

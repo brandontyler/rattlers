@@ -311,7 +311,7 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
         {/* View Details Link - use anchor tag for navigation from popup */}
         <a
           href={`/location/${location.id}`}
-          className="inline-block w-full text-center px-4 py-2 bg-burgundy-600 text-cream-50 rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
+          className="inline-block w-full text-center px-4 py-2 bg-burgundy-600 text-white rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
         >
           View Details
         </a>

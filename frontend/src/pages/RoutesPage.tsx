@@ -95,7 +95,7 @@ export default function RoutesPage() {
           </p>
           <Link
             to="/"
-            className="inline-block px-6 py-2 bg-burgundy-600 text-cream-50 rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
+            className="inline-block px-6 py-2 bg-burgundy-600 text-white rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
           >
             Create a Route
           </Link>
