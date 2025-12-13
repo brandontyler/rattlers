@@ -1,6 +1,6 @@
 # Architecture Documentation
 
-**Last Updated:** December 11, 2025
+**Last Updated:** December 12, 2025
 
 ## System Overview
 
@@ -216,6 +216,17 @@ DFW Christmas Lights Finder is a serverless web application built entirely on AW
     - Public endpoint
     - Returns top routes by likes and top route creators
     - Creator badges: Route Scout (1), Trail Blazer (3), Route Master (5), Legend (10+)
+
+29. **CheckDuplicate** (`POST /locations/check-duplicate`)
+    - Public endpoint
+    - Checks if location already exists before submission
+    - Uses coordinate matching (~11m accuracy) and address normalization
+    - Checks both approved locations and pending suggestions
+
+30. **CheckPendingPhoto** (`GET /locations/{id}/pending-photo`)
+    - Requires authentication
+    - Checks if user has pending photo submission for a location
+    - Used to prevent duplicate photo submissions
 
 ### Database (DynamoDB)
 
