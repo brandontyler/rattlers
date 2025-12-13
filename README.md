@@ -8,10 +8,12 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - 📍 Address autocomplete with geocoding
 - 🔐 User authentication (Cognito)
 - 📝 Submit and moderate location suggestions
+- 🚫 **Duplicate detection** - Prevents duplicate submissions at submit time
 - 🚗 Route planner with PDF generation
 - 🛤️ **Route sharing** - Save, share, and discover community routes
 - 🏆 **Route leaderboard** - Popular routes and top route creators
 - 📸 Photo uploads with AI analysis
+- 🖼️ **Add photos to existing locations** - Contribute photos to locations without them
 - ❤️ Like, favorite, and report locations
 - 👤 User profiles with contributor badges
 - 🎅 AI-generated Christmas-themed usernames

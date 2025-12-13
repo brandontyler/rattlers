@@ -9,8 +9,8 @@
 
 | Service | Usage Type | Billing Model |
 |---------|------------|---------------|
-| DynamoDB | 3 tables + GSIs | On-demand (pay per request) |
-| Lambda | 18 functions | Pay per invocation + duration |
+| DynamoDB | 6 tables + GSIs | On-demand (pay per request) |
+| Lambda | 37 functions | Pay per invocation + duration |
 | S3 | 2 buckets | Storage + requests |
 | CloudFront | 2 distributions | Data transfer + requests |
 | API Gateway | REST API | Per request |
