@@ -50,11 +50,11 @@ uv run cdk deploy -c env=prod
 The CDK stack creates:
 
 ### Compute
-- **Lambda Functions** - Python 3.12 serverless functions
+- **Lambda Functions** - 37 Python 3.12 serverless functions
 - **Lambda Layer** - Shared code (models, utilities)
 
 ### Storage
-- **DynamoDB Tables** - 3 tables (locations, feedback, suggestions)
+- **DynamoDB Tables** - 6 tables (locations, feedback, suggestions, users, routes, route_feedback)
 - **S3 Buckets** - 2 buckets (frontend, photos)
 
 ### API & Auth

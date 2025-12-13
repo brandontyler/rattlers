@@ -312,14 +312,14 @@ Automated discoveries flow into a special admin queue:
 ### Phase A: Community Features (2-3 weeks)
 1. ~~Add contributor badges system~~ ✅ DONE
 2. ~~Public profiles with stats~~ ✅ DONE
-3. "Submitted by" attribution on locations
+3. ~~"Submitted by" attribution on locations~~ ✅ DONE
 4. Email notifications (approval, likes)
-5. Simple leaderboard (top 10 contributors)
+5. ~~Simple leaderboard (top 10 contributors)~~ ✅ DONE (Dec 12, 2025)
 
 ### Phase B: Basic Automation (3-4 weeks)
 1. News article scraper (Lambda + Bedrock)
 2. Address extraction and geocoding
-3. De-duplication logic
+3. ~~De-duplication logic~~ ✅ DONE (Dec 13, 2025) - Duplicate detection at submission time
 4. Admin queue for auto-discoveries
 5. Confidence scoring
 
@@ -767,9 +767,12 @@ Keep the tone warm, family-friendly, and enthusiastic about the holiday spirit.
 ## Next Steps
 
 1. ~~**Immediate**: Implement basic badge system for community engagement~~ ✅ DONE (Dec 8, 2025)
-2. **Short-term**: Build news article scraper as proof of concept
-3. **Medium-term**: Expand to social media sources
-4. **Long-term**: Real-time discovery and predictive features
+2. ~~**Immediate**: Route sharing and leaderboard~~ ✅ DONE (Dec 12, 2025)
+3. ~~**Immediate**: Photo submission for existing locations~~ ✅ DONE (Dec 12, 2025)
+4. ~~**Immediate**: Duplicate location detection at submission~~ ✅ DONE (Dec 13, 2025)
+5. **Short-term**: Build news article scraper as proof of concept
+6. **Medium-term**: Expand to social media sources
+7. **Long-term**: Real-time discovery and predictive features
 
 ---
 
