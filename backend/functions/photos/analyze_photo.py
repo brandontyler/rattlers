@@ -1,4 +1,4 @@
-"""Lambda function to analyze uploaded photos using Bedrock Claude."""
+"""Lambda function to analyze uploaded photos using Amazon Nova Pro."""
 
 import json
 import os
@@ -205,41 +205,25 @@ def compress_photo_if_needed(bucket: str, key: str):
 
 
 def analyze_photo(bucket: str, key: str) -> dict:
-    """Analyze photo using Bedrock Claude with tool use."""
-    
+    """Analyze photo using Amazon Nova Pro with tool use."""
+
     # Get image from S3
     obj = s3.get_object(Bucket=bucket, Key=key)
     image_bytes = obj["Body"].read()
     image_base64 = base64.b64encode(image_bytes).decode()
-    
-    # Determine media type
+
+    # Determine media type - Nova uses format without "image/" prefix
     content_type = obj.get("ContentType", "image/jpeg")
-    if content_type not in ["image/jpeg", "image/png", "image/webp", "image/gif"]:
-        content_type = "image/jpeg"
-    
-    # Retry with exponential backoff for rate limiting
-    max_retries = 5
-    base_delay = 1.0
-    
-    for attempt in range(max_retries):
-        try:
-            response = bedrock.invoke_model(
-                modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
-                body=json.dumps({
-                    "anthropic_version": "bedrock-2023-05-31",
-                    "max_tokens": 512,
-                    "tools": [ANALYSIS_TOOL],
-                    "tool_choice": {"type": "tool", "name": "record_photo_analysis"},
-                    "messages": [{
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image",
-                                "source": {"type": "base64", "media_type": content_type, "data": image_base64},
-                            },
-                            {
-                                "type": "text",
-                                "text": f"""Analyze this Christmas display photo.
+    format_map = {
+        "image/jpeg": "jpeg",
+        "image/png": "png",
+        "image/webp": "webp",
+        "image/gif": "gif",
+    }
+    image_format = format_map.get(content_type, "jpeg")
+
+    # Build the prompt
+    prompt_text = f"""Analyze this Christmas display photo.
 
 **DECORATIONS** - List 5-8 MAIN items only. STRICT MAXIMUM OF 8.
 - Group similar items: "wooden cutout figures" NOT separate entries for snowman, Santa, reindeer
@@ -258,22 +242,71 @@ def analyze_photo(bucket: str, key: str) -> dict:
 
 **QUALITY** - minimal/moderate/impressive/spectacular
 
-Use the record_photo_analysis tool.""",
+Use the record_photo_analysis tool."""
+
+    # Build Nova tool config from ANALYSIS_TOOL
+    nova_tool_config = {
+        "tools": [{
+            "toolSpec": {
+                "name": ANALYSIS_TOOL["name"],
+                "description": ANALYSIS_TOOL["description"],
+                "inputSchema": {
+                    "json": ANALYSIS_TOOL["input_schema"]
+                }
+            }
+        }],
+        "toolChoice": {
+            "tool": {
+                "name": ANALYSIS_TOOL["name"]
+            }
+        }
+    }
+
+    # Retry with exponential backoff for rate limiting
+    max_retries = 5
+    base_delay = 1.0
+
+    for attempt in range(max_retries):
+        try:
+            response = bedrock.invoke_model(
+                modelId="us.amazon.nova-pro-v1:0",
+                body=json.dumps({
+                    "messages": [{
+                        "role": "user",
+                        "content": [
+                            {
+                                "image": {
+                                    "format": image_format,
+                                    "source": {
+                                        "bytes": image_base64
+                                    }
+                                }
+                            },
+                            {
+                                "text": prompt_text
                             },
                         ],
                     }],
+                    "toolConfig": nova_tool_config,
+                    "inferenceConfig": {
+                        "maxTokens": 512
+                    }
                 }),
             )
-            
+
             result = json.loads(response["body"].read())
-            
-            # Extract tool use result
-            for block in result.get("content", []):
-                if block.get("type") == "tool_use" and block.get("name") == "record_photo_analysis":
-                    return block.get("input", {})
-            
+
+            # Extract tool use result from Nova response format
+            output = result.get("output", {})
+            message = output.get("message", {})
+            for block in message.get("content", []):
+                if "toolUse" in block:
+                    tool_use = block["toolUse"]
+                    if tool_use.get("name") == "record_photo_analysis":
+                        return tool_use.get("input", {})
+
             return {"decorations": [], "categories": [], "theme": None, "description": "", "display_quality": "moderate", "is_christmas_display": True}
-            
+
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
             if error_code in ("ServiceUnavailableException", "ThrottlingException") and attempt < max_retries - 1:
@@ -283,7 +316,7 @@ Use the record_photo_analysis tool.""",
                 time.sleep(delay)
                 continue
             raise
-    
+
     return {"decorations": [], "categories": [], "theme": None, "description": "", "display_quality": "moderate", "is_christmas_display": True}
 
 
