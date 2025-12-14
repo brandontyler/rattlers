@@ -889,13 +889,13 @@ class ChristmasLightsStack(Stack):
         self.photos_bucket.grant_read_write(self.analyze_photo_fn)
         # Grant DynamoDB write for updating suggestion tags
         self.suggestions_table.grant_read_write_data(self.analyze_photo_fn)
-        # Grant Bedrock invoke for Claude vision
+        # Grant Bedrock invoke for Amazon Nova Pro vision
         self.analyze_photo_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["bedrock:InvokeModel"],
                 resources=[
-                    "arn:aws:bedrock:*::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0",
-                    "arn:aws:bedrock:*:*:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+                    "arn:aws:bedrock:*::foundation-model/amazon.nova-pro-v1:0",
+                    "arn:aws:bedrock:*:*:inference-profile/us.amazon.nova-pro-v1:0",
                 ],
             )
         )
