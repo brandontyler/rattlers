@@ -176,6 +176,53 @@ class LocationsTable:
         )
         return int(response["Attributes"].get("reportCount", 0))
 
+    def increment_view_count(self, location_id: str) -> None:
+        """Increment view count for a location (when someone views the location)."""
+        self.table.update_item(
+            Key={
+                "PK": f"location#{location_id}",
+                "SK": "metadata",
+            },
+            UpdateExpression="SET viewCount = if_not_exists(viewCount, :zero) + :inc",
+            ExpressionAttributeValues={
+                ":zero": 0,
+                ":inc": 1,
+            },
+        )
+
+    def increment_save_count(self, location_id: str) -> None:
+        """Increment save count for a location (when someone saves/favorites the location)."""
+        self.table.update_item(
+            Key={
+                "PK": f"location#{location_id}",
+                "SK": "metadata",
+            },
+            UpdateExpression="SET saveCount = if_not_exists(saveCount, :zero) + :inc",
+            ExpressionAttributeValues={
+                ":zero": 0,
+                ":inc": 1,
+            },
+        )
+
+    def decrement_save_count(self, location_id: str) -> None:
+        """Decrement save count for a location (minimum 0)."""
+        try:
+            self.table.update_item(
+                Key={
+                    "PK": f"location#{location_id}",
+                    "SK": "metadata",
+                },
+                UpdateExpression="SET saveCount = saveCount - :dec",
+                ConditionExpression="saveCount > :zero",
+                ExpressionAttributeValues={
+                    ":zero": 0,
+                    ":dec": 1,
+                },
+            )
+        except self.table.meta.client.exceptions.ConditionalCheckFailedException:
+            # Count already at 0, no need to decrement
+            print(f"Save count already at 0 for location {location_id}")
+
 
 class FeedbackTable:
     """Helper class for Feedback table operations."""
