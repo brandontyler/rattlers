@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { Icon, LatLngTuple } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -89,17 +90,22 @@ function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; 
     locations.forEach((location) => {
       const marker = L.marker([location.lat, location.lng], { icon: customIcon });
 
-      // Create popup content container
+      // Create popup content container with explicit dimensions
       const popupContent = document.createElement('div');
+      popupContent.style.width = '260px';
+      popupContent.style.minWidth = '260px';
 
-      // Create a React root and render LocationPopup
+      // Create a React root and render LocationPopup synchronously
+      // flushSync ensures React renders before Leaflet measures the popup
       const root = createRoot(popupContent);
       roots.push(root);
-      root.render(
-        <AuthProvider>
-          <LocationPopup location={location} />
-        </AuthProvider>
-      );
+      flushSync(() => {
+        root.render(
+          <AuthProvider>
+            <LocationPopup location={location} />
+          </AuthProvider>
+        );
+      });
 
       const popup = L.popup({
         maxWidth: 280,
