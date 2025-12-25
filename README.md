@@ -63,7 +63,7 @@ cd infrastructure && uv run cdk deploy
 
 ## Contributing
 
-1. Create feature branch from `main`
+1. Create feature branch from `main` be descriptive
 2. Make changes and test locally
 3. Push and create pull request
 4. GitHub Actions deploys on merge
