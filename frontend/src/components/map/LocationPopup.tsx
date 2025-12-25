@@ -4,7 +4,6 @@ import Badge from '../ui/Badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAchievements } from '@/contexts/AchievementContext';
 import { apiService } from '@/services/api';
-import { AddToRouteButton } from '@/components/route';
 import { getShortAddress } from '@/utils/address';
 import ReportModal from '@/components/ReportModal';
 
@@ -28,7 +27,7 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
   const [reported, setReported] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  
+
   // Refs for bulletproof click protection (state updates are async, refs are sync)
   const isLikingRef = useRef(false);
   const isReportingRef = useRef(false);
@@ -83,7 +82,7 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
     if (!isAuthenticated || isLikingRef.current) return;
 
     isLikingRef.current = true;
-    
+
     // Store previous state for rollback
     const previousLiked = optimisticLiked;
     const previousCount = optimisticLikeCount;
@@ -160,14 +159,14 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
 
   return (
     <div
-      className="w-[240px] md:w-[280px] max-w-[240px] md:max-w-[280px] overflow-hidden"
+      style={{ width: '260px' }}
       onClick={handlePopupInteraction}
       onTouchStart={handlePopupInteraction}
       onTouchEnd={handlePopupInteraction}
     >
-      {/* Image if available - smaller on mobile */}
+      {/* Image if available - compact height */}
       {hasPhotos && (
-        <div className="w-full h-20 md:h-32 overflow-hidden mb-2 md:mb-3 relative">
+        <div className="w-full overflow-hidden relative" style={{ height: '100px' }}>
           <img
             src={location.photos[0]}
             alt={location.address}
@@ -176,8 +175,8 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
           />
           {/* Photo count badge */}
           {location.photos.length > 1 && (
-            <div className="absolute bottom-1 right-1 md:bottom-2 md:right-2 px-1.5 py-0.5 md:px-2 md:py-1 bg-black bg-opacity-70 text-white text-[10px] md:text-xs rounded-full flex items-center gap-0.5 md:gap-1">
-              <svg className="w-2.5 h-2.5 md:w-3 md:h-3" fill="currentColor" viewBox="0 0 20 20">
+            <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black bg-opacity-70 text-white text-xs rounded-full flex items-center gap-1">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
               </svg>
               {location.photos.length}
@@ -186,108 +185,77 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
         </div>
       )}
 
-      {/* Content - tighter padding on mobile */}
-      <div className="p-2 md:p-3">
-        {/* Status badge - smaller on mobile */}
+      {/* Content */}
+      <div className="p-3">
+        {/* Status badge */}
         {location.status && (
           <Badge
             variant={location.status === 'active' ? 'forest' : 'burgundy'}
-            className="mb-1.5 md:mb-2 text-[10px] md:text-xs"
+            className="mb-1.5 text-xs"
           >
             {location.status}
           </Badge>
         )}
 
-        {/* Address - show short version in title, smaller on mobile */}
-        <h3 className="font-display font-semibold text-base md:text-lg text-forest-900 mb-1 md:mb-2 line-clamp-1">
+        {/* Address */}
+        <h3 className="font-display font-semibold text-base text-forest-900 mb-1 line-clamp-1">
           {getShortAddress(location.address)}
         </h3>
 
-        {/* AI Description or user description preview - hide on mobile when photo exists to save space */}
-        {(location.aiDescription || location.description) && (
-          <p className={`text-xs md:text-sm text-forest-600 mb-1.5 md:mb-2 line-clamp-2 ${hasPhotos ? 'hidden md:block' : ''}`}>
+        {/* Description preview - only show if no photo to save space */}
+        {!hasPhotos && (location.aiDescription || location.description) && (
+          <p className="text-xs text-forest-600 mb-1.5 line-clamp-2">
             {location.aiDescription || location.description}
           </p>
         )}
 
-        {/* Tags preview - show only 2 on mobile, 3 on desktop */}
+        {/* Tags preview (show first 2) */}
         {location.decorations && location.decorations.length > 0 && (
-          <div className="flex flex-wrap gap-0.5 md:gap-1 mb-2 md:mb-3">
+          <div className="flex flex-wrap gap-1 mb-2">
             {location.decorations.slice(0, 2).map((tag, index) => (
               <span
                 key={index}
-                className="inline-flex items-center px-1.5 md:px-2 py-0.5 rounded-full bg-cream-100 text-forest-700 text-[10px] md:text-xs border border-forest-200"
+                className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-cream-100 text-forest-700 text-xs border border-forest-200"
               >
                 {tag}
               </span>
             ))}
-            {/* Show 3rd tag only on desktop */}
             {location.decorations.length > 2 && (
-              <span
-                className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full bg-cream-100 text-forest-700 text-xs border border-forest-200"
-              >
-                {location.decorations[2]}
-              </span>
-            )}
-            {location.decorations.length > 2 && (
-              <span className="text-[10px] md:hidden text-forest-500">
+              <span className="text-xs text-forest-500">
                 +{location.decorations.length - 2}
               </span>
             )}
-            {location.decorations.length > 3 && (
-              <span className="hidden md:inline text-xs text-forest-500">
-                +{location.decorations.length - 3} more
-              </span>
-            )}
           </div>
         )}
 
-        {/* Submitted by - hide on mobile when photo exists to save space */}
-        {location.createdByUsername && (
-          <div className={`flex items-center gap-1.5 md:gap-2 mb-2 md:mb-3 text-xs md:text-sm text-forest-500 ${hasPhotos ? 'hidden md:flex' : ''}`}>
-            <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-forest-100 flex items-center justify-center text-forest-600 font-semibold text-[10px] md:text-xs">
-              {location.createdByUsername.charAt(0).toUpperCase()}
-            </div>
-            <span>by {location.createdByUsername}</span>
-          </div>
-        )}
-
-        {/* Stats - more compact on mobile */}
-        <div className="flex items-center gap-3 md:gap-4 mb-2 md:mb-3 text-xs md:text-sm">
-          {/* Like count */}
-          <div className="flex items-center gap-0.5 md:gap-1">
-            <svg
-              className="w-3.5 h-3.5 md:w-4 md:h-4 text-burgundy-500"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-            </svg>
-            <span className="text-forest-600">{optimisticLikeCount}</span>
-          </div>
+        {/* Stats row with like count */}
+        <div className="flex items-center gap-1 mb-2 text-xs">
+          <svg
+            className="w-3.5 h-3.5 text-burgundy-500"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+          </svg>
+          <span className="text-forest-600">{optimisticLikeCount}</span>
         </div>
 
-        {/* Add to Route button - hidden on mobile to save space, shown in View Details */}
-        <div className="hidden md:block mb-3">
-          <AddToRouteButton location={location} variant="compact" className="w-full justify-center" />
-        </div>
-
-        {/* Action buttons - more compact on mobile */}
-        <div className="flex gap-1.5 md:gap-2 mb-2 md:mb-3">
+        {/* Action buttons row */}
+        <div className="flex gap-1.5 mb-2">
           {/* Favorite button */}
           <button
             onClick={handleFavorite}
             disabled={!isAuthenticated || isFavoriting}
-            className={`flex items-center justify-center gap-0.5 md:gap-1 px-2 md:px-3 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-colors ${
+            className={`flex items-center justify-center p-2 rounded-lg transition-colors ${
               favorited
-                ? 'bg-gold-100 text-gold-700 hover:bg-gold-200'
+                ? 'bg-gold-100 text-gold-700'
                 : isAuthenticated
                 ? 'bg-gold-50 text-gold-600 hover:bg-gold-100'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
             }`}
-            title={!isAuthenticated ? 'Sign in to save' : favorited ? 'Remove from favorites' : 'Save to favorites'}
+            title={!isAuthenticated ? 'Sign in to save' : favorited ? 'Saved' : 'Save'}
           >
-            <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill={favorited ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill={favorited ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
             </svg>
           </button>
@@ -296,38 +264,37 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
           <button
             onClick={handleLike}
             disabled={!isAuthenticated || isLiking}
-            className={`flex-1 flex items-center justify-center gap-0.5 md:gap-1 px-2 md:px-3 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-1 p-2 rounded-lg text-xs font-medium transition-colors ${
               optimisticLiked
-                ? 'bg-burgundy-100 text-burgundy-700 hover:bg-burgundy-200'
+                ? 'bg-burgundy-100 text-burgundy-700'
                 : isAuthenticated
                 ? 'bg-burgundy-50 text-burgundy-600 hover:bg-burgundy-100'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
             } ${hasError ? 'ring-2 ring-red-500' : ''}`}
-            title={!isAuthenticated ? 'Sign in to like' : optimisticLiked ? 'Unlike this display' : 'Like this display'}
+            title={!isAuthenticated ? 'Sign in to like' : optimisticLiked ? 'Unlike' : 'Like'}
           >
-            <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
             </svg>
-            <span className="hidden md:inline">{isLiking ? '...' : optimisticLiked ? 'Unlike' : 'Like'}</span>
+            {optimisticLiked ? 'Liked' : 'Like'}
           </button>
 
           {/* Report button */}
           <button
             onClick={handleReportClick}
             disabled={!isAuthenticated || isReporting || reported}
-            className={`flex items-center justify-center gap-0.5 md:gap-1 px-2 md:px-3 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-colors ${
+            className={`flex items-center justify-center p-2 rounded-lg transition-colors ${
               reported
-                ? 'bg-gray-100 text-gray-500 cursor-default'
+                ? 'bg-gray-100 text-gray-500'
                 : isAuthenticated
                 ? 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
             }`}
-            title={!isAuthenticated ? 'Sign in to report' : reported ? 'Reported' : 'Report an issue'}
+            title={!isAuthenticated ? 'Sign in to report' : reported ? 'Reported' : 'Report'}
           >
-            <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            <span className="hidden md:inline">{reported ? 'Reported' : isReporting ? '...' : 'Report'}</span>
           </button>
         </div>
 
@@ -339,17 +306,17 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
           locationAddress={getShortAddress(location.address)}
         />
 
-        {/* Sign in prompt - smaller on mobile */}
+        {/* Sign in prompt */}
         {!isAuthenticated && (
-          <p className="text-[10px] md:text-xs text-gray-500 mb-2 md:mb-3 text-center">
+          <p className="text-xs text-gray-500 mb-2 text-center">
             <a href="/login" className="text-burgundy-600 hover:underline">Sign in</a> to like or report
           </p>
         )}
 
-        {/* View Details Link - use anchor tag for navigation from popup */}
+        {/* View Details Link */}
         <a
           href={`/location/${location.id}`}
-          className="inline-block w-full text-center px-3 md:px-4 py-1.5 md:py-2 bg-burgundy-600 text-white rounded-lg text-sm md:text-base font-medium hover:bg-burgundy-700 transition-colors"
+          className="block w-full text-center py-2 bg-burgundy-600 text-white rounded-lg text-sm font-medium hover:bg-burgundy-700 transition-colors"
         >
           View Details
         </a>

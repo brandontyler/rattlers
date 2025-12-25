@@ -102,8 +102,8 @@ function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; 
       );
 
       const popup = L.popup({
-        maxWidth: 300,
-        minWidth: 240, // Reduced for mobile compatibility
+        maxWidth: 280,
+        minWidth: 260, // Match the LocationPopup component width
         className: 'location-popup',
         autoPan: false,
         closeOnClick: false,
@@ -199,10 +199,10 @@ export default function MapView({
 
   return (
     <div className="relative">
-      {/* Near Me Button - repositioned to bottom-left on mobile to avoid popup conflicts */}
+      {/* Near Me Button */}
       <button
         onClick={handleNearMe}
-        className="absolute bottom-4 left-4 md:bottom-auto md:left-auto md:top-4 md:right-4 z-[1000] bg-white px-3 md:px-4 py-2 rounded-lg shadow-soft hover:shadow-soft-lg transition-shadow flex items-center gap-1.5 md:gap-2 text-forest-700 font-medium text-sm md:text-base"
+        className="absolute top-4 right-4 z-[1000] bg-white px-3 py-2 rounded-lg shadow-soft hover:shadow-soft-lg transition-shadow flex items-center gap-2 text-forest-700 font-medium text-sm"
       >
         <svg
           className="w-5 h-5"
