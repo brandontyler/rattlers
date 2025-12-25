@@ -141,12 +141,14 @@
 /* Leaflet popup customization */
 .leaflet-popup-content-wrapper {
   @apply bg-white rounded-xl shadow-soft-lg;
-  padding: 0;
+  padding: 0 !important;
   overflow: hidden;
 }
 
 .leaflet-popup-content {
-  margin: 0;
+  margin: 0 !important;
+  width: 260px !important;
+  min-width: 260px !important;
 }
 
 .leaflet-popup-tip {
