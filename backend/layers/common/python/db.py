@@ -56,6 +56,7 @@ class LocationsTable:
 
     def get(self, location_id: str) -> Optional[Dict]:
         """Get a location by ID."""
+        print(f"LocationsTable.get() - table: {self.table_name}, PK: location#{location_id}, SK: metadata")
         response = self.table.get_item(
             Key={
                 "PK": f"location#{location_id}",
@@ -63,6 +64,7 @@ class LocationsTable:
             }
         )
         item = response.get("Item")
+        print(f"LocationsTable.get() - found: {item is not None}")
         return decimal_to_float(item) if item else None
 
     def update(self, location_id: str, updates: Dict) -> Dict:

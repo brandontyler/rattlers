@@ -443,7 +443,8 @@ class ChristmasLightsStack(Stack):
             environment=common_env,
             layers=[self.common_layer],
         )
-        self.locations_table.grant_read_data(self.get_location_by_id_fn)
+        # Grant read + write for view count analytics
+        self.locations_table.grant_read_write_data(self.get_location_by_id_fn)
 
         # Create location - write operation (needs more time)
         self.create_location_fn = lambda_.Function(
