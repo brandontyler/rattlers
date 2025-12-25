@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import Button from './ui/Button';
+import { AchievementUnlockPopup } from './achievements';
 
 export default function Layout() {
   const { isAuthenticated, user, logout } = useAuth();
@@ -29,6 +30,9 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-cream-50">
+      {/* Achievement unlock popup */}
+      <AchievementUnlockPopup />
+
       {/* Header */}
       <header className="gradient-forest text-cream-50 shadow-soft-lg sticky top-0 z-50 grain-texture">
         <div className="container mx-auto px-4 py-4">

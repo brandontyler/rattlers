@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAchievements } from '@/contexts/AchievementContext';
 import { apiService } from '@/services/api';
 import type { UserProfile, UserSubmission, Location, SavedRoute } from '@/types';
 import Badge from '@/components/ui/Badge';
-import BadgeDisplay from '@/components/badges/BadgeDisplay';
+import { AchievementsSummary } from '@/components/achievements';
 
 export default function ProfilePage() {
   const { isAuthenticated } = useAuth();
+  const { checkAchievements } = useAchievements();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [submissions, setSubmissions] = useState<UserSubmission[]>([]);
   const [favorites, setFavorites] = useState<Location[]>([]);
@@ -70,6 +72,21 @@ export default function ProfilePage() {
 
     fetchProfileData();
   }, [isAuthenticated]);
+
+  // Check achievements when profile data is loaded
+  useEffect(() => {
+    if (!profile || !submissions) return;
+
+    checkAchievements({
+      approvedSubmissions: profile.stats.approvedSubmissions,
+      hasFirstSubmission: profile.stats.totalSubmissions > 0,
+      hasFirstApproval: profile.stats.approvedSubmissions > 0,
+      routesCreated: myRoutes.length,
+      hasFirstRoute: myRoutes.length > 0,
+      locationsLiked: favorites.length,
+      hasFirstLike: favorites.length > 0,
+    });
+  }, [profile, submissions, myRoutes, favorites, checkAchievements]);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -267,8 +284,8 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Badges Section */}
-      <BadgeDisplay approvedSubmissions={profile.stats.approvedSubmissions} />
+      {/* Achievements Section */}
+      <AchievementsSummary />
 
       {/* Tabs */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mt-8">

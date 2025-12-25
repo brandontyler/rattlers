@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { Location } from '@/types';
 import Badge from '../ui/Badge';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAchievements } from '@/contexts/AchievementContext';
 import { apiService } from '@/services/api';
 import { AddToRouteButton } from '@/components/route';
 import { getShortAddress } from '@/utils/address';
@@ -13,6 +14,7 @@ interface LocationPopupProps {
 
 export default function LocationPopup({ location, onFeedbackSubmit }: LocationPopupProps) {
   const { isAuthenticated } = useAuth();
+  const { unlockAchievement, isUnlocked } = useAchievements();
 
   // Optimistic state for instant UI updates
   const [optimisticLiked, setOptimisticLiked] = useState(false);
@@ -98,6 +100,11 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
         // Server responded - use server truth
         const serverLikedResult = response.data.liked ?? false;
         setOptimisticLiked(serverLikedResult);
+
+        // Trigger "Heart of Gold" achievement for first like
+        if (serverLikedResult && !isUnlocked('heart-of-gold')) {
+          unlockAchievement('heart-of-gold');
+        }
 
         onFeedbackSubmit?.();
       } else {

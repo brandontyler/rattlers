@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Input } from '@/components/ui';
 import { apiService } from '@/services/api';
+import { useAchievements } from '@/contexts/AchievementContext';
 import type { Location, SavedRoute } from '@/types';
 
 interface SaveRouteModalProps {
@@ -24,6 +25,7 @@ const ROUTE_TAGS = [
 ];
 
 export default function SaveRouteModal({ isOpen, onClose, stops, onSaved }: SaveRouteModalProps) {
+  const { unlockAchievement, isUnlocked } = useAchievements();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -58,6 +60,11 @@ export default function SaveRouteModal({ isOpen, onClose, stops, onSaved }: Save
       });
 
       if (response.success && response.data) {
+        // Trigger "Trail Blazer" achievement for first route
+        if (!isUnlocked('trail-blazer')) {
+          unlockAchievement('trail-blazer');
+        }
+
         onSaved(response.data);
         onClose();
         // Reset form
