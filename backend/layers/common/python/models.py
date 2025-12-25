@@ -37,6 +37,8 @@ class Location(BaseModel):
     status: LocationStatus = LocationStatus.ACTIVE
     like_count: int = Field(default=0, alias="likeCount")
     report_count: int = Field(default=0, alias="reportCount")
+    view_count: int = Field(default=0, alias="viewCount")
+    save_count: int = Field(default=0, alias="saveCount")
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), alias="createdAt")
     updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), alias="updatedAt")
     created_by: Optional[str] = Field(default=None, alias="createdBy")

@@ -9,6 +9,8 @@ export interface Location {
   status: 'active' | 'inactive' | 'flagged';
   likeCount: number;
   reportCount: number;
+  viewCount: number;
+  saveCount: number;
   createdAt: string;
   updatedAt?: string;
   googleMapsUrl?: string;

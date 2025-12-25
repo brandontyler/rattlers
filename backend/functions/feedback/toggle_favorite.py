@@ -29,6 +29,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if existing:
             # Remove favorite
             feedback_table.delete(existing["id"], location_id)
+            # Decrement save count on the location
+            locations_table.decrement_save_count(location_id)
             return success_response(
                 data={"favorited": False, "locationId": location_id},
                 message="Removed from favorites",
@@ -47,6 +49,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             success, error_code = feedback_table.create_feedback_atomic(feedback_data)
 
             if success:
+                # Increment save count on the location
+                locations_table.increment_save_count(location_id)
                 return success_response(
                     data={"favorited": True, "locationId": location_id},
                     message="Added to favorites!",

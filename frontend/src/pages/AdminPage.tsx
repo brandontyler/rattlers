@@ -36,6 +36,8 @@ interface Location {
   theme?: string;
   displayQuality?: 'minimal' | 'moderate' | 'impressive' | 'spectacular';
   likeCount?: number;
+  viewCount?: number;
+  saveCount?: number;
   createdAt?: string;
 }
 
@@ -235,6 +237,78 @@ export default function AdminPage() {
             </div>
             <p className="text-3xl sm:text-4xl font-display font-bold text-forest-900 mb-1">{isLoading ? '...' : flaggedCount}</p>
             <p className="text-sm font-medium text-forest-600">Flagged for Review</p>
+          </Card>
+        </div>
+
+        {/* Location Analytics Stats */}
+        <h2 className="font-display text-lg sm:text-xl font-bold text-forest-900 mb-4 flex items-center gap-2">
+          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Location Analytics
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <Card className="p-4 sm:p-6 card-glow">
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-3xl sm:text-4xl font-display font-bold text-forest-900 mb-1">
+              {locations.reduce((sum, l) => sum + (l.viewCount || 0), 0).toLocaleString()}
+            </p>
+            <p className="text-sm font-medium text-forest-600">Total Views</p>
+          </Card>
+
+          <Card className="p-4 sm:p-6 card-glow">
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-3xl sm:text-4xl font-display font-bold text-forest-900 mb-1">
+              {locations.reduce((sum, l) => sum + (l.likeCount || 0), 0).toLocaleString()}
+            </p>
+            <p className="text-sm font-medium text-forest-600">Total Likes</p>
+          </Card>
+
+          <Card className="p-4 sm:p-6 card-glow">
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-3xl sm:text-4xl font-display font-bold text-forest-900 mb-1">
+              {locations.reduce((sum, l) => sum + (l.saveCount || 0), 0).toLocaleString()}
+            </p>
+            <p className="text-sm font-medium text-forest-600">Total Saves</p>
+          </Card>
+
+          <Card className="p-4 sm:p-6 card-glow">
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-3xl sm:text-4xl font-display font-bold text-forest-900 mb-1">
+              {(() => {
+                const totalViews = locations.reduce((sum, l) => sum + (l.viewCount || 0), 0);
+                const totalLikes = locations.reduce((sum, l) => sum + (l.likeCount || 0), 0);
+                if (totalViews === 0) return '0%';
+                return ((totalLikes / totalViews) * 100).toFixed(1) + '%';
+              })()}
+            </p>
+            <p className="text-sm font-medium text-forest-600">Engagement Rate</p>
+            <p className="text-xs text-forest-400 mt-1">Likes / Views</p>
           </Card>
         </div>
 
@@ -486,7 +560,7 @@ export default function AdminPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-forest-900 truncate">{location.address}</p>
                     <p className="text-xs text-forest-500">
-                      {location.likeCount || 0} likes • ID: {location.id.slice(0, 8)}...
+                      {location.viewCount || 0} views • {location.likeCount || 0} likes • {location.saveCount || 0} saved • ID: {location.id.slice(0, 8)}...
                     </p>
                   </div>
                   <div className="flex items-center gap-2 ml-4">

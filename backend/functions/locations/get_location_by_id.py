@@ -30,6 +30,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         location.pop("PK", None)
         location.pop("SK", None)
 
+        # Increment view count (view analytics)
+        locations_table.increment_view_count(location_id)
+
         return success_response(data=location)
 
     except Exception as e:
