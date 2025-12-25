@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import type { Location } from '@/types';
+import type { Location, ReportCategory } from '@/types';
 import Badge from '../ui/Badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAchievements } from '@/contexts/AchievementContext';
 import { apiService } from '@/services/api';
 import { AddToRouteButton } from '@/components/route';
 import { getShortAddress } from '@/utils/address';
+import ReportModal from '@/components/ReportModal';
 
 interface LocationPopupProps {
   location: Location;
@@ -26,6 +27,7 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
   const [isFavoriting, setIsFavoriting] = useState(false);
   const [reported, setReported] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   
   // Refs for bulletproof click protection (state updates are async, refs are sync)
   const isLikingRef = useRef(false);
@@ -125,18 +127,24 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
     }
   };
 
-  const handleReport = async () => {
-    if (!isAuthenticated || isReportingRef.current || reported) return;
+  const handleReportClick = () => {
+    if (!isAuthenticated || reported) return;
+    setShowReportModal(true);
+  };
+
+  const handleReportSubmit = async (category: ReportCategory, reason: string) => {
+    if (isReportingRef.current) return;
 
     isReportingRef.current = true;
     setIsReporting(true);
-    
+
     try {
-      await apiService.reportInactive(location.id, { reason: 'No lights visible' });
+      await apiService.reportInactive(location.id, { reason, category });
       setReported(true);
       onFeedbackSubmit?.();
     } catch (error) {
       console.error('Failed to submit report:', error);
+      throw error;
     } finally {
       isReportingRef.current = false;
       setIsReporting(false);
@@ -290,7 +298,7 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
 
           {/* Report button */}
           <button
-            onClick={handleReport}
+            onClick={handleReportClick}
             disabled={!isAuthenticated || isReporting || reported}
             className={`flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
               reported
@@ -299,7 +307,7 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
                 ? 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
             }`}
-            title={!isAuthenticated ? 'Sign in to report' : reported ? 'Reported' : 'Report as inactive'}
+            title={!isAuthenticated ? 'Sign in to report' : reported ? 'Reported' : 'Report an issue'}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -307,6 +315,14 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
             {reported ? 'Reported' : isReporting ? '...' : 'Report'}
           </button>
         </div>
+
+        {/* Report Modal */}
+        <ReportModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          onSubmit={handleReportSubmit}
+          locationAddress={getShortAddress(location.address)}
+        />
 
         {/* Sign in prompt */}
         {!isAuthenticated && (
