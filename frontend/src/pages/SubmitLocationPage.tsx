@@ -4,6 +4,7 @@ import { Button, Card } from '@/components/ui';
 import AddressAutocomplete, { AddressAutocompleteRef } from '@/components/ui/AddressAutocomplete';
 import DuplicateLocationModal from '@/components/DuplicateLocationModal';
 import { apiService } from '@/services/api';
+import { useAchievements } from '@/contexts/AchievementContext';
 import type { AddressSuggestion, DuplicateLocation } from '@/types';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB (photos are compressed on backend)
@@ -57,6 +58,7 @@ const isImageFile = (file: File): boolean => {
 };
 
 export default function SubmitLocationPage() {
+  const { unlockAchievement, isUnlocked } = useAchievements();
   const [description, setDescription] = useState('');
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviewUrls, setPhotoPreviewUrls] = useState<string[]>([]);
@@ -269,6 +271,11 @@ export default function SubmitLocationPage() {
         description: description.trim(),
         photos: photoKeys,
       });
+
+      // Trigger "Let There Be Light" achievement for first submission
+      if (!isUnlocked('let-there-be-light')) {
+        unlockAchievement('let-there-be-light');
+      }
 
       setIsSubmitted(true);
     } catch (err: any) {
