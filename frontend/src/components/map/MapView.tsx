@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { flushSync } from 'react-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { Icon, LatLngTuple } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -90,26 +89,21 @@ function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; 
     locations.forEach((location) => {
       const marker = L.marker([location.lat, location.lng], { icon: customIcon });
 
-      // Create popup content container with explicit dimensions
+      // Create popup content container
       const popupContent = document.createElement('div');
-      popupContent.style.width = '260px';
-      popupContent.style.minWidth = '260px';
 
-      // Create a React root and render LocationPopup synchronously
-      // flushSync ensures React renders before Leaflet measures the popup
+      // Create a React root and render LocationPopup
       const root = createRoot(popupContent);
       roots.push(root);
-      flushSync(() => {
-        root.render(
-          <AuthProvider>
-            <LocationPopup location={location} />
-          </AuthProvider>
-        );
-      });
+      root.render(
+        <AuthProvider>
+          <LocationPopup location={location} />
+        </AuthProvider>
+      );
 
       const popup = L.popup({
-        maxWidth: 280,
-        minWidth: 260, // Match the LocationPopup component width
+        maxWidth: 300,
+        minWidth: 280,
         className: 'location-popup',
         autoPan: false,
         closeOnClick: false,
@@ -208,7 +202,7 @@ export default function MapView({
       {/* Near Me Button */}
       <button
         onClick={handleNearMe}
-        className="absolute top-4 right-4 z-[1000] bg-white px-3 py-2 rounded-lg shadow-soft hover:shadow-soft-lg transition-shadow flex items-center gap-2 text-forest-700 font-medium text-sm"
+        className="absolute top-4 right-4 z-[1000] bg-white px-4 py-2 rounded-lg shadow-soft hover:shadow-soft-lg transition-shadow flex items-center gap-2 text-forest-700 font-medium"
       >
         <svg
           className="w-5 h-5"
