@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { Icon, LatLngTuple } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -89,17 +90,23 @@ function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; 
     locations.forEach((location) => {
       const marker = L.marker([location.lat, location.lng], { icon: customIcon });
 
-      // Create popup content container
+      // Create popup content container with explicit dimensions
+      // This ensures Leaflet has something to measure before React renders
       const popupContent = document.createElement('div');
+      popupContent.style.width = '280px';
+      popupContent.style.minHeight = '100px';
 
-      // Create a React root and render LocationPopup
+      // Create a React root and render LocationPopup SYNCHRONOUSLY
+      // flushSync ensures React completes rendering before Leaflet measures the popup
       const root = createRoot(popupContent);
       roots.push(root);
-      root.render(
-        <AuthProvider>
-          <LocationPopup location={location} />
-        </AuthProvider>
-      );
+      flushSync(() => {
+        root.render(
+          <AuthProvider>
+            <LocationPopup location={location} />
+          </AuthProvider>
+        );
+      });
 
       const popup = L.popup({
         maxWidth: 300,
@@ -110,14 +117,18 @@ function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; 
       }).setContent(popupContent);
 
       marker.bindPopup(popup);
-      
-      // Manually pan map after popup opens to avoid close-on-pan issue
+
+      // When popup opens, force Leaflet to recalculate dimensions and then pan
       marker.on('popupopen', () => {
+        // Force Leaflet to update popup size based on actual content
+        popup.update();
+
         setTimeout(() => {
+          popup.update(); // Update again after content fully paints
           const px = map.project(popup.getLatLng()!);
           px.y -= popup.getElement()!.clientHeight / 2;
           map.panTo(map.unproject(px), { animate: true });
-        }, 50);
+        }, 100);
       });
       
       if (onLocationClick) {
