@@ -16,14 +16,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         path_params = event.get("pathParameters") or {}
         location_id = path_params.get("id")
 
+        print(f"GET /locations/{location_id} - pathParameters: {path_params}")
+
         if not location_id:
+            print("ERROR: No location ID provided")
             return not_found_error("Location ID is required")
 
         # Get location from database
         locations_table = LocationsTable()
+        print(f"Looking up location with PK=location#{location_id}, SK=metadata")
         location = locations_table.get(location_id)
 
         if not location:
+            print(f"ERROR: Location not found for ID: {location_id}")
             return not_found_error(f"Location with ID {location_id} not found")
 
         # Clean up DynamoDB metadata
