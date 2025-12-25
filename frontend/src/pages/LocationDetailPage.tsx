@@ -6,6 +6,8 @@ import { apiService } from '@/services/api';
 import { useLocation as useLocationData } from '@/hooks';
 import { getShortAddress, getDirectionsUrl } from '@/utils/address';
 import AddPhotoModal from '@/components/AddPhotoModal';
+import ReportModal from '@/components/ReportModal';
+import type { ReportCategory } from '@/types';
 
 export default function LocationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +26,7 @@ export default function LocationDetailPage() {
   const [showAddPhotoModal, setShowAddPhotoModal] = useState(false);
   const [hasPendingPhotoSubmission, setHasPendingPhotoSubmission] = useState(false);
   const [photoSubmissionSuccess, setPhotoSubmissionSuccess] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // Refs for bulletproof click protection (state updates are async, refs are sync)
   const isLikingRef = useRef(false);
@@ -159,17 +162,23 @@ export default function LocationDetailPage() {
     }
   };
 
-  const handleReport = async () => {
-    if (!isAuthenticated || isReportingRef.current || hasReported) return;
+  const handleReportClick = () => {
+    if (!isAuthenticated || hasReported) return;
+    setShowReportModal(true);
+  };
+
+  const handleReportSubmit = async (category: ReportCategory, reason: string) => {
+    if (isReportingRef.current) return;
 
     isReportingRef.current = true;
     setIsReporting(true);
 
     try {
-      await apiService.reportInactive(location.id, { reason: 'No lights visible' });
+      await apiService.reportInactive(location.id, { reason, category });
       setHasReported(true);
     } catch (err) {
       console.error('Failed to report:', err);
+      throw err;
     } finally {
       isReportingRef.current = false;
       setIsReporting(false);
@@ -625,7 +634,7 @@ export default function LocationDetailPage() {
                   variant="secondary"
                   size="sm"
                   fullWidth
-                  onClick={handleReport}
+                  onClick={handleReportClick}
                   disabled={!isAuthenticated || isReporting || hasReported}
                 >
                   {hasReported ? 'Reported - Thank you!' : isReporting ? 'Reporting...' : 'Report Issue'}
@@ -660,6 +669,14 @@ export default function LocationDetailPage() {
         locationId={location.id}
         locationAddress={getShortAddress(location.address)}
         onSuccess={handlePhotoSubmissionSuccess}
+      />
+
+      {/* Report Modal */}
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onSubmit={handleReportSubmit}
+        locationAddress={getShortAddress(location.address)}
       />
     </div>
   );

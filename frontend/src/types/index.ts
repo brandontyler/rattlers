@@ -188,8 +188,54 @@ export interface LocationFilters {
 }
 
 // Report types
+export type ReportCategory =
+  | 'no_lights'
+  | 'wrong_description'
+  | 'wrong_tags'
+  | 'wrong_category'
+  | 'blurry_photos'
+  | 'have_better_photo'
+  | 'wrong_location'
+  | 'other';
+
+export const REPORT_CATEGORIES: Record<ReportCategory, { label: string; description: string }> = {
+  no_lights: {
+    label: 'No lights here',
+    description: 'The display is no longer active or was never here',
+  },
+  wrong_description: {
+    label: 'Description is wrong',
+    description: 'The description does not match what is actually there',
+  },
+  wrong_tags: {
+    label: 'Tags are wrong',
+    description: 'The decorations or categories listed are incorrect',
+  },
+  wrong_category: {
+    label: 'Wrong quality rating',
+    description: 'The display quality (minimal/impressive/etc) is inaccurate',
+  },
+  blurry_photos: {
+    label: 'Photos are blurry or bad',
+    description: 'The photos are low quality or do not show the display well',
+  },
+  have_better_photo: {
+    label: 'I have a better photo',
+    description: 'I can provide better photos of this display',
+  },
+  wrong_location: {
+    label: 'Wrong address/location',
+    description: 'The pin or address is incorrect',
+  },
+  other: {
+    label: 'Other issue',
+    description: 'Something else is wrong with this listing',
+  },
+};
+
 export interface ReportRequest {
   reason: string;
+  category?: ReportCategory;
 }
 
 // Photo upload types
