@@ -88,14 +88,17 @@ function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; 
 
     const roots: Array<ReturnType<typeof createRoot>> = [];
 
+    // Detect if we're on a mobile device for responsive popup sizing
+    const isMobile = window.innerWidth < 640;
+
     locations.forEach((location) => {
       const marker = L.marker([location.lat, location.lng], { icon: customIcon });
 
-      // Create popup content container with explicit dimensions
-      // This ensures Leaflet has something to measure before React renders
+      // Create popup content container with responsive dimensions
+      // Use smaller width on mobile devices (iPhone 12 is 390px viewport)
       const popupContent = document.createElement('div');
-      popupContent.style.width = '280px';
-      popupContent.style.minHeight = '100px';
+      popupContent.style.width = 'auto';
+      popupContent.style.minHeight = '80px';
 
       // Create a React root and render LocationPopup SYNCHRONOUSLY
       // flushSync ensures React completes rendering before Leaflet measures the popup
@@ -111,9 +114,10 @@ function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; 
         );
       });
 
+      // Use responsive popup configuration - smaller on mobile
       const popup = L.popup({
-        maxWidth: 300,
-        minWidth: 280,
+        maxWidth: isMobile ? 250 : 300,
+        minWidth: isMobile ? 200 : 240,
         className: 'location-popup',
         autoPan: false,
         closeOnClick: false,
