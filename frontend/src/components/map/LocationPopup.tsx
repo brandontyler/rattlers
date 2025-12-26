@@ -255,9 +255,9 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
           </div>
         </div>
 
-        {/* Add to Route button - hidden on mobile with photo to save space */}
-        <div className={`mb-2 sm:mb-3 ${hasPhoto ? 'hidden sm:block' : ''}`}>
-          <AddToRouteButton location={location} variant="compact" className="w-full justify-center" />
+        {/* Add to Route button - always visible, compact on mobile */}
+        <div className="mb-2 sm:mb-3">
+          <AddToRouteButton location={location} variant="compact" className="w-full justify-center text-xs sm:text-sm py-1.5 sm:py-2" />
         </div>
 
         {/* Action buttons - more compact on mobile */}
