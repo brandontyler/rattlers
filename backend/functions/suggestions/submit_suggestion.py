@@ -24,6 +24,129 @@ CORS_HEADERS = {
 }
 
 
+def round_coordinate(coord, decimals=4):
+    """Round coordinate to specified decimal places for matching.
+
+    4 decimal places = ~11 meter accuracy, good for matching same house.
+    """
+    try:
+        return round(float(coord), decimals)
+    except (TypeError, ValueError):
+        return None
+
+
+def normalize_address(address):
+    """Normalize address for comparison."""
+    if not address:
+        return ""
+    normalized = address.lower().strip()
+    normalized = " ".join(normalized.split())
+    return normalized
+
+
+def check_for_duplicate(lat, lng, address):
+    """Check if a location already exists at these coordinates or address.
+
+    Returns: (is_duplicate, message)
+    """
+    lat_rounded = round_coordinate(lat)
+    lng_rounded = round_coordinate(lng)
+    address_normalized = normalize_address(address)
+
+    if lat_rounded is None or lng_rounded is None:
+        return False, None
+
+    # Check approved locations
+    try:
+        response = locations_table.scan(
+            FilterExpression="SK = :sk AND #status = :status",
+            ExpressionAttributeNames={"#status": "status"},
+            ExpressionAttributeValues={
+                ":sk": "metadata",
+                ":status": "active",
+            },
+        )
+
+        for item in response.get("Items", []):
+            item_lat = round_coordinate(item.get("lat"))
+            item_lng = round_coordinate(item.get("lng"))
+
+            # Check coordinate match
+            if item_lat == lat_rounded and item_lng == lng_rounded:
+                return True, "This location already exists on the map"
+
+            # Check normalized address match
+            item_address = normalize_address(item.get("address", ""))
+            if item_address and item_address == address_normalized:
+                return True, "This address already exists on the map"
+
+    except Exception as e:
+        print(f"Error checking locations table: {e}")
+
+    # Check pending suggestions
+    try:
+        response = table.scan(
+            FilterExpression="SK = :sk AND #status = :status AND #type = :type",
+            ExpressionAttributeNames={"#status": "status", "#type": "type"},
+            ExpressionAttributeValues={
+                ":sk": "METADATA",
+                ":status": "pending",
+                ":type": "new_location",
+            },
+        )
+
+        for item in response.get("Items", []):
+            item_lat = round_coordinate(item.get("lat"))
+            item_lng = round_coordinate(item.get("lng"))
+
+            # Check coordinate match
+            if item_lat == lat_rounded and item_lng == lng_rounded:
+                return True, "This location has already been submitted and is pending review"
+
+            # Check normalized address match
+            item_address = normalize_address(item.get("address", ""))
+            if item_address and item_address == address_normalized:
+                return True, "This address has already been submitted and is pending review"
+
+    except Exception as e:
+        print(f"Error checking suggestions table: {e}")
+
+    return False, None
+
+
+def validate_address_format(address):
+    """Validate that address has proper format with street name.
+
+    Returns: (is_valid, error_message)
+    """
+    if not address:
+        return False, "Address is required"
+
+    address = address.strip()
+
+    # Must have at least a number and some text (e.g., "314 Magnolia")
+    parts = address.split()
+    if len(parts) < 2:
+        return False, "Address must include street number and street name"
+
+    # First part should contain a number (street number)
+    first_part = parts[0]
+    if not any(c.isdigit() for c in first_part):
+        return False, "Address must start with a street number"
+
+    # Should have more than just the number - need street name
+    remaining = " ".join(parts[1:])
+    if len(remaining) < 2:
+        return False, "Address must include street name"
+
+    # Check for alphabetic content in the remaining parts (street name)
+    has_alpha = any(c.isalpha() for c in remaining)
+    if not has_alpha:
+        return False, "Address must include street name"
+
+    return True, None
+
+
 def handle_photo_update(body, user_id, user_email, target_location_id):
     """Handle photo submission for an existing location."""
 
@@ -195,7 +318,7 @@ def handler(event, context):
         lng = body.get("lng")
         photos = body.get("photos", [])
 
-        # Validation
+        # Basic validation
         if not address:
             return {
                 "statusCode": 400,
@@ -215,6 +338,24 @@ def handler(event, context):
                 "statusCode": 400,
                 "headers": CORS_HEADERS,
                 "body": json.dumps({"success": False, "message": "Coordinates (lat/lng) are required"}),
+            }
+
+        # Validate address format (must have street number and name)
+        is_valid_address, address_error = validate_address_format(address)
+        if not is_valid_address:
+            return {
+                "statusCode": 400,
+                "headers": CORS_HEADERS,
+                "body": json.dumps({"success": False, "message": address_error}),
+            }
+
+        # Server-side duplicate check (prevents race conditions and bypasses)
+        is_duplicate, duplicate_message = check_for_duplicate(lat, lng, address)
+        if is_duplicate:
+            return {
+                "statusCode": 409,  # Conflict
+                "headers": CORS_HEADERS,
+                "body": json.dumps({"success": False, "message": duplicate_message}),
             }
 
         # Create suggestion record
