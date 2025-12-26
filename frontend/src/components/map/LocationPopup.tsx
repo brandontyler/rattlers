@@ -156,16 +156,19 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
     e.stopPropagation();
   };
 
+  // Detect if we have a photo - use more compact layout on mobile when photo exists
+  const hasPhoto = location.photos && location.photos.length > 0;
+
   return (
     <div
-      className="w-[280px] max-w-[280px] overflow-hidden"
+      className={`overflow-hidden ${hasPhoto ? 'w-[220px] sm:w-[280px] max-w-[220px] sm:max-w-[280px]' : 'w-[240px] sm:w-[280px] max-w-[240px] sm:max-w-[280px]'}`}
       onClick={handlePopupInteraction}
       onTouchStart={handlePopupInteraction}
       onTouchEnd={handlePopupInteraction}
     >
-      {/* Image if available */}
-      {location.photos && location.photos.length > 0 && (
-        <div className="w-full h-32 overflow-hidden mb-3 relative">
+      {/* Image if available - smaller on mobile */}
+      {hasPhoto && (
+        <div className="w-full h-20 sm:h-32 overflow-hidden mb-2 sm:mb-3 relative">
           <img
             src={location.photos[0]}
             alt={location.address}
@@ -174,7 +177,7 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
           />
           {/* Photo count badge */}
           {location.photos.length > 1 && (
-            <div className="absolute bottom-2 right-2 px-2 py-1 bg-black bg-opacity-70 text-white text-xs rounded-full flex items-center gap-1">
+            <div className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-black bg-opacity-70 text-white text-xs rounded-full flex items-center gap-1">
               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
               </svg>
@@ -184,37 +187,37 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
         </div>
       )}
 
-      {/* Content */}
-      <div className="p-3">
+      {/* Content - more compact padding on mobile */}
+      <div className="p-2 sm:p-3">
         {/* Status badge */}
         {location.status && (
           <Badge
             variant={location.status === 'active' ? 'forest' : 'burgundy'}
-            className="mb-2"
+            className="mb-1.5 sm:mb-2"
           >
             {location.status}
           </Badge>
         )}
 
-        {/* Address - show short version in title */}
-        <h3 className="font-display font-semibold text-lg text-forest-900 mb-2">
+        {/* Address - show short version in title, smaller on mobile */}
+        <h3 className="font-display font-semibold text-base sm:text-lg text-forest-900 mb-1.5 sm:mb-2 line-clamp-1">
           {getShortAddress(location.address)}
         </h3>
 
-        {/* AI Description or user description preview */}
+        {/* AI Description or user description preview - hide on mobile with photo to save space */}
         {(location.aiDescription || location.description) && (
-          <p className="text-sm text-forest-600 mb-2 line-clamp-2">
+          <p className={`text-sm text-forest-600 mb-1.5 sm:mb-2 ${hasPhoto ? 'hidden sm:block sm:line-clamp-2' : 'line-clamp-2'}`}>
             {location.aiDescription || location.description}
           </p>
         )}
 
-        {/* Tags preview (show first 3 decorations) */}
+        {/* Tags preview - show fewer on mobile with photo */}
         {location.decorations && location.decorations.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-3">
+          <div className={`flex flex-wrap gap-1 mb-2 sm:mb-3 ${hasPhoto ? 'hidden sm:flex' : ''}`}>
             {location.decorations.slice(0, 3).map((tag, index) => (
               <span
                 key={index}
-                className="inline-flex items-center px-2 py-0.5 rounded-full bg-cream-100 text-forest-700 text-xs border border-forest-200"
+                className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full bg-cream-100 text-forest-700 text-xs border border-forest-200"
               >
                 {tag}
               </span>
@@ -227,18 +230,18 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
           </div>
         )}
 
-        {/* Submitted by */}
+        {/* Submitted by - hide on mobile with photo */}
         {location.createdByUsername && (
-          <div className="flex items-center gap-2 mb-3 text-sm text-forest-500">
-            <div className="w-6 h-6 rounded-full bg-forest-100 flex items-center justify-center text-forest-600 font-semibold text-xs">
+          <div className={`flex items-center gap-2 mb-2 sm:mb-3 text-sm text-forest-500 ${hasPhoto ? 'hidden sm:flex' : ''}`}>
+            <div className="w-5 sm:w-6 h-5 sm:h-6 rounded-full bg-forest-100 flex items-center justify-center text-forest-600 font-semibold text-xs">
               {location.createdByUsername.charAt(0).toUpperCase()}
             </div>
-            <span>Submitted by {location.createdByUsername}</span>
+            <span className="text-xs sm:text-sm">Submitted by {location.createdByUsername}</span>
           </div>
         )}
 
-        {/* Stats */}
-        <div className="flex items-center gap-4 mb-3 text-sm">
+        {/* Stats - inline with smaller spacing on mobile */}
+        <div className="flex items-center gap-3 sm:gap-4 mb-2 sm:mb-3 text-sm">
           {/* Like count */}
           <div className="flex items-center gap-1">
             <svg
@@ -252,18 +255,18 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
           </div>
         </div>
 
-        {/* Add to Route button */}
-        <div className="mb-3">
+        {/* Add to Route button - hidden on mobile with photo to save space */}
+        <div className={`mb-2 sm:mb-3 ${hasPhoto ? 'hidden sm:block' : ''}`}>
           <AddToRouteButton location={location} variant="compact" className="w-full justify-center" />
         </div>
 
-        {/* Action buttons */}
-        <div className="flex gap-2 mb-3">
+        {/* Action buttons - more compact on mobile */}
+        <div className="flex gap-1.5 sm:gap-2 mb-2 sm:mb-3">
           {/* Favorite button */}
           <button
             onClick={handleFavorite}
             disabled={!isAuthenticated || isFavoriting}
-            className={`flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex items-center justify-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
               favorited
                 ? 'bg-gold-100 text-gold-700 hover:bg-gold-200'
                 : isAuthenticated
@@ -272,7 +275,7 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
             }`}
             title={!isAuthenticated ? 'Sign in to save' : favorited ? 'Remove from favorites' : 'Save to favorites'}
           >
-            <svg className="w-4 h-4" fill={favorited ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill={favorited ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
             </svg>
           </button>
@@ -281,7 +284,7 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
           <button
             onClick={handleLike}
             disabled={!isAuthenticated || isLiking}
-            className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
               optimisticLiked
                 ? 'bg-burgundy-100 text-burgundy-700 hover:bg-burgundy-200'
                 : isAuthenticated
@@ -290,17 +293,17 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
             } ${hasError ? 'ring-2 ring-red-500' : ''}`}
             title={!isAuthenticated ? 'Sign in to like' : optimisticLiked ? 'Unlike this display' : 'Like this display'}
           >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
             </svg>
-            {isLiking ? '...' : optimisticLiked ? 'Unlike' : 'Like'}
+            <span className="hidden sm:inline">{isLiking ? '...' : optimisticLiked ? 'Unlike' : 'Like'}</span>
           </button>
 
           {/* Report button */}
           <button
             onClick={handleReportClick}
             disabled={!isAuthenticated || isReporting || reported}
-            className={`flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex items-center justify-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
               reported
                 ? 'bg-gray-100 text-gray-500 cursor-default'
                 : isAuthenticated
@@ -309,10 +312,10 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
             }`}
             title={!isAuthenticated ? 'Sign in to report' : reported ? 'Reported' : 'Report an issue'}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            {reported ? 'Reported' : isReporting ? '...' : 'Report'}
+            <span className="hidden sm:inline">{reported ? 'Reported' : isReporting ? '...' : 'Report'}</span>
           </button>
         </div>
 
@@ -324,17 +327,17 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
           locationAddress={getShortAddress(location.address)}
         />
 
-        {/* Sign in prompt */}
+        {/* Sign in prompt - hide on mobile with photo */}
         {!isAuthenticated && (
-          <p className="text-xs text-gray-500 mb-3 text-center">
+          <p className={`text-xs text-gray-500 mb-2 sm:mb-3 text-center ${hasPhoto ? 'hidden sm:block' : ''}`}>
             <a href="/login" className="text-burgundy-600 hover:underline">Sign in</a> to like or report
           </p>
         )}
 
-        {/* View Details Link - use anchor tag for navigation from popup */}
+        {/* View Details Link - more compact on mobile */}
         <a
           href={`/location/${location.id}`}
-          className="inline-block w-full text-center px-4 py-2 bg-burgundy-600 text-white rounded-lg font-medium hover:bg-burgundy-700 transition-colors"
+          className="inline-block w-full text-center px-3 sm:px-4 py-1.5 sm:py-2 bg-burgundy-600 text-white rounded-lg text-sm sm:text-base font-medium hover:bg-burgundy-700 transition-colors"
         >
           View Details
         </a>
