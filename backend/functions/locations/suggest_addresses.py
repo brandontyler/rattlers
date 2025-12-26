@@ -19,22 +19,72 @@ except ImportError:
     GEOPY_AVAILABLE = False
 
 
-def geocode_with_retry(geocoder, query: str, max_retries: int = 2) -> list:
+def geocode_with_retry(geocoder, query: str, max_retries: int = 2, structured: bool = False) -> list:
     """Attempt geocoding with retries on timeout."""
     for attempt in range(max_retries + 1):
         try:
-            return geocoder.geocode(
-                query,
-                exactly_one=False,
-                limit=5,
-                addressdetails=True
-            )
+            if structured:
+                # Try structured query for better accuracy
+                return geocoder.geocode(
+                    query,
+                    exactly_one=False,
+                    limit=5,
+                    addressdetails=True,
+                    featuretype='building'  # Prefer building-level results
+                )
+            else:
+                return geocoder.geocode(
+                    query,
+                    exactly_one=False,
+                    limit=5,
+                    addressdetails=True
+                )
         except GeocoderTimedOut:
             if attempt < max_retries:
                 time.sleep(0.5)  # Brief pause before retry
                 continue
             raise
     return None
+
+
+def format_address_for_display(location) -> str:
+    """Format address properly from Nominatim response.
+
+    Ensures we get a complete address with street number, street name, city, state.
+    """
+    raw = location.raw.get('address', {})
+
+    # Build address from components
+    parts = []
+
+    # House number and street
+    house_number = raw.get('house_number', '')
+    road = raw.get('road', raw.get('street', ''))
+
+    if house_number and road:
+        parts.append(f"{house_number} {road}")
+    elif road:
+        parts.append(road)
+    elif location.address:
+        # Fallback to first part of full address
+        first_part = location.address.split(',')[0].strip()
+        parts.append(first_part)
+
+    # City
+    city = raw.get('city', raw.get('town', raw.get('village', raw.get('municipality', ''))))
+    if city:
+        parts.append(city)
+
+    # State
+    state = raw.get('state', '')
+    if state:
+        parts.append(state)
+
+    # If we couldn't build a proper address, use the original
+    if not parts or (len(parts) == 1 and not house_number):
+        return location.address
+
+    return ', '.join(parts)
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -89,21 +139,35 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         suggestions = []
 
         try:
-            locations = geocode_with_retry(geocoder, search_query)
+            # First try with building featuretype for better house-level accuracy
+            locations = geocode_with_retry(geocoder, search_query, structured=True)
+
+            # If no building-level results, fall back to regular search
+            if not locations:
+                locations = geocode_with_retry(geocoder, search_query, structured=False)
 
             if locations:
+                seen_coords = set()  # Avoid duplicate coordinates
                 for location in locations:
-                    address = location.address
                     lat = location.latitude
                     lng = location.longitude
 
+                    # Round to 5 decimal places for deduplication (~1m accuracy)
+                    coord_key = (round(lat, 5), round(lng, 5))
+                    if coord_key in seen_coords:
+                        continue
+                    seen_coords.add(coord_key)
+
                     # North Texas bounds
                     if 31.5 <= lat <= 34.2 and -98.5 <= lng <= -95.5:
+                        # Use improved address formatting
+                        formatted_address = format_address_for_display(location)
+
                         suggestions.append({
-                            "address": address,
+                            "address": formatted_address,
                             "lat": lat,
                             "lng": lng,
-                            "displayName": address,
+                            "displayName": formatted_address,
                         })
 
         except GeocoderTimedOut:
