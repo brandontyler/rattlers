@@ -157,13 +157,13 @@ export default function DuplicateLocationModal({
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row gap-3">
-            <Link to={`/locations/${location.id}`} className="flex-1">
+            <Link to={`/location/${location.id}`} className="flex-1">
               <Button variant="secondary" fullWidth onClick={onClose}>
                 View Location
               </Button>
             </Link>
             <Link
-              to={`/locations/${location.id}`}
+              to={`/location/${location.id}`}
               state={{ openAddPhoto: true }}
               className="flex-1"
             >
