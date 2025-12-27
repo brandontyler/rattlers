@@ -417,10 +417,9 @@ def update_suggestion_tags(suggestion_id: str, photo_key: str, analysis: dict):
                 update_expr += ", displayQuality = :quality"
                 expr_values[":quality"] = new_quality
 
-        # Flag if not a Christmas display
-        if not analysis.get("is_christmas_display"):
-            update_expr += ", flaggedForReview = :flagged"
-            expr_values[":flagged"] = True
+        # Set flaggedForReview based on whether it's a valid Christmas display
+        update_expr += ", flaggedForReview = :flagged"
+        expr_values[":flagged"] = not analysis.get("is_christmas_display", True)
 
         suggestions_table.update_item(
             Key={"PK": f"SUGGESTION#{suggestion_id}", "SK": "METADATA"},

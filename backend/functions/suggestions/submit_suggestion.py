@@ -242,6 +242,7 @@ def handle_photo_update(body, user_id, user_email, target_location_id):
         "submittedBy": user_id,
         "submittedByEmail": user_email,
         "createdAt": now,
+        "flaggedForReview": False,
     }
 
     table.put_item(Item=item)
@@ -376,6 +377,7 @@ def handler(event, context):
             "submittedBy": user_id,
             "submittedByEmail": user_email,
             "createdAt": now,
+            "flaggedForReview": False,
         }
 
         table.put_item(Item=item)
