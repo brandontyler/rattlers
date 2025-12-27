@@ -6,8 +6,42 @@ import {
   CognitoUserSession,
   CognitoUserAttribute,
 } from 'amazon-cognito-identity-js';
-import type { User } from '@/types';
+import type { User, AdminGroup, UserPermissions } from '@/types';
 import { apiService } from '@/services/api';
+
+// Permission group definitions (must match backend)
+const SUPER_ADMIN_GROUPS: AdminGroup[] = ['NorthPoleCouncil', 'Admins'];
+
+function computePermissions(groups: AdminGroup[]): UserPermissions {
+  const hasGroup = (allowed: AdminGroup[]) => groups.some(g => allowed.includes(g));
+
+  return {
+    canApprove: hasGroup(['NorthPoleCouncil', 'Admins', 'SantasHelpers']),
+    canEdit: hasGroup(['NorthPoleCouncil', 'Admins', 'WorkshopElves']),
+    canModerate: hasGroup(['NorthPoleCouncil', 'Admins', 'ChimneySweeps']),
+    canReject: hasGroup(['NorthPoleCouncil', 'Admins', 'SantasHelpers', 'ChimneySweeps']),
+    canDelete: hasGroup(['NorthPoleCouncil', 'Admins']),
+    canViewAdmin: hasGroup(['NorthPoleCouncil', 'Admins', 'SantasHelpers', 'WorkshopElves', 'ChimneySweeps']),
+  };
+}
+
+function createUserFromPayload(payload: Record<string, unknown>): User {
+  const rawGroups = (payload['cognito:groups'] || []) as string[];
+  const groups = rawGroups.filter((g): g is AdminGroup =>
+    ['NorthPoleCouncil', 'SantasHelpers', 'WorkshopElves', 'ChimneySweeps', 'Admins'].includes(g)
+  );
+  const permissions = computePermissions(groups);
+  const isAdmin = groups.some(g => SUPER_ADMIN_GROUPS.includes(g));
+
+  return {
+    id: payload.sub as string,
+    email: payload.email as string,
+    name: (payload.name as string) || undefined,
+    isAdmin,
+    groups,
+    permissions,
+  };
+}
 
 interface AuthContextType {
   user: User | null;
@@ -81,12 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           // Extract user info from token payload
           const payload = session.getIdToken().payload;
-          const baseUser: User = {
-            id: payload.sub,
-            email: payload.email,
-            name: payload.name || undefined,
-            isAdmin: (payload['cognito:groups'] || []).includes('Admins'),
-          };
+          const baseUser = createUserFromPayload(payload);
 
           // Fetch username from API
           const fullUser = await fetchUserProfile(baseUser);
@@ -125,12 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           // Extract user info from token payload
           const payload = session.getIdToken().payload;
-          const baseUser: User = {
-            id: payload.sub,
-            email: payload.email,
-            name: payload.name || undefined,
-            isAdmin: (payload['cognito:groups'] || []).includes('Admins'),
-          };
+          const baseUser = createUserFromPayload(payload);
 
           // Fetch username from API
           const fullUser = await fetchUserProfile(baseUser);

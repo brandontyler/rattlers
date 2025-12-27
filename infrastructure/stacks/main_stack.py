@@ -307,13 +307,50 @@ class ChristmasLightsStack(Stack):
             removal_policy=RemovalPolicy.DESTROY if self.env_name == "dev" else RemovalPolicy.RETAIN,
         )
 
-        # Create admin group
+        # Create admin group (super admin - full access)
         cognito.CfnUserPoolGroup(
             self,
             "AdminsGroup",
             user_pool_id=self.user_pool.user_pool_id,
             group_name="Admins",
-            description="Administrator users",
+            description="Legacy admin group - use NorthPoleCouncil instead",
+        )
+
+        # Christmas-themed permission groups
+        # NorthPoleCouncil - Super Admin (full access to everything)
+        cognito.CfnUserPoolGroup(
+            self,
+            "NorthPoleCouncilGroup",
+            user_pool_id=self.user_pool.user_pool_id,
+            group_name="NorthPoleCouncil",
+            description="Super admins with full access to all features",
+        )
+
+        # SantasHelpers - Can approve/reject submissions
+        cognito.CfnUserPoolGroup(
+            self,
+            "SantasHelpersGroup",
+            user_pool_id=self.user_pool.user_pool_id,
+            group_name="SantasHelpers",
+            description="Reviewers who can approve and reject location submissions",
+        )
+
+        # WorkshopElves - Can edit location details
+        cognito.CfnUserPoolGroup(
+            self,
+            "WorkshopElvesGroup",
+            user_pool_id=self.user_pool.user_pool_id,
+            group_name="WorkshopElves",
+            description="Content editors who can update location details and quality ratings",
+        )
+
+        # ChimneySweeps - Moderators who handle reports
+        cognito.CfnUserPoolGroup(
+            self,
+            "ChimneySweepsGroup",
+            user_pool_id=self.user_pool.user_pool_id,
+            group_name="ChimneySweeps",
+            description="Moderators who handle reports and can flag or reject problematic content",
         )
 
         # Create user pool client

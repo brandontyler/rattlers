@@ -96,12 +96,25 @@ export interface SuggestionRequest {
 }
 
 // User types
+export type AdminGroup = 'NorthPoleCouncil' | 'SantasHelpers' | 'WorkshopElves' | 'ChimneySweeps' | 'Admins';
+
+export interface UserPermissions {
+  canApprove: boolean;    // Can approve/reject submissions
+  canEdit: boolean;       // Can edit location details
+  canModerate: boolean;   // Can handle reports
+  canReject: boolean;     // Can reject content
+  canDelete: boolean;     // Can delete permanently
+  canViewAdmin: boolean;  // Can access admin dashboard
+}
+
 export interface User {
   id: string;
   email: string;
   username?: string;
   name?: string;
   isAdmin: boolean;
+  groups: AdminGroup[];
+  permissions: UserPermissions;
   createdAt?: string;
 }
 
@@ -111,6 +124,8 @@ export interface UserProfile {
   username?: string;
   name?: string;
   isAdmin: boolean;
+  groups?: AdminGroup[];
+  permissions?: UserPermissions;
   joinDate: string;
   stats: {
     totalSubmissions: number;
