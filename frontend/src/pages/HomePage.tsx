@@ -205,13 +205,12 @@ export default function HomePage() {
             )}
 
             {/* Active filters indicator */}
-            {(searchQuery || categoryFilter || qualityFilter || showFavoritesOnly) && (
+            {(searchQuery || qualityFilter || showFavoritesOnly) && (
               <div className="mt-4 flex items-center gap-2 text-sm text-forest-600">
                 <span>Showing {filteredLocations.length} of {showFavoritesOnly ? favorites.length : locations.length} displays</span>
                 <button
                   onClick={() => {
                     setSearchQuery('');
-                    setCategoryFilter('');
                     setQualityFilter('');
                     setShowFavoritesOnly(false);
                   }}

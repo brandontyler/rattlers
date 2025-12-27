@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatDuration, formatDistance } from '@/utils/routeUtils';
 import RouteStopCard from './RouteStopCard';
 import SaveRouteModal from './SaveRouteModal';
+import NavigationMenu from './NavigationMenu';
 import { Button } from '@/components/ui';
 import { useNavigate } from 'react-router-dom';
 import type { SavedRoute } from '@/types';
@@ -181,6 +182,11 @@ export default function RoutePanel() {
             >
               Clear All
             </button>
+          </div>
+
+          {/* Navigation button - full width */}
+          <div className="mb-2">
+            <NavigationMenu stops={stops} disabled={stops.length === 0} />
           </div>
 
           <div className="flex gap-2">

@@ -161,6 +161,28 @@ def generate_google_maps_url(stops: list) -> str:
     return f"https://www.google.com/maps/dir/?api=1&origin={origin}&destination={destination}"
 
 
+def generate_apple_maps_url(stop: dict, prev_stop: dict = None) -> str:
+    """
+    Generate Apple Maps URL for a single destination.
+    Note: Apple Maps URL scheme does NOT support multiple waypoints.
+    Users navigate stop-by-stop.
+    """
+    url = f"https://maps.apple.com/?daddr={stop['lat']},{stop['lng']}"
+    if prev_stop:
+        url += f"&saddr={prev_stop['lat']},{prev_stop['lng']}"
+    url += "&dirflg=d"  # Driving mode
+    return url
+
+
+def generate_waze_url(stop: dict) -> str:
+    """
+    Generate Waze deep link URL for a single destination.
+    Note: Waze deep links do NOT support multiple waypoints.
+    Users navigate stop-by-stop.
+    """
+    return f"https://waze.com/ul?ll={stop['lat']},{stop['lng']}&navigate=yes"
+
+
 def chunk_stops_for_google_maps(stops: list, max_waypoints: int = 10) -> list:
     if len(stops) <= max_waypoints + 2:
         return [stops]
@@ -244,74 +266,105 @@ def create_pdf(stops: list) -> bytes:
         except Exception as e:
             print(f"Map image failed: {e}")
 
-    # === QR CODE SECTION ===
+    # === NAVIGATION SECTION ===
     route_chunks = chunk_stops_for_google_maps(stops)
-    
-    story.append(Paragraph("Open in Google Maps", section_style))
+
+    story.append(Paragraph("Start Navigation", section_style))
     story.append(HRFlowable(width="100%", thickness=1, color=LIGHT_GRAY, spaceAfter=10))
-    
+
+    # Google Maps - supports full multi-stop route
+    google_maps_url = generate_google_maps_url(stops)
+
+    # Apple Maps and Waze - navigate to first stop (they don't support multi-stop via URL)
+    apple_maps_url = generate_apple_maps_url(stops[0])
+    waze_url = generate_waze_url(stops[0])
+
     if len(route_chunks) == 1:
-        maps_url = generate_google_maps_url(stops)
         try:
-            qr_img = Image(generate_qr_code(maps_url), width=1.3*inch, height=1.3*inch)
-            
-            # Make QR code clickable by wrapping in a link
-            qr_with_link = Paragraph(
-                f'<a href="{maps_url}" color="#15803d"><u>Open route in Google Maps →</u></a>',
-                ParagraphStyle("link", fontSize=10, textColor=DARK_GREEN, alignment=TA_LEFT)
-            )
-            
+            qr_img = Image(generate_qr_code(google_maps_url), width=1.2*inch, height=1.2*inch)
+
+            # Navigation app links
+            nav_links_style = ParagraphStyle("navlink", fontSize=10, textColor=DARK_GREEN, leading=16)
+
+            nav_content = Table([
+                [Paragraph("<b>Google Maps</b> (Full Route)",
+                          ParagraphStyle("navheader", fontSize=11, textColor=CHARCOAL, fontName="Helvetica-Bold"))],
+                [Paragraph(f'<a href="{google_maps_url}" color="#15803d"><u>Open full route with all {len(stops)} stops →</u></a>', nav_links_style)],
+                [Spacer(1, 8)],
+                [Paragraph("<b>Apple Maps / Waze</b> (Stop-by-Stop)",
+                          ParagraphStyle("navheader2", fontSize=10, textColor=CHARCOAL, fontName="Helvetica-Bold"))],
+                [Paragraph(
+                    f'<a href="{apple_maps_url}" color="#15803d"><u>Apple Maps</u></a>  ·  '
+                    f'<a href="{waze_url}" color="#15803d"><u>Waze</u></a>  '
+                    '<font color="#6b7280" size="8">(navigate to 1st stop)</font>',
+                    nav_links_style
+                )],
+            ], colWidths=[4.2*inch])
+
             qr_table = Table([
-                [qr_img, 
-                 Table([
-                     [Paragraph("Scan with your phone camera", ParagraphStyle("qr", fontSize=11, textColor=CHARCOAL, fontName="Helvetica-Bold"))],
-                     [Paragraph("or", small_style)],
-                     [qr_with_link],
-                 ], colWidths=[4*inch])
-                ]
-            ], colWidths=[1.6*inch, 4.5*inch])
+                [qr_img, nav_content]
+            ], colWidths=[1.5*inch, 4.7*inch])
             qr_table.setStyle(TableStyle([
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('LEFTPADDING', (1, 0), (1, 0), 16),
             ]))
             story.append(qr_table)
+
+            # Add note about Apple Maps and Waze limitations
+            story.append(Spacer(1, 8))
+            story.append(Paragraph(
+                '<font color="#6b7280" size="8"><b>Note:</b> Apple Maps and Waze do not support multi-stop routes via links. '
+                'Use Google Maps for the full route, or navigate to each stop individually with Apple Maps/Waze.</font>',
+                small_style
+            ))
+
         except Exception as e:
             print(f"QR generation failed: {e}")
-            story.append(Paragraph(f'<a href="{maps_url}">Open in Google Maps</a>', body_style))
+            story.append(Paragraph(f'<a href="{google_maps_url}">Open in Google Maps</a>', body_style))
     else:
         story.append(Paragraph(
-            f"Your route has {len(stops)} stops and is split into {len(route_chunks)} parts for Google Maps navigation.",
+            f"Your route has {len(stops)} stops and is split into {len(route_chunks)} parts for Google Maps.",
             small_style
         ))
         story.append(Spacer(1, 8))
-        
+
         qr_cells = []
         for i, chunk in enumerate(route_chunks):
             maps_url = generate_google_maps_url(chunk)
             start_idx = sum(len(route_chunks[j]) - 1 for j in range(i)) + 1
             end_idx = start_idx + len(chunk) - 1
-            
+
             try:
                 qr_img = Image(generate_qr_code(maps_url), width=1.1*inch, height=1.1*inch)
                 cell_content = Table([
                     [qr_img],
-                    [Paragraph(f'<b>Part {i+1}</b><br/><font size="8">Stops {start_idx}–{end_idx}</font>', 
+                    [Paragraph(f'<b>Part {i+1}</b><br/><font size="8">Stops {start_idx}–{end_idx}</font>',
                                ParagraphStyle("qrlabel", fontSize=9, alignment=TA_CENTER, textColor=CHARCOAL, leading=11))]
                 ])
                 qr_cells.append(cell_content)
             except:
                 qr_cells.append(Paragraph(f"Part {i+1}", small_style))
-        
+
         col_width = 6.6 * inch / min(len(qr_cells), 4)
         qr_row = Table([qr_cells[:4]], colWidths=[col_width] * min(len(qr_cells), 4))
         qr_row.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
         story.append(qr_row)
-        
+
         if len(qr_cells) > 4:
             story.append(Spacer(1, 8))
             qr_row2 = Table([qr_cells[4:]], colWidths=[col_width] * len(qr_cells[4:]))
             qr_row2.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
             story.append(qr_row2)
+
+        # Add alternative nav apps for multi-part routes too
+        story.append(Spacer(1, 10))
+        story.append(Paragraph(
+            f'<b>Alternative Apps:</b> '
+            f'<a href="{apple_maps_url}" color="#15803d"><u>Apple Maps</u></a> · '
+            f'<a href="{waze_url}" color="#15803d"><u>Waze</u></a> '
+            '<font color="#6b7280" size="8">(navigate stop-by-stop)</font>',
+            ParagraphStyle("altapps", fontSize=9, textColor=CHARCOAL)
+        ))
 
     story.append(Spacer(1, 16))
 
