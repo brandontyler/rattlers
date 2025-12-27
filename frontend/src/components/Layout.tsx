@@ -115,7 +115,7 @@ export default function Layout() {
                         </svg>
                         Profile
                       </Link>
-                      {user?.isAdmin && (
+                      {user?.permissions?.canViewAdmin && (
                         <Link
                           to="/admin"
                           className="flex items-center gap-2 px-4 py-2 text-forest-700 hover:bg-cream-50 transition-colors"
@@ -239,7 +239,7 @@ export default function Layout() {
                       >
                         👤 Profile
                       </Link>
-                      {user?.isAdmin && (
+                      {user?.permissions?.canViewAdmin && (
                         <Link
                           to="/admin"
                           className="block text-cream-100 hover:text-gold-300 hover:bg-cream-50/10 transition-colors font-medium py-3 px-2 rounded-lg"

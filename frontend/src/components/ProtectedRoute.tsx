@@ -22,7 +22,7 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
-  if (requireAdmin && !user?.isAdmin) {
+  if (requireAdmin && !user?.permissions?.canViewAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="card max-w-md text-center">
