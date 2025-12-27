@@ -279,7 +279,7 @@ function ContributorsLeaderboard({
             <div className="text-3xl font-bold text-forest-900">
               {contributors.reduce((sum, e) => sum + e.approvedSubmissions, 0)}
             </div>
-            <div className="text-sm text-forest-600">Total Submissions</div>
+            <div className="text-sm text-forest-600">Approved Locations</div>
           </div>
           <div>
             <div className="text-3xl font-bold text-forest-900">
@@ -302,7 +302,7 @@ function ContributorsLeaderboard({
           <div className="col-span-1 text-center">Rank</div>
           <div className="col-span-4">Contributor</div>
           <div className="col-span-3 text-center">Badge</div>
-          <div className="col-span-2 text-center">Submissions</div>
+          <div className="col-span-2 text-center">Approved Locations</div>
           <div className="col-span-2 text-center">Member Since</div>
         </div>
 
@@ -328,10 +328,15 @@ function ContributorsLeaderboard({
                 <div className="w-10 h-10 rounded-full bg-forest-100 flex items-center justify-center text-forest-600 font-semibold">
                   {entry.username.charAt(0).toUpperCase()}
                 </div>
-                <div>
+                <div className="flex-1">
                   <div className="font-semibold text-forest-900">{entry.username}</div>
-                  <div className="text-xs text-forest-500 md:hidden">
-                    {entry.approvedSubmissions} submissions
+                  {/* Mobile: Show approved count prominently */}
+                  <div className="flex items-center gap-1 text-sm text-burgundy-600 font-medium md:hidden">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    {entry.approvedSubmissions} approved location{entry.approvedSubmissions !== 1 ? 's' : ''}
                   </div>
                 </div>
               </div>
