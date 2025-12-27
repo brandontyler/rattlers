@@ -443,8 +443,8 @@ export default function LocationDetailPage() {
                 )}
               </Card>
 
-              {/* Decorations & Features */}
-              {(location.decorations?.length || location.categories?.length || location.theme || location.displayQuality) && (
+              {/* Featured Items & Display Quality */}
+              {(location.decorations?.length || location.displayQuality) && (
                 <Card>
                   <h2 className="font-display text-2xl font-semibold text-forest-900 mb-4">
                     What You'll See
@@ -465,19 +465,9 @@ export default function LocationDetailPage() {
                     </div>
                   )}
 
-                  {/* Theme */}
-                  {location.theme && location.theme !== 'traditional' && (
-                    <div className="mb-4">
-                      <h3 className="text-sm font-medium text-forest-600 mb-2">Theme</h3>
-                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-gold-100 text-gold-800 font-medium">
-                        🎭 {location.theme}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Decorations (specific items) */}
+                  {/* Featured Items */}
                   {location.decorations && location.decorations.length > 0 && (
-                    <div className="mb-4">
+                    <div>
                       <h3 className="text-sm font-medium text-forest-600 mb-2">Featured Items</h3>
                       <div className="flex flex-wrap gap-2">
                         {location.decorations.map((item, index) => (
@@ -486,23 +476,6 @@ export default function LocationDetailPage() {
                             className="inline-flex items-center px-3 py-1 rounded-full bg-cream-100 text-forest-700 text-sm border border-forest-200"
                           >
                             {item}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Categories (broad types) */}
-                  {location.categories && location.categories.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-medium text-forest-600 mb-2">Categories</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {location.categories.map((category, index) => (
-                          <span
-                            key={index}
-                            className="inline-flex items-center px-3 py-1 rounded-full bg-burgundy-50 text-burgundy-700 text-sm"
-                          >
-                            {category}
                           </span>
                         ))}
                       </div>

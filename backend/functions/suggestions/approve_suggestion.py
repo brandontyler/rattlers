@@ -104,12 +104,6 @@ def handle_photo_update_approval(suggestion, admin_id, now):
     if suggestion.get("detectedTags"):
         update_expression += ", decorations = :decorations"
         expression_values[":decorations"] = suggestion["detectedTags"]
-    if suggestion.get("categories"):
-        update_expression += ", categories = :categories"
-        expression_values[":categories"] = suggestion["categories"]
-    if suggestion.get("theme"):
-        update_expression += ", theme = :theme"
-        expression_values[":theme"] = suggestion["theme"]
     if suggestion.get("aiDescription"):
         update_expression += ", aiDescription = :aiDescription"
         expression_values[":aiDescription"] = suggestion["aiDescription"]
@@ -273,10 +267,6 @@ def handler(event, context):
         # Copy AI-generated fields from suggestion if they exist
         if suggestion.get("detectedTags"):
             location_item["decorations"] = suggestion["detectedTags"]
-        if suggestion.get("categories"):
-            location_item["categories"] = suggestion["categories"]
-        if suggestion.get("theme"):
-            location_item["theme"] = suggestion["theme"]
         if suggestion.get("aiDescription"):
             location_item["aiDescription"] = suggestion["aiDescription"]
         if suggestion.get("displayQuality"):

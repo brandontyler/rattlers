@@ -16,8 +16,6 @@ interface Suggestion {
   submittedByEmail?: string;
   createdAt: string;
   detectedTags?: string[];
-  categories?: string[];
-  theme?: string;
   aiDescription?: string;
   displayQuality?: 'minimal' | 'moderate' | 'impressive' | 'spectacular';
   flaggedForReview?: boolean;
@@ -32,8 +30,6 @@ interface Location {
   description?: string;
   aiDescription?: string;
   decorations?: string[];
-  categories?: string[];
-  theme?: string;
   displayQuality?: 'minimal' | 'moderate' | 'impressive' | 'spectacular';
   likeCount?: number;
   viewCount?: number;

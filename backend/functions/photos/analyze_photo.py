@@ -16,23 +16,6 @@ dynamodb = boto3.resource("dynamodb")
 
 suggestions_table = dynamodb.Table(os.environ.get("SUGGESTIONS_TABLE_NAME", "christmas-lights-suggestions-dev"))
 
-# Categories for filtering (broad groupings)
-DECORATION_CATEGORIES = [
-    "string lights",
-    "inflatables",
-    "blow molds",
-    "yard figures",
-    "wooden cutouts",
-    "metal silhouettes",
-    "nativity",
-    "animated",
-    "music synchronized",
-    "projections",
-    "themed display",
-    "traditional",
-    "wreaths and garland",
-]
-
 # Tool definition for structured output
 ANALYSIS_TOOL = {
     "name": "record_photo_analysis",
@@ -40,36 +23,27 @@ ANALYSIS_TOOL = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "decorations": {
+            "featured_items": {
                 "type": "array",
                 "items": {"type": "string"},
                 "maxItems": 8,
-                "description": "List 5-8 MAIN decorations only. Group similar items (e.g., 'wooden cutout figures' not separate entries for each). No duplicates or variations.",
-            },
-            "categories": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "Broad categories for filtering: string lights, inflatables, blow molds, yard figures, wooden cutouts, metal silhouettes, nativity, animated, music synchronized, projections, themed display, traditional, wreaths and garland",
-            },
-            "theme": {
-                "type": "string",
-                "description": "If display has a clear theme, name it (e.g., 'Grinch', 'Star Wars', 'Disney', 'Peanuts', 'Nightmare Before Christmas', 'Frozen'). Use 'traditional' for classic Christmas or null if no clear theme.",
+                "description": "List 5-8 featured items visitors will see at this display. Be specific and descriptive.",
             },
             "description": {
                 "type": "string",
-                "description": "One natural sentence summarizing the display highlights. Example: 'Elaborate wooden cutout display featuring a gingerbread house archway, Peanuts characters, and nativity scene with multicolor lights throughout.'",
+                "description": "One natural sentence summarizing what makes this display special.",
             },
             "display_quality": {
                 "type": "string",
                 "enum": ["minimal", "moderate", "impressive", "spectacular"],
-                "description": "Overall quality/scale: minimal (few items), moderate (good effort), impressive (stands out), spectacular (must-see destination)",
+                "description": "Overall display quality based on scale, variety, and visual impact",
             },
             "is_christmas_display": {
                 "type": "boolean",
                 "description": "Whether this photo shows a legitimate Christmas/holiday light display",
             },
         },
-        "required": ["decorations", "categories", "description", "display_quality", "is_christmas_display"],
+        "required": ["featured_items", "description", "display_quality", "is_christmas_display"],
     },
 }
 
@@ -223,24 +197,20 @@ def analyze_photo(bucket: str, key: str) -> dict:
     image_format = format_map.get(content_type, "jpeg")
 
     # Build the prompt
-    prompt_text = f"""Analyze this Christmas display photo.
+    prompt_text = """Analyze this Christmas display photo.
 
-**DECORATIONS** - List 5-8 MAIN items only. STRICT MAXIMUM OF 8.
-- Group similar items: "wooden cutout figures" NOT separate entries for snowman, Santa, reindeer
-- One entry per category: "candy cane decorations" NOT path markers + lights + house facade
-- Focus on standout/unique items, not every single decoration
-- GOOD: "gingerbread house archway", "Peanuts character cutouts", "nativity scene", "Santa sleigh", "multicolor string lights"
-- BAD: Listing 20+ individual items
+**FEATURED ITEMS** - List 5-8 things visitors will see at this display.
+- Be specific: "giant Grinch inflatable" not just "inflatable"
+- Include notable items: inflatables, light displays, yard decorations, animated figures
+- Focus on what makes this display interesting
 
-**CATEGORIES** - Select from: {', '.join(DECORATION_CATEGORIES)}
+**DESCRIPTION** - One sentence describing what makes this display special.
 
-**THEME** - Only if clearly themed (Grinch, Peanuts, etc). Otherwise null.
-
-**DESCRIPTION** - One natural sentence highlighting 3-4 main features. NOT a list of all items.
-- GOOD: "Elaborate wooden cutout display featuring a gingerbread house archway, Peanuts characters, and nativity scene with multicolor lights."
-- BAD: "Display features item1, item2, item3, item4, item5, item6, item7..."
-
-**QUALITY** - minimal/moderate/impressive/spectacular
+**DISPLAY QUALITY** - Rate based on these criteria:
+- minimal: Basic lights or a few simple decorations
+- moderate: Nice effort with multiple decoration types, above average for the neighborhood
+- impressive: Stands out significantly, worth driving to see, lots of variety and scale
+- spectacular: Destination-worthy, exceptional scale/creativity, the kind people post about online
 
 Use the record_photo_analysis tool."""
 
@@ -305,7 +275,7 @@ Use the record_photo_analysis tool."""
                     if tool_use.get("name") == "record_photo_analysis":
                         return tool_use.get("input", {})
 
-            return {"decorations": [], "categories": [], "theme": None, "description": "", "display_quality": "moderate", "is_christmas_display": True}
+            return {"featured_items": [], "description": "", "display_quality": "moderate", "is_christmas_display": True}
 
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
@@ -317,7 +287,7 @@ Use the record_photo_analysis tool."""
                 continue
             raise
 
-    return {"decorations": [], "categories": [], "theme": None, "description": "", "display_quality": "moderate", "is_christmas_display": True}
+    return {"featured_items": [], "description": "", "display_quality": "moderate", "is_christmas_display": True}
 
 
 def deduplicate_tags_semantically(tags: list[str]) -> list[str]:
@@ -400,7 +370,7 @@ def deduplicate_tags_semantically(tags: list[str]) -> list[str]:
 
 
 def update_suggestion_tags(suggestion_id: str, photo_key: str, analysis: dict):
-    """Update suggestion record with photo analysis tags, categories, and theme."""
+    """Update suggestion record with photo analysis - featured items, description, quality."""
 
     try:
         # Get current suggestion
@@ -413,37 +383,25 @@ def update_suggestion_tags(suggestion_id: str, photo_key: str, analysis: dict):
             print(f"Suggestion {suggestion_id} not found")
             return
 
-        # Merge new tags with existing (specific items like "Grinch inflatable")
-        existing_tags = set(suggestion.get("detectedTags", []))
-        new_tags = set(analysis.get("decorations", []))
-        merged_tags = list(existing_tags | new_tags)
+        # Merge new featured items with existing
+        existing_items = set(suggestion.get("detectedTags", []))
+        new_items = set(analysis.get("featured_items", []))
+        merged_items = list(existing_items | new_items)
 
         # Apply semantic deduplication to remove redundant variations
-        merged_tags = deduplicate_tags_semantically(merged_tags)
-        
-        # Hard cap at 10 tags to keep UI clean
-        if len(merged_tags) > 10:
-            merged_tags = merged_tags[:10]
+        merged_items = deduplicate_tags_semantically(merged_items)
 
-        # Merge categories with existing (broad categories for filtering)
-        existing_categories = set(suggestion.get("categories", []))
-        new_categories = set(analysis.get("categories", []))
-        merged_categories = list(existing_categories | new_categories)
+        # Hard cap at 10 items to keep UI clean
+        if len(merged_items) > 10:
+            merged_items = merged_items[:10]
 
         # Build update expression
-        update_expr = "SET detectedTags = :tags, categories = :categories"
+        update_expr = "SET detectedTags = :tags"
         expr_values = {
-            ":tags": merged_tags,
-            ":categories": merged_categories,
+            ":tags": merged_items,
         }
 
-        # Add theme if detected and not already set
-        theme = analysis.get("theme")
-        if theme and not suggestion.get("theme"):
-            update_expr += ", theme = :theme"
-            expr_values[":theme"] = theme
-
-        # Use AI-generated description directly (not generated from tags)
+        # Use AI-generated description directly
         if analysis.get("is_christmas_display"):
             ai_description = analysis.get("description", "")
             if ai_description and (not suggestion.get("aiDescription") or len(ai_description) > len(suggestion.get("aiDescription", ""))):
@@ -471,9 +429,8 @@ def update_suggestion_tags(suggestion_id: str, photo_key: str, analysis: dict):
         )
 
         print(f"Updated suggestion {suggestion_id}:")
-        print(f"  - Tags (specific): {merged_tags}")
-        print(f"  - Categories: {merged_categories}")
-        print(f"  - Theme: {theme}")
+        print(f"  - Featured items: {merged_items}")
+        print(f"  - Quality: {analysis.get('display_quality')}")
 
     except ClientError as e:
         print(f"DynamoDB error updating {suggestion_id}: {e}")
