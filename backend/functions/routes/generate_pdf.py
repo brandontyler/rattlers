@@ -327,12 +327,12 @@ def create_pdf(stops: list) -> bytes:
             address = address[:57] + "..."
         
         # Stop number circle + address
-        num_style = ParagraphStyle("num", fontSize=12, textColor=colors.white, alignment=TA_CENTER, fontName="Helvetica-Bold")
-        
-        # Create a colored circle with number
+        num_style = ParagraphStyle("num", fontSize=11, textColor=colors.white, alignment=TA_CENTER, fontName="Helvetica-Bold")
+
+        # Create a colored circle with number - sized for double digits
         num_table = Table(
             [[Paragraph(str(i + 1), num_style)]],
-            colWidths=[0.32*inch],
+            colWidths=[0.38*inch],
             rowHeights=[0.32*inch]
         )
         num_table.setStyle(TableStyle([
@@ -340,6 +340,8 @@ def create_pdf(stops: list) -> bytes:
             ('ALIGN', (0, 0), (0, 0), 'CENTER'),
             ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
             ('ROUNDEDCORNERS', [6, 6, 6, 6]),
+            ('LEFTPADDING', (0, 0), (0, 0), 0),
+            ('RIGHTPADDING', (0, 0), (0, 0), 0),
         ]))
         
         # Rating stars
@@ -354,7 +356,7 @@ def create_pdf(stops: list) -> bytes:
             ParagraphStyle("addr", fontSize=10, textColor=CHARCOAL, leading=13)
         )
         
-        row = Table([[num_table, addr_para]], colWidths=[0.5*inch, 6.1*inch])
+        row = Table([[num_table, addr_para]], colWidths=[0.55*inch, 6.05*inch])
         row.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('LEFTPADDING', (1, 0), (1, 0), 10),
