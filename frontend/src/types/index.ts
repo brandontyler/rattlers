@@ -18,9 +18,7 @@ export interface Location {
   createdByUsername?: string;
   source?: 'google-maps-import' | 'user-submission' | 'bot-scraper' | 'admin-created';
   // AI-generated fields
-  decorations?: string[];  // Specific items like "Grinch inflatable", "nativity scene"
-  categories?: string[];   // Broad categories like "inflatables", "string lights"
-  theme?: string;          // Display theme like "Grinch", "Star Wars", "traditional"
+  decorations?: string[];  // Featured items visitors will see at this display
   aiDescription?: string;  // AI-generated description
   displayQuality?: 'minimal' | 'moderate' | 'impressive' | 'spectacular';
 }

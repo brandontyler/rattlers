@@ -23,8 +23,6 @@ ALLOWED_UPDATE_FIELDS = {
     "description",
     "aiDescription",
     "decorations",
-    "categories",
-    "theme",
     "displayQuality",
     "status",
 }

@@ -8,28 +8,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api';
 import type { Location } from '@/types';
 
-// Decoration categories for filtering
-const DECORATION_CATEGORIES = [
-  'string lights',
-  'inflatables',
-  'blow molds',
-  'yard figures',
-  'wooden cutouts',
-  'metal silhouettes',
-  'nativity',
-  'animated',
-  'music synchronized',
-  'projections',
-  'themed display',
-  'traditional',
-  'wreaths and garland',
-];
-
 export default function HomePage() {
   const { data: locations = [], isLoading: loading } = useLocations();
   const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
   const [qualityFilter, setQualityFilter] = useState('');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [favorites, setFavorites] = useState<Location[]>([]);
@@ -68,15 +50,8 @@ export default function HomePage() {
           loc.address.toLowerCase().includes(query) ||
           (loc.description || '').toLowerCase().includes(query) ||
           (loc.aiDescription || '').toLowerCase().includes(query) ||
-          (loc.decorations || []).some((d) => d.toLowerCase().includes(query)) ||
-          (loc.categories || []).some((c) => c.toLowerCase().includes(query)) ||
-          (loc.theme || '').toLowerCase().includes(query);
+          (loc.decorations || []).some((d) => d.toLowerCase().includes(query));
         if (!matchesSearch) return false;
-      }
-
-      // Category filter
-      if (categoryFilter) {
-        if (!(loc.categories || []).includes(categoryFilter)) return false;
       }
 
       // Quality filter
@@ -86,7 +61,7 @@ export default function HomePage() {
 
       return true;
     });
-  }, [locations, favorites, showFavoritesOnly, searchQuery, categoryFilter, qualityFilter]);
+  }, [locations, favorites, showFavoritesOnly, searchQuery, qualityFilter]);
 
   return (
     <div className="animate-fade-in">
@@ -179,31 +154,19 @@ export default function HomePage() {
               Find Your Perfect Display
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 type="text"
-                placeholder="Search: snowmen, nativity, Grinch..."
+                placeholder="Search by address or featured items..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
 
               <Select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-              >
-                <option value="">All Categories</option>
-                {DECORATION_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                  </option>
-                ))}
-              </Select>
-
-              <Select
                 value={qualityFilter}
                 onChange={(e) => setQualityFilter(e.target.value)}
               >
-                <option value="">All Quality Levels</option>
+                <option value="">All Display Levels</option>
                 <option value="spectacular">Spectacular (Must-see)</option>
                 <option value="impressive">Impressive</option>
                 <option value="moderate">Moderate</option>

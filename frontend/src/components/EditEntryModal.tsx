@@ -8,8 +8,6 @@ interface EditableEntry {
   // For suggestions, tags are in detectedTags; for locations, they're in decorations
   detectedTags?: string[];
   decorations?: string[];
-  categories?: string[];
-  theme?: string;
   displayQuality?: 'minimal' | 'moderate' | 'impressive' | 'spectacular';
 }
 
@@ -29,22 +27,6 @@ const DISPLAY_QUALITY_OPTIONS = [
   { value: 'spectacular', label: 'Spectacular' },
 ];
 
-const CATEGORY_OPTIONS = [
-  'string lights',
-  'inflatables',
-  'blow molds',
-  'yard figures',
-  'wooden cutouts',
-  'metal silhouettes',
-  'nativity',
-  'animated',
-  'music synchronized',
-  'projections',
-  'themed display',
-  'traditional',
-  'wreaths and garland',
-];
-
 export default function EditEntryModal({
   entry,
   isOpen,
@@ -56,8 +38,6 @@ export default function EditEntryModal({
   const [description, setDescription] = useState('');
   const [aiDescription, setAiDescription] = useState('');
   const [tags, setTags] = useState<string[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [theme, setTheme] = useState('');
   const [displayQuality, setDisplayQuality] = useState<string>('');
   const [newTag, setNewTag] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -70,8 +50,6 @@ export default function EditEntryModal({
       setAiDescription(entry.aiDescription || '');
       // Use detectedTags for suggestions, decorations for locations
       setTags(entry.detectedTags || entry.decorations || []);
-      setCategories(entry.categories || []);
-      setTheme(entry.theme || '');
       setDisplayQuality(entry.displayQuality || '');
       setNewTag('');
       setError('');
@@ -97,14 +75,6 @@ export default function EditEntryModal({
     }
   };
 
-  const handleToggleCategory = (category: string) => {
-    if (categories.includes(category)) {
-      setCategories(categories.filter(c => c !== category));
-    } else {
-      setCategories([...categories, category]);
-    }
-  };
-
   const handleSave = async () => {
     setIsSaving(true);
     setError('');
@@ -113,8 +83,6 @@ export default function EditEntryModal({
       const updates: Partial<EditableEntry> = {
         description,
         aiDescription,
-        categories,
-        theme: theme || undefined,
         displayQuality: displayQuality as EditableEntry['displayQuality'] || undefined,
       };
 
@@ -190,10 +158,10 @@ export default function EditEntryModal({
             />
           </div>
 
-          {/* Tags Section */}
+          {/* Featured Items Section */}
           <div>
             <label className="block text-sm font-medium text-forest-700 mb-2">
-              Detected Tags / Decorations
+              Featured Items
             </label>
             <div className="flex flex-wrap gap-2 mb-3">
               {tags.map((tag) => (
@@ -215,7 +183,7 @@ export default function EditEntryModal({
                 </span>
               ))}
               {tags.length === 0 && (
-                <span className="text-sm text-forest-400 italic">No tags added</span>
+                <span className="text-sm text-forest-400 italic">No items added</span>
               )}
             </div>
             <div className="flex gap-2">
@@ -223,46 +191,13 @@ export default function EditEntryModal({
                 value={newTag}
                 onChange={(e) => setNewTag(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Add a new tag..."
+                placeholder="Add a featured item..."
                 className="flex-1"
               />
               <Button type="button" variant="secondary" onClick={handleAddTag} disabled={!newTag.trim()}>
                 Add
               </Button>
             </div>
-          </div>
-
-          {/* Categories Section */}
-          <div>
-            <label className="block text-sm font-medium text-forest-700 mb-2">
-              Categories
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {CATEGORY_OPTIONS.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  onClick={() => handleToggleCategory(category)}
-                  className={`text-sm px-3 py-1.5 rounded-full transition-colors ${
-                    categories.includes(category)
-                      ? 'bg-forest-600 text-white'
-                      : 'bg-forest-100 text-forest-700 hover:bg-forest-200'
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Theme */}
-          <div>
-            <Input
-              label="Theme"
-              value={theme}
-              onChange={(e) => setTheme(e.target.value)}
-              placeholder="e.g., Grinch, Star Wars, traditional..."
-            />
           </div>
 
           {/* Display Quality */}
