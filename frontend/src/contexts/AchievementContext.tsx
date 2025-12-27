@@ -53,6 +53,19 @@ export function AchievementProvider({ children }: { children: React.ReactNode })
   const [isLoading, setIsLoading] = useState(true);
   const hasLoadedRef = useRef(false);
 
+  // Use refs to track current state for stable callbacks
+  const unlockedRef = useRef<UnlockedAchievement[]>([]);
+  const queueRef = useRef<Achievement[]>([]);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    unlockedRef.current = unlockedAchievements;
+  }, [unlockedAchievements]);
+
+  useEffect(() => {
+    queueRef.current = achievementQueue;
+  }, [achievementQueue]);
+
   // Load achievements from localStorage on mount (per user)
   useEffect(() => {
     if (!isAuthenticated || !user?.id) {
@@ -90,22 +103,29 @@ export function AchievementProvider({ children }: { children: React.ReactNode })
     }
   }, [unlockedAchievements, user?.id, isLoading]);
 
+  // Stable callback - uses ref to check current state
   const isUnlocked = useCallback((id: AchievementId): boolean => {
-    return unlockedAchievements.some(a => a.id === id);
-  }, [unlockedAchievements]);
+    return unlockedRef.current.some(a => a.id === id);
+  }, []);
 
+  // Stable callback - uses refs to prevent repeated unlocks and queue duplicates
   const unlockAchievement = useCallback((
     id: AchievementId,
     triggerData?: UnlockedAchievement['triggerData']
   ) => {
-    // Don't unlock if already unlocked
-    if (unlockedAchievements.some(a => a.id === id)) {
+    // Don't unlock if already unlocked (check ref for current state)
+    if (unlockedRef.current.some(a => a.id === id)) {
       return;
     }
 
     const achievement = ACHIEVEMENTS[id];
     if (!achievement) {
       console.warn(`Unknown achievement: ${id}`);
+      return;
+    }
+
+    // Don't add to queue if already queued (prevents duplicate toasts)
+    if (queueRef.current.some(a => a.id === id)) {
       return;
     }
 
@@ -122,15 +142,17 @@ export function AchievementProvider({ children }: { children: React.ReactNode })
     setAchievementQueue(prev => [...prev, achievement]);
 
     console.log(`Achievement unlocked: ${achievement.name}`);
-  }, [unlockedAchievements]);
+  }, []);
 
+  // Stable callback - uses functional update
   const popNextAchievement = useCallback((): Achievement | undefined => {
-    if (achievementQueue.length === 0) return undefined;
+    const current = queueRef.current;
+    if (current.length === 0) return undefined;
 
-    const next = achievementQueue[0];
+    const next = current[0];
     setAchievementQueue(prev => prev.slice(1));
     return next;
-  }, [achievementQueue]);
+  }, []);
 
   const checkAchievements = useCallback((stats: AchievementCheckStats) => {
     // First Steps
@@ -230,7 +252,7 @@ export function AchievementProvider({ children }: { children: React.ReactNode })
     if (uniqueLikers >= 10 && !isUnlocked('community-champion')) {
       unlockAchievement('community-champion');
     }
-  }, [isUnlocked, unlockAchievement]);
+  }, [isUnlocked, unlockAchievement]); // These are now stable (no deps)
 
   // Calculate total XP
   const totalXP = unlockedAchievements.reduce((sum, ua) => {
