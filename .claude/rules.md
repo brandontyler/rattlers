@@ -128,3 +128,20 @@ git push -u origin claude/my-feature-01NXjtqTW5xshBiRTfoTniJw
 - Reuse old feature branches
 - Push incomplete work
 - Create commits with only a one-line message (always add body)
+
+---
+
+## After Feature Merge
+
+**When a feature branch is merged and deleted on remote, ALWAYS:**
+
+1. **Switch to main branch:**
+   ```bash
+   git fetch --all
+   git checkout main
+   git pull origin main
+   ```
+
+2. **Forget about the old branch** - it no longer exists and should not be referenced
+
+This ensures a clean state for the next feature.
