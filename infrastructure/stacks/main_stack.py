@@ -14,7 +14,6 @@ from aws_cdk import (
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins,
     aws_iam as iam,
-    aws_location as location,
 )
 from constructs import Construct
 import os
@@ -34,8 +33,8 @@ class ChristmasLightsStack(Stack):
         # Create S3 buckets
         self.create_s3_buckets()
 
-        # Create AWS Location Service resources
-        self.create_location_service()
+        # Note: AWS Location Service V2 Places API doesn't require a Place Index
+        # The V2 Suggest and GetPlace APIs work without any pre-created resources
 
         # Create Cognito user pool
         self.create_cognito_pool()
@@ -286,22 +285,6 @@ class ChristmasLightsStack(Stack):
             auto_delete_objects=self.env_name == "dev",
         )
 
-    def create_location_service(self):
-        """Create AWS Location Service resources for address lookup."""
-
-        # Create a Place Index for address search/autocomplete
-        # Using Esri as the data provider (good coverage, free tier friendly)
-        self.place_index = location.CfnPlaceIndex(
-            self,
-            "PlaceIndex",
-            index_name=f"christmas-lights-places-{self.env_name}",
-            data_source="Esri",
-            data_source_configuration=location.CfnPlaceIndex.DataSourceConfigurationProperty(
-                intended_use="SingleUse"  # For autocomplete/suggestions (not stored)
-            ),
-            description="Place index for Christmas Lights address lookup",
-        )
-
     def create_cognito_pool(self):
         """Create Cognito user pool for authentication."""
 
@@ -550,26 +533,23 @@ class ChristmasLightsStack(Stack):
         self.locations_table.grant_read_data(self.get_favorites_fn)
         self.feedback_table.grant_read_data(self.get_favorites_fn)
 
-        # Address suggestions - AWS Location Service
-        location_env = {
-            **common_env,
-            "PLACE_INDEX_NAME": self.place_index.index_name,
-        }
+        # Address suggestions - AWS Location Service V2 Places API
+        # V2 doesn't require a Place Index - uses standalone API
         self.suggest_addresses_fn = create_ts_lambda(
             "SuggestAddressesFunction",
             "locations/suggest-addresses",
             timeout_seconds=10,
             memory_size=256,
-            environment=location_env,
         )
-        # Grant permissions to use AWS Location Service
+        # Grant permissions to use AWS Location Service V2 Places API
+        # V2 uses geo-places service with wildcard resource (no Place Index needed)
         self.suggest_addresses_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=[
-                    "geo:SearchPlaceIndexForSuggestions",
-                    "geo:GetPlace",
+                    "geo-places:Suggest",
+                    "geo-places:GetPlace",
                 ],
-                resources=[self.place_index.attr_arn],
+                resources=["*"],  # V2 Places API doesn't use specific resources
             )
         )
 

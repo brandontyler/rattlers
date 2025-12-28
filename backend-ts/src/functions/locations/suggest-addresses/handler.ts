@@ -1,23 +1,22 @@
 /**
- * Lambda function to suggest addresses using AWS Location Service.
+ * Lambda function to suggest addresses using AWS Location Service V2 Places API.
  *
  * POST /locations/suggest-addresses
  * Body: { "query": "123 Main St, Dallas" }
  *
- * Uses SearchPlaceIndexForSuggestions for real-time autocomplete.
+ * Uses the V2 Suggest API for real-time autocomplete - no Place Index required.
  */
 
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
 import {
-  LocationClient,
-  SearchPlaceIndexForSuggestionsCommand,
+  GeoPlacesClient,
+  SuggestCommand,
   GetPlaceCommand,
-} from "@aws-sdk/client-location";
+} from "@aws-sdk/client-geo-places";
 import { successResponse, badRequestError, internalError, serviceUnavailableError } from "@shared/utils/responses";
 
-// Initialize Location Service client
-const locationClient = new LocationClient({});
-const PLACE_INDEX_NAME = process.env.PLACE_INDEX_NAME || "christmas-lights-places-dev";
+// Initialize Location Service V2 client
+const geoPlacesClient = new GeoPlacesClient({});
 
 // North Texas center for biasing results (Dallas)
 const NORTH_TEXAS_BIAS = {
@@ -88,85 +87,97 @@ export async function handler(
     const suggestions: AddressSuggestion[] = [];
 
     try {
-      // Use SearchPlaceIndexForSuggestions for autocomplete
-      const searchCommand = new SearchPlaceIndexForSuggestionsCommand({
-        IndexName: PLACE_INDEX_NAME,
-        Text: query,
+      // Use V2 Suggest API for autocomplete - no Place Index required!
+      const suggestCommand = new SuggestCommand({
+        QueryText: query,
         MaxResults: 7,
         BiasPosition: [NORTH_TEXAS_BIAS.lng, NORTH_TEXAS_BIAS.lat],
-        FilterCountries: ["USA"],
+        Filter: {
+          IncludeCountries: ["USA"],
+          // Filter to North Texas bounding box
+          BoundingBox: [
+            NORTH_TEXAS_FILTER.minLng, // West
+            NORTH_TEXAS_FILTER.minLat, // South
+            NORTH_TEXAS_FILTER.maxLng, // East
+            NORTH_TEXAS_FILTER.maxLat, // North
+          ],
+        },
       });
 
-      const response = await locationClient.send(searchCommand);
-      const results = response.Results || [];
+      const response = await geoPlacesClient.send(suggestCommand);
+      const results = response.ResultItems || [];
 
       // For each suggestion with a PlaceId, get the full place details
       for (const result of results) {
-        const placeId = result.PlaceId;
+        // V2 Suggest returns Place results with PlaceId
+        const placeResult = result.Place;
+        const placeId = placeResult?.PlaceId;
 
         if (placeId) {
           try {
-            // Get full place details including coordinates
+            // Get full place details including coordinates using V2 GetPlace
             const getPlaceCommand = new GetPlaceCommand({
-              IndexName: PLACE_INDEX_NAME,
               PlaceId: placeId,
             });
-            const placeResponse = await locationClient.send(getPlaceCommand);
-            const place = placeResponse.Place;
+            const placeResponse = await geoPlacesClient.send(getPlaceCommand);
 
-            if (place) {
-              const point = place.Geometry?.Point;
-              const lat = point ? point[1] : null;
-              const lng = point ? point[0] : null;
+            // V2 returns position directly
+            const position = placeResponse.Position;
+            const lat = position ? position[1] : null;
+            const lng = position ? position[0] : null;
 
-              // Build display name from address components
-              const addressParts: string[] = [];
-              if (place.AddressNumber) {
-                addressParts.push(place.AddressNumber);
-              }
-              if (place.Street) {
-                if (addressParts.length > 0) {
-                  addressParts[0] += ` ${place.Street}`;
-                } else {
-                  addressParts.push(place.Street);
-                }
-              }
-              if (place.Municipality) {
-                addressParts.push(place.Municipality);
-              }
-              if (place.Region) {
-                addressParts.push(place.Region);
-              }
+            // Build display name from address components
+            const address = placeResponse.Address;
+            const addressParts: string[] = [];
 
-              const displayName = addressParts.length > 0 ? addressParts.join(", ") : place.Label || "";
-
-              // Filter to North Texas area
-              if (isInNorthTexas(lat, lng)) {
-                suggestions.push({
-                  address: displayName,
-                  lat,
-                  lng,
-                  displayName,
-                });
+            if (address?.AddressNumber) {
+              addressParts.push(address.AddressNumber);
+            }
+            if (address?.Street) {
+              if (addressParts.length > 0) {
+                addressParts[0] += ` ${address.Street}`;
+              } else {
+                addressParts.push(address.Street);
               }
+            }
+            if (address?.Locality) {
+              addressParts.push(address.Locality);
+            }
+            if (address?.Region?.Name) {
+              addressParts.push(address.Region.Name);
+            }
+
+            const displayName = addressParts.length > 0
+              ? addressParts.join(", ")
+              : placeResponse.Title || result.Title || "";
+
+            // Filter to North Texas area (double-check since BoundingBox filter should handle this)
+            if (isInNorthTexas(lat, lng)) {
+              suggestions.push({
+                address: displayName,
+                lat,
+                lng,
+                displayName,
+              });
             }
           } catch (error) {
             console.error(`Error getting place ${placeId}:`, error);
             // Fall back to suggestion text without coordinates
+            const title = result.Title || placeResult?.PlaceType || "";
             suggestions.push({
-              address: result.Text || "",
+              address: title,
               lat: null,
               lng: null,
-              displayName: result.Text || "",
+              displayName: title,
             });
           }
-        } else {
-          // No PlaceId, just use the text
+        } else if (result.Title) {
+          // No PlaceId, just use the title
           suggestions.push({
-            address: result.Text || "",
+            address: result.Title,
             lat: null,
             lng: null,
-            displayName: result.Text || "",
+            displayName: result.Title,
           });
         }
       }
@@ -190,7 +201,7 @@ export async function handler(
       });
     } catch (error) {
       const errorCode = (error as { name?: string }).name || "Unknown";
-      console.error(`AWS Location Service error: ${errorCode}`, error);
+      console.error(`AWS Location Service V2 error: ${errorCode}`, error);
 
       if (errorCode === "ResourceNotFoundException") {
         return serviceUnavailableError("Address lookup service is not configured");
