@@ -1,0 +1,500 @@
+/**
+ * Tests for POST /locations/suggest-addresses Lambda handler.
+ * Tests the AWS Location Service V2 Places API integration.
+ */
+
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { APIGatewayProxyEvent, Context } from "aws-lambda";
+
+// Create mock send function using vi.hoisted to ensure it's available for the mock
+const { mockSend } = vi.hoisted(() => ({
+  mockSend: vi.fn(),
+}));
+
+// Mock the AWS SDK before importing handler
+vi.mock("@aws-sdk/client-geo-places", () => ({
+  GeoPlacesClient: vi.fn().mockImplementation(() => ({
+    send: mockSend,
+  })),
+  SuggestCommand: vi.fn().mockImplementation((input) => ({ input, type: "Suggest" })),
+  GetPlaceCommand: vi.fn().mockImplementation((input) => ({ input, type: "GetPlace" })),
+}));
+
+import { handler } from "./handler";
+
+// Sample suggest response from V2 API
+const createSuggestResponse = (places: Array<{ placeId: string; title: string }>) => ({
+  ResultItems: places.map((p) => ({
+    Title: p.title,
+    Place: {
+      PlaceId: p.placeId,
+      PlaceType: "Address",
+    },
+  })),
+});
+
+// Sample GetPlace response from V2 API
+const createPlaceResponse = (data: {
+  title: string;
+  lat: number;
+  lng: number;
+  addressNumber?: string;
+  street?: string;
+  locality?: string;
+  region?: string;
+}) => ({
+  Title: data.title,
+  Position: [data.lng, data.lat],
+  Address: {
+    AddressNumber: data.addressNumber,
+    Street: data.street,
+    Locality: data.locality,
+    Region: data.region ? { Name: data.region } : undefined,
+  },
+});
+
+// Create mock event
+const createMockEvent = (body: Record<string, unknown>): APIGatewayProxyEvent =>
+  ({
+    body: JSON.stringify(body),
+    headers: {},
+    requestContext: {},
+  }) as unknown as APIGatewayProxyEvent;
+
+const mockContext = {} as Context;
+
+describe("POST /locations/suggest-addresses Handler", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    mockSend.mockReset();
+  });
+
+  describe("input validation", () => {
+    it("should return 400 for missing query", async () => {
+      const event = createMockEvent({});
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(400);
+      const body = JSON.parse(result.body);
+      expect(body.success).toBe(false);
+      expect(body.error.message).toContain("Query parameter is required");
+    });
+
+    it("should return 400 for empty query", async () => {
+      const event = createMockEvent({ query: "" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(400);
+      const body = JSON.parse(result.body);
+      expect(body.error.message).toContain("Query parameter is required");
+    });
+
+    it("should return 400 for query too short", async () => {
+      const event = createMockEvent({ query: "ab" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(400);
+      const body = JSON.parse(result.body);
+      expect(body.error.message).toContain("at least 3 characters");
+    });
+
+    it("should return 400 for invalid JSON body", async () => {
+      const event = {
+        body: "not valid json",
+        headers: {},
+        requestContext: {},
+      } as unknown as APIGatewayProxyEvent;
+
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(400);
+      const body = JSON.parse(result.body);
+      expect(body.error.message).toContain("Invalid JSON");
+    });
+
+    it("should trim whitespace from query", async () => {
+      mockSend.mockResolvedValueOnce({ ResultItems: [] });
+
+      const event = createMockEvent({ query: "   123 Main   " });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.data.query).toBe("123 Main");
+    });
+  });
+
+  describe("successful suggestions", () => {
+    it("should return suggestions with coordinates", async () => {
+      // Mock Suggest response
+      mockSend.mockResolvedValueOnce(
+        createSuggestResponse([
+          { placeId: "place-1", title: "123 Main St, Dallas, TX" },
+        ])
+      );
+
+      // Mock GetPlace response
+      mockSend.mockResolvedValueOnce(
+        createPlaceResponse({
+          title: "123 Main St, Dallas, TX",
+          lat: 32.7767,
+          lng: -96.797,
+          addressNumber: "123",
+          street: "Main St",
+          locality: "Dallas",
+          region: "Texas",
+        })
+      );
+
+      const event = createMockEvent({ query: "123 Main St Dallas" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.success).toBe(true);
+      expect(body.data.suggestions).toHaveLength(1);
+      expect(body.data.suggestions[0]).toEqual({
+        address: "123 Main St, Dallas, Texas",
+        lat: 32.7767,
+        lng: -96.797,
+        displayName: "123 Main St, Dallas, Texas",
+      });
+    });
+
+    it("should return multiple suggestions", async () => {
+      mockSend.mockResolvedValueOnce(
+        createSuggestResponse([
+          { placeId: "place-1", title: "123 Main St" },
+          { placeId: "place-2", title: "456 Oak Ave" },
+        ])
+      );
+
+      // Mock GetPlace for first result
+      mockSend.mockResolvedValueOnce(
+        createPlaceResponse({
+          title: "123 Main St",
+          lat: 32.78,
+          lng: -96.80,
+          addressNumber: "123",
+          street: "Main St",
+          locality: "Dallas",
+          region: "TX",
+        })
+      );
+
+      // Mock GetPlace for second result
+      mockSend.mockResolvedValueOnce(
+        createPlaceResponse({
+          title: "456 Oak Ave",
+          lat: 33.01,
+          lng: -96.69,
+          addressNumber: "456",
+          street: "Oak Ave",
+          locality: "Plano",
+          region: "TX",
+        })
+      );
+
+      const event = createMockEvent({ query: "main street" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.data.suggestions).toHaveLength(2);
+    });
+
+    it("should return empty suggestions for no results", async () => {
+      mockSend.mockResolvedValueOnce({ ResultItems: [] });
+
+      const event = createMockEvent({ query: "nonexistent address xyz" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.data.suggestions).toEqual([]);
+    });
+
+    it("should include query in response", async () => {
+      mockSend.mockResolvedValueOnce({ ResultItems: [] });
+
+      const event = createMockEvent({ query: "test query" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.data.query).toBe("test query");
+    });
+  });
+
+  describe("geographic filtering", () => {
+    it("should filter out locations outside North Texas bounds", async () => {
+      mockSend.mockResolvedValueOnce(
+        createSuggestResponse([
+          { placeId: "place-1", title: "Dallas Address" },
+          { placeId: "place-2", title: "Houston Address" },
+        ])
+      );
+
+      // Dallas - inside bounds
+      mockSend.mockResolvedValueOnce(
+        createPlaceResponse({
+          title: "Dallas Address",
+          lat: 32.7767,
+          lng: -96.797,
+          locality: "Dallas",
+          region: "TX",
+        })
+      );
+
+      // Houston - outside bounds (too far south)
+      mockSend.mockResolvedValueOnce(
+        createPlaceResponse({
+          title: "Houston Address",
+          lat: 29.7604, // Below minLat of 31.5
+          lng: -95.3698,
+          locality: "Houston",
+          region: "TX",
+        })
+      );
+
+      const event = createMockEvent({ query: "test address" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.data.suggestions).toHaveLength(1);
+      expect(body.data.suggestions[0].address).toContain("Dallas");
+    });
+
+    it("should include locations with null coordinates", async () => {
+      mockSend.mockResolvedValueOnce(
+        createSuggestResponse([{ placeId: "place-1", title: "Unknown Location" }])
+      );
+
+      // Response without Position
+      mockSend.mockResolvedValueOnce({
+        Title: "Unknown Location",
+        Address: { Locality: "Unknown" },
+      });
+
+      const event = createMockEvent({ query: "unknown location" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.data.suggestions).toHaveLength(1);
+      expect(body.data.suggestions[0].lat).toBeNull();
+      expect(body.data.suggestions[0].lng).toBeNull();
+    });
+  });
+
+  describe("deduplication", () => {
+    it("should remove duplicate addresses", async () => {
+      mockSend.mockResolvedValueOnce(
+        createSuggestResponse([
+          { placeId: "place-1", title: "123 Main St" },
+          { placeId: "place-2", title: "123 Main St Duplicate" },
+        ])
+      );
+
+      // Both return same address
+      mockSend.mockResolvedValueOnce(
+        createPlaceResponse({
+          title: "123 Main St",
+          lat: 32.78,
+          lng: -96.80,
+          addressNumber: "123",
+          street: "Main St",
+          locality: "Dallas",
+          region: "TX",
+        })
+      );
+
+      mockSend.mockResolvedValueOnce(
+        createPlaceResponse({
+          title: "123 Main St",
+          lat: 32.78,
+          lng: -96.80,
+          addressNumber: "123",
+          street: "Main St",
+          locality: "Dallas",
+          region: "TX",
+        })
+      );
+
+      const event = createMockEvent({ query: "123 main" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.data.suggestions).toHaveLength(1);
+    });
+  });
+
+  describe("error handling", () => {
+    it("should handle GetPlace failure gracefully", async () => {
+      mockSend.mockResolvedValueOnce(
+        createSuggestResponse([{ placeId: "place-1", title: "123 Main St" }])
+      );
+
+      // GetPlace fails
+      mockSend.mockRejectedValueOnce(new Error("GetPlace failed"));
+
+      const event = createMockEvent({ query: "123 Main St" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      // Should fall back to title without coordinates
+      expect(body.data.suggestions).toHaveLength(1);
+      expect(body.data.suggestions[0].lat).toBeNull();
+      expect(body.data.suggestions[0].lng).toBeNull();
+    });
+
+    it("should return 503 for AccessDeniedException", async () => {
+      const error = new Error("Access denied");
+      (error as any).name = "AccessDeniedException";
+      mockSend.mockRejectedValueOnce(error);
+
+      const event = createMockEvent({ query: "123 Main St" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(503);
+      const body = JSON.parse(result.body);
+      expect(body.error.message).toContain("access denied");
+    });
+
+    it("should return 503 for ResourceNotFoundException", async () => {
+      const error = new Error("Resource not found");
+      (error as any).name = "ResourceNotFoundException";
+      mockSend.mockRejectedValueOnce(error);
+
+      const event = createMockEvent({ query: "123 Main St" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(503);
+      const body = JSON.parse(result.body);
+      expect(body.error.message).toContain("not configured");
+    });
+
+    it("should return 503 for other AWS errors", async () => {
+      mockSend.mockRejectedValueOnce(new Error("Unknown AWS error"));
+
+      const event = createMockEvent({ query: "123 Main St" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(503);
+      const body = JSON.parse(result.body);
+      expect(body.error.message).toContain("temporarily unavailable");
+    });
+  });
+
+  describe("address formatting", () => {
+    it("should format address with all components", async () => {
+      mockSend.mockResolvedValueOnce(
+        createSuggestResponse([{ placeId: "place-1", title: "Full Address" }])
+      );
+
+      mockSend.mockResolvedValueOnce(
+        createPlaceResponse({
+          title: "Full Address",
+          lat: 32.78,
+          lng: -96.80,
+          addressNumber: "123",
+          street: "Main St",
+          locality: "Dallas",
+          region: "Texas",
+        })
+      );
+
+      const event = createMockEvent({ query: "123 main" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.data.suggestions[0].displayName).toBe("123 Main St, Dallas, Texas");
+    });
+
+    it("should handle missing address components", async () => {
+      mockSend.mockResolvedValueOnce(
+        createSuggestResponse([{ placeId: "place-1", title: "Partial Address" }])
+      );
+
+      mockSend.mockResolvedValueOnce({
+        Title: "Partial Address",
+        Position: [-96.80, 32.78],
+        Address: {
+          Street: "Main St",
+          // No AddressNumber, Locality, or Region
+        },
+      });
+
+      const event = createMockEvent({ query: "main st" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.data.suggestions[0].displayName).toBe("Main St");
+    });
+
+    it("should use Title as fallback when no address components", async () => {
+      mockSend.mockResolvedValueOnce(
+        createSuggestResponse([{ placeId: "place-1", title: "Some Place" }])
+      );
+
+      mockSend.mockResolvedValueOnce({
+        Title: "Some Place Title",
+        Position: [-96.80, 32.78],
+        Address: {},
+      });
+
+      const event = createMockEvent({ query: "some place" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.data.suggestions[0].displayName).toBe("Some Place Title");
+    });
+  });
+
+  describe("suggestions without PlaceId", () => {
+    it("should handle suggestions with only Title", async () => {
+      mockSend.mockResolvedValueOnce({
+        ResultItems: [
+          {
+            Title: "Query Suggestion",
+            // No Place object with PlaceId
+          },
+        ],
+      });
+
+      const event = createMockEvent({ query: "query suggestion" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.data.suggestions).toHaveLength(1);
+      expect(body.data.suggestions[0]).toEqual({
+        address: "Query Suggestion",
+        lat: null,
+        lng: null,
+        displayName: "Query Suggestion",
+      });
+    });
+  });
+
+  describe("CORS headers", () => {
+    it("should include CORS headers in response", async () => {
+      mockSend.mockResolvedValueOnce({ ResultItems: [] });
+
+      const event = createMockEvent({ query: "test" });
+      const result = await handler(event, mockContext);
+
+      expect(result.headers).toBeDefined();
+      expect(result.headers?.["Access-Control-Allow-Origin"]).toBeDefined();
+    });
+  });
+});
