@@ -5,8 +5,8 @@ Thank you for your interest in contributing! This is currently a personal projec
 ## Development Setup
 
 ### Prerequisites
-- Node.js 18+
-- Python 3.12+
+- Node.js 20+
+- Python 3.12+ (for CDK infrastructure only)
 - AWS CLI configured
 - AWS CDK installed
 
@@ -29,8 +29,8 @@ Thank you for your interest in contributing! This is currently a personal projec
 
 3. **Backend Setup**
    ```bash
-   cd backend
-   uv sync --all-extras
+   cd backend-ts
+   npm install
    ```
 
 4. **Infrastructure Setup**
@@ -60,8 +60,8 @@ Thank you for your interest in contributing! This is currently a personal projec
    - Implement the feature or fix
    - Test thoroughly
    - Run tests:
-     - Frontend: `npm test` and `npm run build`
-     - Backend: `pytest`
+     - Frontend: `cd frontend && npm run test:run && npm run build`
+     - Backend: `cd backend-ts && npm run test:run`
 
 3. **Commit with VERY descriptive commit messages**
    - Group related changes into logical commits
@@ -121,11 +121,12 @@ Use conventional commit format with detailed descriptions:
 - Use functional components and hooks
 - Format with Prettier (if configured)
 
-### Backend (Python)
-- Follow PEP 8
-- Use type hints
-- Format with Black: `black .`
-- Lint with Flake8: `flake8`
+### Backend (TypeScript)
+- Use TypeScript strict mode
+- Use Zod for runtime validation
+- Format with Prettier (if configured)
+- Type check with: `npm run typecheck`
+- Lint with: `npm run lint`
 
 ### Infrastructure (Python CDK)
 - Use descriptive resource names
@@ -143,7 +144,8 @@ Use conventional commit format with detailed descriptions:
 ### Creating a Pull Request
 
 1. **Ensure quality**
-   - All tests pass (`npm test`, `npm run build`, `pytest`)
+   - All tests pass (`npm run test:run` in both frontend/ and backend-ts/)
+   - Frontend builds successfully (`npm run build` in frontend/)
    - Code follows style guidelines
    - No TypeScript errors
    - Changes are tested locally

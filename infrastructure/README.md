@@ -22,6 +22,16 @@ uv run cdk bootstrap
 
 ## Deployment
 
+### Prerequisites - Build TypeScript Backend
+
+Before deploying, you must build the TypeScript backend:
+
+```bash
+cd backend-ts
+npm install
+npm run build
+```
+
 ### Development Environment
 
 ```bash
@@ -50,8 +60,8 @@ uv run cdk deploy -c env=prod
 The CDK stack creates:
 
 ### Compute
-- **Lambda Functions** - 37 Python 3.12 serverless functions
-- **Lambda Layer** - Shared code (models, utilities)
+- **Lambda Functions** - TypeScript (Node.js 20) serverless functions bundled with esbuild
+- **Shared Code** - Common types, utilities, and database operations in `backend-ts/src/shared/`
 
 ### Storage
 - **DynamoDB Tables** - 6 tables (locations, feedback, suggestions, users, routes, route_feedback)

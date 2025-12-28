@@ -6,10 +6,21 @@ The `deploy.yml` workflow automatically deploys the application to AWS when chan
 
 ### What it does:
 
-1. **Deploy Infrastructure** - CDK stack (Lambda, DynamoDB, API Gateway, etc.)
-2. **Build Frontend** - React app with environment variables
-3. **Upload to S3** - Static files to S3 bucket
-4. **Invalidate CloudFront** - Clear CDN cache for immediate updates
+1. **Run Tests** - Frontend and backend tests must pass before deployment
+2. **Build TypeScript Backend** - Compile Lambda functions
+3. **Deploy Infrastructure** - CDK stack (Lambda, DynamoDB, API Gateway, etc.)
+4. **Build Frontend** - React app with environment variables
+5. **Upload to S3** - Static files to S3 bucket
+6. **Invalidate CloudFront** - Clear CDN cache for immediate updates
+
+### Test Requirements
+
+The workflow includes a test job that must pass before deployment:
+
+- **Frontend Tests**: `npm run test:run` in the `frontend/` directory
+- **Backend Tests**: `npm run test:run` in the `backend-ts/` directory
+
+If any tests fail, deployment is blocked. This ensures code quality before reaching production.
 
 ### Required GitHub Secrets
 
@@ -80,6 +91,14 @@ After each deployment, GitHub Actions generates a summary with:
 You can still deploy manually if needed:
 
 ```bash
+# Run tests first
+cd frontend && npm run test:run
+cd backend-ts && npm run test:run
+
+# Build TypeScript backend
+cd backend-ts
+npm install && npm run build
+
 # Infrastructure
 cd infrastructure
 uv run cdk deploy
@@ -96,5 +115,4 @@ aws cloudfront create-invalidation --distribution-id YOUR_ID --paths "/*"
 To modify the workflow:
 - Edit `.github/workflows/deploy.yml`
 - Add staging environment (duplicate workflow, change branch trigger)
-- Add tests before deployment
 - Add Slack/Discord notifications

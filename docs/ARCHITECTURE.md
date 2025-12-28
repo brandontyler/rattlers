@@ -1,6 +1,6 @@
 # Architecture Documentation
 
-**Last Updated:** December 12, 2025
+**Last Updated:** December 28, 2025
 
 ## System Overview
 
@@ -36,7 +36,7 @@ DFW Christmas Lights Finder is a serverless web application built entirely on AW
               ┌─────────────┐      ┌─────────────┐
               │  Cognito    │      │  Lambda     │
               │  - Users    │      │  Functions  │
-              │  - Auth     │      │  (Python)   │
+              │  - Auth     │      │  (TypeScript)│
               └─────────────┘      └──────┬──────┘
                                           │
                     ┌─────────────────────┼─────────────────────┐
@@ -526,11 +526,16 @@ GSI-2 (routeId-type-index):
 2. **Prod** - Production (Christmas season)
 
 ### CI/CD Pipeline
-- GitHub Actions (future)
-- Manual deployment via CDK for MVP
+- GitHub Actions (automated on merge to main)
+- Test job runs before deployment (frontend + backend tests must pass)
+- CDK deployment followed by S3 sync and CloudFront invalidation
 
 ### Deployment Process
 ```bash
+# Build TypeScript backend
+cd backend-ts
+npm install && npm run build
+
 # Deploy infrastructure (uses uv)
 cd infrastructure
 uv run cdk deploy --all
@@ -541,6 +546,8 @@ npm run build
 aws s3 sync dist/ s3://frontend-bucket/
 aws cloudfront create-invalidation --distribution-id XXX --paths "/*"
 ```
+
+Note: GitHub Actions automates this entire process on merge to main.
 
 ## Scalability Considerations
 
