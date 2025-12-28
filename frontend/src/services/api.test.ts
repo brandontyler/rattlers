@@ -68,7 +68,7 @@ describe("ApiService", () => {
       };
       mockAxiosInstance.get.mockResolvedValue(mockResponse);
 
-      const filters = { status: "approved", pageSize: 50 };
+      const filters = { status: "active" as const, pageSize: 50 };
       await apiService.getLocations(filters);
 
       expect(mockAxiosInstance.get).toHaveBeenCalledWith("/locations", {
@@ -154,7 +154,7 @@ describe("ApiService", () => {
       };
       mockAxiosInstance.post.mockResolvedValue(mockResponse);
 
-      const feedback = { isLike: true };
+      const feedback = { type: "like" as const };
       const result = await apiService.submitFeedback("123", feedback);
 
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
@@ -371,7 +371,8 @@ describe("ApiService", () => {
 
       const routeData = {
         title: "My Route",
-        stops: [{ locationId: "loc-1", order: 0 }],
+        description: "A test route",
+        locationIds: ["loc-1"],
       };
       const result = await apiService.createRoute(routeData);
 

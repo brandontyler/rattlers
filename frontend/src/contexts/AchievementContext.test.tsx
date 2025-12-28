@@ -6,8 +6,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { ReactNode } from "react";
 import { AchievementProvider, useAchievements } from "./AchievementContext";
-import { AuthProvider } from "./AuthContext";
-import { ACHIEVEMENTS } from "@/types/achievements";
 
 // Mock AuthContext to provide a test user
 vi.mock("./AuthContext", async () => {
