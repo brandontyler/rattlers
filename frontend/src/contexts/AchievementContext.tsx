@@ -70,6 +70,7 @@ export function AchievementProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (!isAuthenticated || !user?.id) {
       setUnlockedAchievements([]);
+      unlockedRef.current = []; // Sync ref immediately
       setIsLoading(false);
       return;
     }
@@ -84,6 +85,7 @@ export function AchievementProvider({ children }: { children: React.ReactNode })
       if (stored) {
         const parsed = JSON.parse(stored);
         setUnlockedAchievements(parsed);
+        unlockedRef.current = parsed; // Sync ref immediately to prevent race condition
       }
     } catch (e) {
       console.error('Failed to load achievements:', e);
