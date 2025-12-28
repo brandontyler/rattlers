@@ -11,9 +11,39 @@ concurrency:
   cancel-in-progress: false  # Don't cancel running deploys, queue them
 
 jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm run test:run
+
+      - name: Install backend dependencies
+        working-directory: backend-ts
+        run: npm ci
+
+      - name: Run backend tests
+        working-directory: backend-ts
+        run: npm run test:run
+
   deploy:
     name: Deploy Infrastructure and Frontend
     runs-on: ubuntu-latest
+    needs: test  # Only deploy if tests pass
 
     permissions:
       id-token: write
