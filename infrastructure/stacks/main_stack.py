@@ -14,6 +14,7 @@ from aws_cdk import (
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins,
     aws_iam as iam,
+    aws_location as location,
 )
 from constructs import Construct
 import os
@@ -32,6 +33,9 @@ class ChristmasLightsStack(Stack):
 
         # Create S3 buckets
         self.create_s3_buckets()
+
+        # Create AWS Location Service resources
+        self.create_location_service()
 
         # Create Cognito user pool
         self.create_cognito_pool()
@@ -283,6 +287,22 @@ class ChristmasLightsStack(Stack):
             ],
             removal_policy=RemovalPolicy.DESTROY if self.env_name == "dev" else RemovalPolicy.RETAIN,
             auto_delete_objects=self.env_name == "dev",
+        )
+
+    def create_location_service(self):
+        """Create AWS Location Service resources for address lookup."""
+
+        # Create a Place Index for address search/autocomplete
+        # Using Esri as the data provider (good coverage, free tier friendly)
+        self.place_index = location.CfnPlaceIndex(
+            self,
+            "PlaceIndex",
+            index_name=f"christmas-lights-places-{self.env_name}",
+            data_source="Esri",
+            data_source_configuration=location.CfnPlaceIndex.DataSourceConfigurationProperty(
+                intended_use="SingleUse"  # For autocomplete/suggestions (not stored)
+            ),
+            description="Place index for Christmas Lights address lookup",
         )
 
     def create_cognito_pool(self):
@@ -628,17 +648,31 @@ class ChristmasLightsStack(Stack):
         self.locations_table.grant_read_data(self.get_favorites_fn)
         self.feedback_table.grant_read_data(self.get_favorites_fn)
 
-        # Address suggestions - geocoding
+        # Address suggestions - AWS Location Service
+        location_env = {
+            **common_env,
+            "PLACE_INDEX_NAME": self.place_index.index_name,
+        }
         self.suggest_addresses_fn = lambda_.Function(
             self,
             "SuggestAddressesFunction",
             handler="suggest_addresses.handler",
             code=lambda_.Code.from_asset("../backend/functions/locations"),
             runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),  # Geocoding may take time
-            memory_size=512,  # More memory for geocoding operations
-            environment=common_env,
+            timeout=Duration.seconds(10),
+            memory_size=256,
+            environment=location_env,
             layers=[self.common_layer],
+        )
+        # Grant permissions to use AWS Location Service
+        self.suggest_addresses_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "geo:SearchPlaceIndexForSuggestions",
+                    "geo:SearchPlaceIndexForText",
+                ],
+                resources=[self.place_index.attr_arn],
+            )
         )
 
         # Submit suggestion function

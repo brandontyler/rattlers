@@ -1,101 +1,100 @@
 """
-Lambda function to suggest addresses based on partial input and geocode them.
+Lambda function to suggest addresses using AWS Location Service.
 
 POST /locations/suggest-addresses
 Body: {"query": "123 Main St, Dallas"}
+
+Uses SearchPlaceIndexForSuggestions for real-time autocomplete.
 """
 
 import json
-import time
-from typing import Dict, Any, List
+import os
+from typing import Dict, Any
+import boto3
+from botocore.exceptions import ClientError
 from responses import success_response, error_response, internal_error
 
-try:
-    from geopy.geocoders import Nominatim
-    from geopy.exc import GeocoderTimedOut, GeocoderServiceError
-    GEOPY_AVAILABLE = True
-except ImportError:
-    print("ERROR: geopy not available in Lambda layer")
-    GEOPY_AVAILABLE = False
+
+# Initialize Location Service client
+location_client = boto3.client("location")
+PLACE_INDEX_NAME = os.environ.get("PLACE_INDEX_NAME", "christmas-lights-places-dev")
+
+# North Texas center for biasing results (Dallas)
+NORTH_TEXAS_BIAS = {
+    "lat": 32.7767,
+    "lng": -96.7970,
+}
+
+# Filter box for North Texas (wider area to catch suburbs)
+NORTH_TEXAS_FILTER = {
+    "min_lat": 31.5,
+    "max_lat": 34.2,
+    "min_lng": -98.5,
+    "max_lng": -95.5,
+}
 
 
-def geocode_with_retry(geocoder, query: str, max_retries: int = 2, structured: bool = False) -> list:
-    """Attempt geocoding with retries on timeout."""
-    for attempt in range(max_retries + 1):
-        try:
-            if structured:
-                # Try structured query for better accuracy
-                return geocoder.geocode(
-                    query,
-                    exactly_one=False,
-                    limit=5,
-                    addressdetails=True,
-                    featuretype='building'  # Prefer building-level results
-                )
-            else:
-                return geocoder.geocode(
-                    query,
-                    exactly_one=False,
-                    limit=5,
-                    addressdetails=True
-                )
-        except GeocoderTimedOut:
-            if attempt < max_retries:
-                time.sleep(0.5)  # Brief pause before retry
-                continue
-            raise
-    return None
+def format_suggestion(result: Dict) -> Dict:
+    """Format AWS Location Service result into our suggestion format."""
+    # Get text from the suggestion
+    text = result.get("Text", "")
+    place_id = result.get("PlaceId")
+
+    return {
+        "address": text,
+        "lat": None,
+        "lng": None,
+        "displayName": text,
+        "placeId": place_id,
+    }
 
 
-def format_address_for_display(location) -> str:
-    """Format address properly from Nominatim response.
+def format_place(place: Dict) -> Dict:
+    """Format a Place result with full details including coordinates."""
+    geometry = place.get("Geometry", {})
+    point = geometry.get("Point", [])
 
-    Ensures we get a complete address with street number, street name, city, state.
-    """
-    raw = location.raw.get('address', {})
+    if len(point) >= 2:
+        lng, lat = point[0], point[1]
+    else:
+        lat, lng = None, None
 
-    # Build address from components
-    parts = []
+    # Build display name from address components
+    address_parts = []
+    if place.get("AddressNumber"):
+        address_parts.append(place["AddressNumber"])
+    if place.get("Street"):
+        if address_parts:
+            address_parts[0] += f" {place['Street']}"
+        else:
+            address_parts.append(place["Street"])
+    if place.get("Municipality"):
+        address_parts.append(place["Municipality"])
+    if place.get("Region"):
+        address_parts.append(place["Region"])
 
-    # House number and street
-    house_number = raw.get('house_number', '')
-    road = raw.get('road', raw.get('street', ''))
+    display_name = ", ".join(address_parts) if address_parts else place.get("Label", "")
 
-    if house_number and road:
-        parts.append(f"{house_number} {road}")
-    elif road:
-        parts.append(road)
-    elif location.address:
-        # Fallback to first part of full address
-        first_part = location.address.split(',')[0].strip()
-        parts.append(first_part)
+    return {
+        "address": display_name,
+        "lat": lat,
+        "lng": lng,
+        "displayName": display_name,
+    }
 
-    # City
-    city = raw.get('city', raw.get('town', raw.get('village', raw.get('municipality', ''))))
-    if city:
-        parts.append(city)
 
-    # State
-    state = raw.get('state', '')
-    if state:
-        parts.append(state)
-
-    # If we couldn't build a proper address, use the original
-    if not parts or (len(parts) == 1 and not house_number):
-        return location.address
-
-    return ', '.join(parts)
+def is_in_north_texas(lat: float, lng: float) -> bool:
+    """Check if coordinates are within North Texas bounds."""
+    if lat is None or lng is None:
+        return True  # Include if no coordinates
+    return (
+        NORTH_TEXAS_FILTER["min_lat"] <= lat <= NORTH_TEXAS_FILTER["max_lat"]
+        and NORTH_TEXAS_FILTER["min_lng"] <= lng <= NORTH_TEXAS_FILTER["max_lng"]
+    )
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Handle POST /locations/suggest-addresses request."""
-    if not GEOPY_AVAILABLE:
-        return error_response(
-            code="SERVICE_UNAVAILABLE",
-            message="Geocoding service not configured",
-            status_code=503,
-        )
-
     try:
         # Parse request body
         try:
@@ -124,65 +123,79 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 status_code=400,
             )
 
-        # Add Texas context if not present (Nominatim needs specific location)
-        search_query = query
-        if 'TX' not in query.upper() and 'TEXAS' not in query.upper():
-            search_query = f"{query}, Texas, USA"
-
-        # Initialize geocoder with longer timeout
-        geocoder = Nominatim(
-            user_agent="dfw-christmas-lights-finder",
-            timeout=10
-        )
-
-        # Get suggestions from geocoder
         suggestions = []
 
         try:
-            # First try with building featuretype for better house-level accuracy
-            locations = geocode_with_retry(geocoder, search_query, structured=True)
-
-            # If no building-level results, fall back to regular search
-            if not locations:
-                locations = geocode_with_retry(geocoder, search_query, structured=False)
-
-            if locations:
-                seen_coords = set()  # Avoid duplicate coordinates
-                for location in locations:
-                    lat = location.latitude
-                    lng = location.longitude
-
-                    # Round to 5 decimal places for deduplication (~1m accuracy)
-                    coord_key = (round(lat, 5), round(lng, 5))
-                    if coord_key in seen_coords:
-                        continue
-                    seen_coords.add(coord_key)
-
-                    # North Texas bounds
-                    if 31.5 <= lat <= 34.2 and -98.5 <= lng <= -95.5:
-                        # Use improved address formatting
-                        formatted_address = format_address_for_display(location)
-
-                        suggestions.append({
-                            "address": formatted_address,
-                            "lat": lat,
-                            "lng": lng,
-                            "displayName": formatted_address,
-                        })
-
-        except GeocoderTimedOut:
-            return error_response(
-                code="GEOCODER_TIMEOUT",
-                message="Geocoding service timed out. Please try again.",
-                status_code=503,
+            # Use SearchPlaceIndexForSuggestions for autocomplete
+            response = location_client.search_place_index_for_suggestions(
+                IndexName=PLACE_INDEX_NAME,
+                Text=query,
+                MaxResults=7,
+                BiasPosition=[NORTH_TEXAS_BIAS["lng"], NORTH_TEXAS_BIAS["lat"]],
+                FilterCountries=["USA"],
             )
-        except GeocoderServiceError as e:
-            print(f"Geocoder service error: {str(e)}")
-            return error_response(
-                code="GEOCODER_ERROR",
-                message="Geocoding service is temporarily unavailable",
-                status_code=503,
-            )
+
+            # Get PlaceIds from suggestions
+            suggestion_results = response.get("Results", [])
+
+            # For each suggestion with a PlaceId, get the full place details
+            for result in suggestion_results:
+                place_id = result.get("PlaceId")
+                if place_id:
+                    try:
+                        # Get full place details including coordinates
+                        place_response = location_client.get_place(
+                            IndexName=PLACE_INDEX_NAME,
+                            PlaceId=place_id,
+                        )
+                        place = place_response.get("Place", {})
+                        suggestion = format_place(place)
+
+                        # Filter to North Texas area
+                        if is_in_north_texas(suggestion["lat"], suggestion["lng"]):
+                            suggestions.append(suggestion)
+                    except ClientError as e:
+                        print(f"Error getting place {place_id}: {e}")
+                        # Fall back to suggestion text without coordinates
+                        suggestions.append(format_suggestion(result))
+                else:
+                    # No PlaceId, just use the text
+                    suggestions.append(format_suggestion(result))
+
+            # Remove any internal fields and duplicates
+            seen_addresses = set()
+            unique_suggestions = []
+            for suggestion in suggestions:
+                suggestion.pop("placeId", None)
+                addr = suggestion["address"].lower()
+                if addr not in seen_addresses:
+                    seen_addresses.add(addr)
+                    unique_suggestions.append(suggestion)
+
+            suggestions = unique_suggestions
+
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "Unknown")
+            print(f"AWS Location Service error: {error_code} - {str(e)}")
+
+            if error_code == "ResourceNotFoundException":
+                return error_response(
+                    code="SERVICE_NOT_CONFIGURED",
+                    message="Address lookup service is not configured",
+                    status_code=503,
+                )
+            elif error_code == "AccessDeniedException":
+                return error_response(
+                    code="SERVICE_ERROR",
+                    message="Address lookup service access denied",
+                    status_code=503,
+                )
+            else:
+                return error_response(
+                    code="GEOCODER_ERROR",
+                    message="Address lookup service is temporarily unavailable",
+                    status_code=503,
+                )
 
         return success_response(
             data={
