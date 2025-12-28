@@ -1,6 +1,6 @@
 # API Documentation
 
-**Last Updated:** December 12, 2025
+**Last Updated:** December 28, 2025
 
 Base URL: `https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1`
 
@@ -158,8 +158,8 @@ Geocodes a partial address query and returns suggestions with coordinates.
 **Notes:**
 - Minimum 3 characters required
 - Results filtered to North Texas area (DFW region)
-- Uses Nominatim (OpenStreetMap) for geocoding
-- 10 second timeout with retry logic
+- Uses AWS Location Service V2 Places API (Suggest + GetPlace)
+- Biased toward Dallas with bounding box filter for North Texas
 
 #### Check Duplicate Location
 ```

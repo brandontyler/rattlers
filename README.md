@@ -10,6 +10,7 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 - 📝 Submit and moderate location suggestions
 - 🚫 **Duplicate detection** - Prevents duplicate submissions at submit time
 - 🚗 Route planner with PDF generation
+- 🧭 Multi-app navigation (Google Maps, Apple Maps, Waze)
 - 🛤️ **Route sharing** - Save, share, and discover community routes
 - 🏆 **Route leaderboard** - Popular routes and top route creators
 - 📸 Photo uploads with AI analysis
@@ -24,10 +25,11 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 | Layer | Technologies |
 |-------|-------------|
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, Leaflet |
-| Backend | Python 3.12, AWS Lambda, API Gateway, DynamoDB |
+| Backend | TypeScript, Node.js 20, AWS Lambda, API Gateway, DynamoDB |
 | Auth | AWS Cognito |
 | Storage | S3 (photos), Bedrock Claude (AI analysis) |
-| Infrastructure | AWS CDK, CloudFront, GitHub Actions |
+| Geocoding | AWS Location Service V2 (address autocomplete) |
+| Infrastructure | AWS CDK (Python), CloudFront, GitHub Actions |
 
 ## Quick Start
 
@@ -36,7 +38,7 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 cd frontend && npm install && npm run dev
 
 # Backend tests
-cd backend && uv sync && uv run pytest
+cd backend-ts && npm install && npm run test:run
 
 # Deploy infrastructure
 cd infrastructure && uv run cdk deploy
@@ -55,8 +57,8 @@ cd infrastructure && uv run cdk deploy
 
 ```
 ├── frontend/           # React TypeScript app
-├── backend/            # Python Lambda functions
-├── infrastructure/     # AWS CDK
+├── backend-ts/         # TypeScript Lambda functions
+├── infrastructure/     # AWS CDK (Python)
 ├── docs/               # Documentation
 └── scripts/            # Utility scripts
 ```

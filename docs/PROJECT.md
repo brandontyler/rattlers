@@ -1,6 +1,6 @@
 # DFW Christmas Lights Finder - Project Guide
 
-**Last Updated:** December 12, 2025
+**Last Updated:** December 28, 2025
 
 > Start here when resuming work. This is the single source of truth for project status.
 
@@ -16,7 +16,10 @@ cd frontend && npm run dev
 cd infrastructure && uv run cdk deploy
 
 # Run backend tests
-cd backend && uv run pytest
+cd backend-ts && npm run test:run
+
+# Run frontend tests
+cd frontend && npm run test:run
 ```
 
 **Test credentials:** `testuser@example.com` / `TestPass123!`
@@ -40,7 +43,7 @@ cd backend && uv run pytest
 | User authentication | ✅ | ✅ | Cognito login/signup |
 | Login redirect | ✅ | - | Returns to previous page |
 | Submit location suggestion | ✅ | ✅ | With address autocomplete, duplicate detection |
-| Address autocomplete | ✅ | ✅ | Nominatim geocoding |
+| Address autocomplete | ✅ | ✅ | AWS Location Service V2 |
 | Duplicate detection | ✅ | ✅ | Warns if location already exists before submission |
 | Add photos to existing | ✅ | ✅ | Submit photos for locations without photos |
 | Admin dashboard | ✅ | ✅ | View/approve/reject suggestions |
@@ -220,18 +223,18 @@ Frontend (React)  →  API Gateway  →  Lambda  →  DynamoDB
 - `christmas-lights-routes-dev` - Saved community routes
 - `christmas-lights-route-feedback-dev` - Route likes/saves
 
-**Backend Functions:**
+**Backend Functions (TypeScript):**
 ```
-backend/functions/
-├── locations/       # get_locations, get_location_by_id, suggest_addresses, update_location, delete_location, create_location, check_duplicate, check_pending_photo
-├── feedback/        # submit_feedback, get_feedback_status, report_inactive, toggle_favorite, get_favorites
-├── suggestions/     # submit_suggestion, get_suggestions, approve_suggestion, reject_suggestion, update_suggestion
-├── routes/          # generate_pdf, create_route, get_routes, get_route_by_id, update_route, delete_route,
-│                    # route_feedback, get_route_feedback_status, get_user_routes, get_user_saved_routes,
-│                    # get_routes_leaderboard
-├── photos/          # get_upload_url, analyze_photo
-├── users/           # get_profile, get_submissions, update_profile, get_leaderboard, get_locations_leaderboard
-└── auth/            # post_authentication (AI username generation)
+backend-ts/src/functions/
+├── locations/       # get-locations, get-location-by-id, suggest-addresses, update-location, delete-location, create-location, check-duplicate, check-pending-photo
+├── feedback/        # submit-feedback, get-feedback-status, report-inactive, toggle-favorite, get-favorites
+├── suggestions/     # submit-suggestion, get-suggestions, approve-suggestion, reject-suggestion, update-suggestion
+├── routes/          # generate-pdf, create-route, get-routes, get-route-by-id, update-route, delete-route,
+│                    # route-feedback, get-route-feedback-status, get-user-routes, get-user-saved-routes,
+│                    # get-routes-leaderboard
+├── photos/          # get-upload-url, analyze-photo
+├── users/           # get-profile, get-submissions, update-profile, get-leaderboard, get-locations-leaderboard
+└── auth/            # post-authentication (AI username generation)
 ```
 
 ---
@@ -308,9 +311,11 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 ```
 ├── frontend/          # React + TypeScript + Vite
-├── backend/
-│   ├── functions/     # Lambda handlers
-│   └── layers/        # Shared code (db, auth, responses)
+├── backend-ts/        # TypeScript Lambda functions
+│   ├── src/
+│   │   ├── functions/ # Lambda handlers
+│   │   └── shared/    # Shared code (db, types, utils)
+│   └── package.json
 ├── infrastructure/    # AWS CDK (Python)
 ├── scripts/           # Import tools
 └── docs/
@@ -327,6 +332,11 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
+- **Dec 28, 2025:** Updated all documentation to reflect TypeScript backend migration. AWS Location Service V2 now used for address autocomplete. Added Apple Maps and Waze navigation integration. CI/CD pipeline now runs tests before deployment.
+- **Dec 27, 2025:** Migrated backend from Python to TypeScript for improved type safety and LLM compatibility. Removed Python backend code. CDK infrastructure updated to use TypeScript Lambda functions.
+- **Dec 26, 2025:** Upgraded address suggestions to use AWS Location Service V2 Places API (Suggest + GetPlace). Removed Nominatim/OpenStreetMap dependency.
+- **Dec 25, 2025:** Added Apple Maps and Waze navigation integration alongside Google Maps. Users can choose preferred navigation app. Multi-stop routes supported for Google Maps; stop-by-stop navigation for Apple Maps and Waze.
+- **Dec 14, 2025:** Added comprehensive test suite for frontend and backend. CI pipeline now runs tests before deployment. Tests must pass for code to be deployed.
 - **Dec 12, 2025:** Added duplicate location detection - warns users before submission if location already exists. Added photo submission for existing locations - users can add photos to locations that don't have any via AddPhotoModal. New endpoints: POST /locations/check-duplicate, GET /locations/{id}/pending-photo.
 - **Dec 11, 2025:** Added Community Routes feature - users can save routes from route planner, browse public routes, like/save routes, view on profile. New leaderboard tab for top routes and route creators. Route creator badges: Route Scout (1), Trail Blazer (3), Route Master (5), Legend (10+).
 - **Dec 10, 2025 (Late PM):** Rewrote import script to extract coordinates from Google Maps URLs. Entries without coords go to suggestions table for admin review. Added `source` field to track data origin. Admin page now shows Google Maps link for suggestions.

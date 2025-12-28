@@ -11,6 +11,9 @@ npm install
 # Start development server
 npm run dev
 
+# Run tests
+npm run test:run
+
 # Build for production
 npm run build
 
@@ -58,8 +61,9 @@ src/
 - ✅ Location detail page with Get Directions
 - ✅ Submit location suggestions with address autocomplete
 - ✅ Admin dashboard (approve/reject suggestions)
-- ✅ Route planner (up to 15 stops, optimize, reorder)
+- ✅ Route planner (up to 20 stops, optimize, reorder)
 - ✅ PDF route generation with QR codes
+- ✅ Multi-app navigation (Google Maps, Apple Maps, Waze)
 - ✅ User feedback system (likes, favorites, reports)
 - ✅ Photo uploads with HEIC/HEIF support
 - ✅ Photo gallery with carousel and lightbox
