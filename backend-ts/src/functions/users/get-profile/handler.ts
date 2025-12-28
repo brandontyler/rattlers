@@ -5,11 +5,14 @@
  */
 
 import type { APIGatewayProxyResult, Context } from "aws-lambda";
+import { CognitoIdentityProviderClient, AdminGetUserCommand } from "@aws-sdk/client-cognito-identity-provider";
 import { successResponse, internalError } from "@shared/utils/responses";
-import { getUserProfile, upsertUserProfile } from "@shared/db/users";
+import { getUserProfile } from "@shared/db/users";
 import { getSuggestionsByUser } from "@shared/db/suggestions";
 import { requireAuth, getUserInfo } from "@shared/utils/auth";
-import type { AuthenticatedEvent, UserProfile } from "@shared/types";
+import type { AuthenticatedEvent } from "@shared/types";
+
+const cognitoClient = new CognitoIdentityProviderClient({});
 
 /**
  * Handle GET /users/profile request.
@@ -23,38 +26,62 @@ export const handler = requireAuth(
         return internalError();
       }
 
-      // Get user profile
-      let profile = await getUserProfile(user.id);
+      // Get username from users table (optional - don't fail if not found)
+      let username: string | undefined;
+      try {
+        const profile = await getUserProfile(user.id);
+        username = profile?.username;
+      } catch (err) {
+        console.warn("Could not fetch username from users table:", err);
+      }
 
-      // If profile doesn't exist, create one (handles cases where post-auth trigger failed)
-      if (!profile) {
-        const newProfile: UserProfile = {
-          userId: user.id,
-          email: user.email ?? "",
-          isAdmin: user.isAdmin,
-          createdAt: new Date().toISOString(),
-        };
-        profile = await upsertUserProfile(newProfile);
+      // Get user creation date from Cognito
+      let joinDate = new Date().toISOString();
+      const userPoolId = process.env.USER_POOL_ID;
+
+      if (userPoolId) {
+        try {
+          const cognitoResponse = await cognitoClient.send(
+            new AdminGetUserCommand({
+              UserPoolId: userPoolId,
+              Username: user.id,
+            })
+          );
+          if (cognitoResponse.UserCreateDate) {
+            joinDate = cognitoResponse.UserCreateDate.toISOString();
+          }
+        } catch (err) {
+          console.warn("Could not fetch user creation date from Cognito:", err);
+        }
       }
 
       // Get user's submissions to compute stats
-      const submissions = await getSuggestionsByUser(user.id);
-
-      const stats = {
-        totalSubmissions: submissions.length,
-        approvedSubmissions: submissions.filter((s) => s.status === "approved").length,
-        pendingSubmissions: submissions.filter((s) => s.status === "pending").length,
-        rejectedSubmissions: submissions.filter((s) => s.status === "rejected").length,
+      let stats = {
+        totalSubmissions: 0,
+        approvedSubmissions: 0,
+        pendingSubmissions: 0,
+        rejectedSubmissions: 0,
       };
 
-      // Transform to frontend expected format
+      try {
+        const submissions = await getSuggestionsByUser(user.id);
+        stats = {
+          totalSubmissions: submissions.length,
+          approvedSubmissions: submissions.filter((s) => s.status === "approved").length,
+          pendingSubmissions: submissions.filter((s) => s.status === "pending").length,
+          rejectedSubmissions: submissions.filter((s) => s.status === "rejected").length,
+        };
+      } catch (err) {
+        console.warn("Could not fetch submissions:", err);
+      }
+
+      // Build profile response (matching Python backend behavior)
       const response = {
-        id: profile.userId,
-        email: profile.email,
-        username: profile.username,
-        name: profile.name,
-        isAdmin: profile.isAdmin,
-        joinDate: profile.createdAt,
+        id: user.id,
+        email: user.email,
+        username,
+        isAdmin: user.isAdmin,
+        joinDate,
         stats,
       };
 
