@@ -1,9 +1,0 @@
-[project]
-name = "christmas-lights-common-layer"
-version = "0.1.0"
-requires-python = ">=3.12"
-dependencies = [
-    "geopy>=2.4.1",
-    "reportlab>=4.0.0",
-    "qrcode[pil]>=8.0",
-]

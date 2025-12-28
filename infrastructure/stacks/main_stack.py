@@ -14,6 +14,7 @@ from aws_cdk import (
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins,
     aws_iam as iam,
+    aws_location as location,
 )
 from constructs import Construct
 import os
@@ -33,14 +34,14 @@ class ChristmasLightsStack(Stack):
         # Create S3 buckets
         self.create_s3_buckets()
 
+        # Create AWS Location Service resources
+        self.create_location_service()
+
         # Create Cognito user pool
         self.create_cognito_pool()
 
         # Create CloudFront distribution for frontend (before Lambda so CORS origin is available)
         self.create_cloudfront_distribution()
-
-        # Create Lambda layer with shared code
-        self.create_lambda_layer()
 
         # Create Lambda functions (after CloudFront so CORS can include CF domain)
         self.create_lambda_functions()
@@ -285,6 +286,22 @@ class ChristmasLightsStack(Stack):
             auto_delete_objects=self.env_name == "dev",
         )
 
+    def create_location_service(self):
+        """Create AWS Location Service resources for address lookup."""
+
+        # Create a Place Index for address search/autocomplete
+        # Using Esri as the data provider (good coverage, free tier friendly)
+        self.place_index = location.CfnPlaceIndex(
+            self,
+            "PlaceIndex",
+            index_name=f"christmas-lights-places-{self.env_name}",
+            data_source="Esri",
+            data_source_configuration=location.CfnPlaceIndex.DataSourceConfigurationProperty(
+                intended_use="SingleUse"  # For autocomplete/suggestions (not stored)
+            ),
+            description="Place index for Christmas Lights address lookup",
+        )
+
     def create_cognito_pool(self):
         """Create Cognito user pool for authentication."""
 
@@ -381,54 +398,8 @@ class ChristmasLightsStack(Stack):
             post_authentication=self.post_auth_fn.function_arn
         )
 
-    def create_lambda_layer(self):
-        """Create Lambda layer with shared code and dependencies."""
-        import time
-        import subprocess
-        import shutil
-        import tempfile
-
-        layer_source = "../backend/layers/common"
-        
-        # Create a temporary directory for bundling
-        with tempfile.TemporaryDirectory() as tmpdir:
-            python_dir = os.path.join(tmpdir, "python")
-            os.makedirs(python_dir)
-            
-            # Export dependencies from uv.lock and install them
-            pyproject_file = os.path.join(layer_source, "pyproject.toml")
-            if os.path.exists(pyproject_file):
-                subprocess.run(
-                    ["uv", "export", "--no-hashes", "--no-dev", "--frozen", "-o", f"{tmpdir}/requirements.txt"],
-                    cwd=layer_source,
-                    check=True
-                )
-                subprocess.run(
-                    ["uv", "pip", "install", "-r", f"{tmpdir}/requirements.txt", "--target", python_dir, "--quiet"],
-                    check=True
-                )
-            
-            # Copy custom Python modules
-            source_python_dir = os.path.join(layer_source, "python")
-            if os.path.exists(source_python_dir):
-                for item in os.listdir(source_python_dir):
-                    src = os.path.join(source_python_dir, item)
-                    dst = os.path.join(python_dir, item)
-                    if os.path.isdir(src):
-                        shutil.copytree(src, dst, dirs_exist_ok=True)
-                    else:
-                        shutil.copy2(src, dst)
-            
-            self.common_layer = lambda_.LayerVersion(
-                self,
-                "CommonLayer",
-                code=lambda_.Code.from_asset(tmpdir),
-                compatible_runtimes=[lambda_.Runtime.PYTHON_3_12],
-                description=f"Common utilities and models - v{int(time.time())}",
-            )
-
     def create_lambda_functions(self):
-        """Create Lambda functions."""
+        """Create Lambda functions using TypeScript backend."""
 
         # Determine allowed origins for CORS
         if self.env_name == "prod":
@@ -455,233 +426,179 @@ class ChristmasLightsStack(Stack):
             "ENV_NAME": self.env_name,
         }
 
-        # Locations functions - read operations (optimized)
-        self.get_locations_fn = lambda_.Function(
-            self,
+        # Helper function to create Node.js Lambda from TypeScript build
+        def create_ts_lambda(
+            name: str,
+            handler_path: str,
+            timeout_seconds: int = 10,
+            memory_size: int = 256,
+            environment: dict = None,
+        ) -> lambda_.Function:
+            """Create a Lambda function from the TypeScript build output."""
+            return lambda_.Function(
+                self,
+                name,
+                handler="handler.handler",
+                code=lambda_.Code.from_asset(f"../backend-ts/dist/functions/{handler_path}"),
+                runtime=lambda_.Runtime.NODEJS_20_X,
+                timeout=Duration.seconds(timeout_seconds),
+                memory_size=memory_size,
+                environment=environment or common_env,
+            )
+
+        # Locations functions - read operations
+        self.get_locations_fn = create_ts_lambda(
             "GetLocationsFunction",
-            handler="get_locations.handler",
-            code=lambda_.Code.from_asset("../backend/functions/locations"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),  # Quick read operations
-            memory_size=256,  # Less memory for simple queries
-            environment=common_env,
-            layers=[self.common_layer],
+            "locations/get",
+            timeout_seconds=10,
+            memory_size=256,
         )
         self.locations_table.grant_read_data(self.get_locations_fn)
 
-        self.get_location_by_id_fn = lambda_.Function(
-            self,
+        self.get_location_by_id_fn = create_ts_lambda(
             "GetLocationByIdFunction",
-            handler="get_location_by_id.handler",
-            code=lambda_.Code.from_asset("../backend/functions/locations"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(5),  # Very fast single-item read
+            "locations/get-by-id",
+            timeout_seconds=5,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         # Grant read + write for view count analytics
         self.locations_table.grant_read_write_data(self.get_location_by_id_fn)
 
-        # Create location - write operation (needs more time)
-        self.create_location_fn = lambda_.Function(
-            self,
+        # Create location - write operation
+        self.create_location_fn = create_ts_lambda(
             "CreateLocationFunction",
-            handler="create_location.handler",
-            code=lambda_.Code.from_asset("../backend/functions/locations"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(15),  # Write operations need more time
+            "locations/create",
+            timeout_seconds=15,
             memory_size=512,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.locations_table.grant_read_write_data(self.create_location_fn)
 
-        # Delete location (admin only) - for testing
-        self.delete_location_fn = lambda_.Function(
-            self,
+        # Delete location (admin only)
+        self.delete_location_fn = create_ts_lambda(
             "DeleteLocationFunction",
-            handler="delete_location.handler",
-            code=lambda_.Code.from_asset("../backend/functions/locations"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(30),
+            "locations/delete",
+            timeout_seconds=30,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.locations_table.grant_read_write_data(self.delete_location_fn)
         self.feedback_table.grant_read_write_data(self.delete_location_fn)
         self.photos_bucket.grant_delete(self.delete_location_fn)
 
-        # Update location (admin only) - for editing approved locations
-        self.update_location_fn = lambda_.Function(
-            self,
+        # Update location (admin only)
+        self.update_location_fn = create_ts_lambda(
             "UpdateLocationFunction",
-            handler="update_location.handler",
-            code=lambda_.Code.from_asset("../backend/functions/locations"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "locations/update",
+            timeout_seconds=10,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.locations_table.grant_read_write_data(self.update_location_fn)
 
-        # Check pending photo submission for a location
-        self.check_pending_photo_fn = lambda_.Function(
-            self,
-            "CheckPendingPhotoFunction",
-            handler="check_pending_photo.handler",
-            code=lambda_.Code.from_asset("../backend/functions/locations"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(5),
-            memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
-        )
-        self.suggestions_table.grant_read_data(self.check_pending_photo_fn)
-
-        # Check for duplicate locations before submission
-        self.check_duplicate_fn = lambda_.Function(
-            self,
+        # Check for duplicate locations
+        self.check_duplicate_fn = create_ts_lambda(
             "CheckDuplicateFunction",
-            handler="check_duplicate.handler",
-            code=lambda_.Code.from_asset("../backend/functions/locations"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "locations/check-duplicate",
+            timeout_seconds=10,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.locations_table.grant_read_data(self.check_duplicate_fn)
         self.suggestions_table.grant_read_data(self.check_duplicate_fn)
 
         # Feedback functions
-        self.submit_feedback_fn = lambda_.Function(
-            self,
+        self.submit_feedback_fn = create_ts_lambda(
             "SubmitFeedbackFunction",
-            handler="submit_feedback.handler",
-            code=lambda_.Code.from_asset("../backend/functions/feedback"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "feedback/submit",
+            timeout_seconds=10,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.locations_table.grant_read_write_data(self.submit_feedback_fn)
         self.feedback_table.grant_read_write_data(self.submit_feedback_fn)
 
-        self.report_inactive_fn = lambda_.Function(
-            self,
+        self.report_inactive_fn = create_ts_lambda(
             "ReportInactiveFunction",
-            handler="report_inactive.handler",
-            code=lambda_.Code.from_asset("../backend/functions/feedback"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "feedback/report-inactive",
+            timeout_seconds=10,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.locations_table.grant_read_write_data(self.report_inactive_fn)
         self.feedback_table.grant_read_write_data(self.report_inactive_fn)
 
-        self.get_feedback_status_fn = lambda_.Function(
-            self,
+        self.get_feedback_status_fn = create_ts_lambda(
             "GetFeedbackStatusFunction",
-            handler="get_feedback_status.handler",
-            code=lambda_.Code.from_asset("../backend/functions/feedback"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(5),
+            "feedback/get-status",
+            timeout_seconds=5,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.feedback_table.grant_read_data(self.get_feedback_status_fn)
 
         # Toggle favorite function
-        self.toggle_favorite_fn = lambda_.Function(
-            self,
+        self.toggle_favorite_fn = create_ts_lambda(
             "ToggleFavoriteFunction",
-            handler="toggle_favorite.handler",
-            code=lambda_.Code.from_asset("../backend/functions/feedback"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "feedback/toggle-favorite",
+            timeout_seconds=10,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.locations_table.grant_read_data(self.toggle_favorite_fn)
         self.feedback_table.grant_read_write_data(self.toggle_favorite_fn)
 
         # Get favorites function
-        self.get_favorites_fn = lambda_.Function(
-            self,
+        self.get_favorites_fn = create_ts_lambda(
             "GetFavoritesFunction",
-            handler="get_favorites.handler",
-            code=lambda_.Code.from_asset("../backend/functions/feedback"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "feedback/get-favorites",
+            timeout_seconds=10,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.locations_table.grant_read_data(self.get_favorites_fn)
         self.feedback_table.grant_read_data(self.get_favorites_fn)
 
-        # Address suggestions - geocoding
-        self.suggest_addresses_fn = lambda_.Function(
-            self,
+        # Address suggestions - AWS Location Service
+        location_env = {
+            **common_env,
+            "PLACE_INDEX_NAME": self.place_index.index_name,
+        }
+        self.suggest_addresses_fn = create_ts_lambda(
             "SuggestAddressesFunction",
-            handler="suggest_addresses.handler",
-            code=lambda_.Code.from_asset("../backend/functions/locations"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),  # Geocoding may take time
-            memory_size=512,  # More memory for geocoding operations
-            environment=common_env,
-            layers=[self.common_layer],
+            "locations/suggest-addresses",
+            timeout_seconds=10,
+            memory_size=256,
+            environment=location_env,
+        )
+        # Grant permissions to use AWS Location Service
+        self.suggest_addresses_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "geo:SearchPlaceIndexForSuggestions",
+                    "geo:GetPlace",
+                ],
+                resources=[self.place_index.attr_arn],
+            )
         )
 
         # Submit suggestion function
-        self.submit_suggestion_fn = lambda_.Function(
-            self,
+        self.submit_suggestion_fn = create_ts_lambda(
             "SubmitSuggestionFunction",
-            handler="submit_suggestion.handler",
-            code=lambda_.Code.from_asset("../backend/functions/suggestions"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "suggestions/submit",
+            timeout_seconds=10,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.suggestions_table.grant_read_write_data(self.submit_suggestion_fn)
         self.locations_table.grant_read_data(self.submit_suggestion_fn)
 
         # Get suggestions function (admin)
-        self.get_suggestions_fn = lambda_.Function(
-            self,
+        self.get_suggestions_fn = create_ts_lambda(
             "GetSuggestionsFunction",
-            handler="get_suggestions.handler",
-            code=lambda_.Code.from_asset("../backend/functions/suggestions"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "suggestions/get",
+            timeout_seconds=10,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.suggestions_table.grant_read_data(self.get_suggestions_fn)
         self.photos_bucket.grant_read(self.get_suggestions_fn)
 
         # Approve suggestion function (admin)
-        self.approve_suggestion_fn = lambda_.Function(
-            self,
+        self.approve_suggestion_fn = create_ts_lambda(
             "ApproveSuggestionFunction",
-            handler="approve_suggestion.handler",
-            code=lambda_.Code.from_asset("../backend/functions/suggestions"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "suggestions/approve",
+            timeout_seconds=10,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.suggestions_table.grant_read_write_data(self.approve_suggestion_fn)
         self.locations_table.grant_read_write_data(self.approve_suggestion_fn)
@@ -691,65 +608,26 @@ class ChristmasLightsStack(Stack):
         self.photos_bucket.grant_delete(self.approve_suggestion_fn)
 
         # Reject suggestion function (admin)
-        self.reject_suggestion_fn = lambda_.Function(
-            self,
+        self.reject_suggestion_fn = create_ts_lambda(
             "RejectSuggestionFunction",
-            handler="reject_suggestion.handler",
-            code=lambda_.Code.from_asset("../backend/functions/suggestions"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "suggestions/reject",
+            timeout_seconds=10,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.suggestions_table.grant_read_write_data(self.reject_suggestion_fn)
         # Grant S3 permissions to delete photos from pending/
         self.photos_bucket.grant_delete(self.reject_suggestion_fn)
         self.photos_bucket.grant_read(self.reject_suggestion_fn)
 
-        # Update suggestion function (admin) - for editing before approval
-        self.update_suggestion_fn = lambda_.Function(
-            self,
-            "UpdateSuggestionFunction",
-            handler="update_suggestion.handler",
-            code=lambda_.Code.from_asset("../backend/functions/suggestions"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
-            memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
-        )
-        self.suggestions_table.grant_read_write_data(self.update_suggestion_fn)
-
         # Photo upload URL function
-        self.get_upload_url_fn = lambda_.Function(
-            self,
+        self.get_upload_url_fn = create_ts_lambda(
             "GetUploadUrlFunction",
-            handler="get_upload_url.handler",
-            code=lambda_.Code.from_asset("../backend/functions/photos"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "photos/get-upload-url",
+            timeout_seconds=10,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         # Grant S3 permissions for presigned URL generation
         self.photos_bucket.grant_put(self.get_upload_url_fn)
-
-        # Route PDF generation function
-        self.generate_route_pdf_fn = lambda_.Function(
-            self,
-            "GenerateRoutePdfFunction",
-            handler="generate_pdf.handler",
-            code=lambda_.Code.from_asset("../backend/functions/routes"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(30),  # PDF generation needs more time
-            memory_size=512,  # More memory for PDF generation
-            environment=common_env,
-            layers=[self.common_layer],
-        )
-        # Grant S3 permissions for PDF storage and presigned URL generation
-        self.photos_bucket.grant_read_write(self.generate_route_pdf_fn)
 
         # Route environment with users table for usernames
         routes_env = {
@@ -758,170 +636,121 @@ class ChristmasLightsStack(Stack):
         }
 
         # Create route function
-        self.create_route_fn = lambda_.Function(
-            self,
+        self.create_route_fn = create_ts_lambda(
             "CreateRouteFunction",
-            handler="create_route.handler",
-            code=lambda_.Code.from_asset("../backend/functions/routes"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "routes/create",
+            timeout_seconds=10,
             memory_size=256,
             environment=routes_env,
-            layers=[self.common_layer],
         )
         self.routes_table.grant_read_write_data(self.create_route_fn)
         self.locations_table.grant_read_data(self.create_route_fn)
         self.users_table.grant_read_data(self.create_route_fn)
 
         # Get routes function (list with sorting/filtering)
-        self.get_routes_fn = lambda_.Function(
-            self,
+        self.get_routes_fn = create_ts_lambda(
             "GetRoutesFunction",
-            handler="get_routes.handler",
-            code=lambda_.Code.from_asset("../backend/functions/routes"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "routes/get",
+            timeout_seconds=10,
             memory_size=256,
             environment=routes_env,
-            layers=[self.common_layer],
         )
         self.routes_table.grant_read_data(self.get_routes_fn)
         self.locations_table.grant_read_data(self.get_routes_fn)
         self.users_table.grant_read_data(self.get_routes_fn)
 
         # Get route by ID function
-        self.get_route_by_id_fn = lambda_.Function(
-            self,
+        self.get_route_by_id_fn = create_ts_lambda(
             "GetRouteByIdFunction",
-            handler="get_route_by_id.handler",
-            code=lambda_.Code.from_asset("../backend/functions/routes"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "routes/get-by-id",
+            timeout_seconds=10,
             memory_size=256,
             environment=routes_env,
-            layers=[self.common_layer],
         )
         self.routes_table.grant_read_data(self.get_route_by_id_fn)
-        self.routes_table.grant_write_data(self.get_route_by_id_fn)  # For increment_start_count analytics
+        self.routes_table.grant_write_data(self.get_route_by_id_fn)  # For analytics
         self.locations_table.grant_read_data(self.get_route_by_id_fn)
         self.users_table.grant_read_data(self.get_route_by_id_fn)
         self.route_feedback_table.grant_read_data(self.get_route_by_id_fn)
 
         # Update route function
-        self.update_route_fn = lambda_.Function(
-            self,
+        self.update_route_fn = create_ts_lambda(
             "UpdateRouteFunction",
-            handler="update_route.handler",
-            code=lambda_.Code.from_asset("../backend/functions/routes"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "routes/update",
+            timeout_seconds=10,
             memory_size=256,
             environment=routes_env,
-            layers=[self.common_layer],
         )
         self.routes_table.grant_read_write_data(self.update_route_fn)
         self.locations_table.grant_read_data(self.update_route_fn)
 
         # Delete route function
-        self.delete_route_fn = lambda_.Function(
-            self,
+        self.delete_route_fn = create_ts_lambda(
             "DeleteRouteFunction",
-            handler="delete_route.handler",
-            code=lambda_.Code.from_asset("../backend/functions/routes"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "routes/delete",
+            timeout_seconds=10,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.routes_table.grant_read_write_data(self.delete_route_fn)
         self.route_feedback_table.grant_read_write_data(self.delete_route_fn)
 
         # Route feedback function (like/save/start toggle)
-        self.route_feedback_fn = lambda_.Function(
-            self,
+        self.route_feedback_fn = create_ts_lambda(
             "RouteFeedbackFunction",
-            handler="route_feedback.handler",
-            code=lambda_.Code.from_asset("../backend/functions/routes"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "routes/feedback",
+            timeout_seconds=10,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.routes_table.grant_read_write_data(self.route_feedback_fn)
         self.route_feedback_table.grant_read_write_data(self.route_feedback_fn)
 
         # Get route feedback status function
-        self.get_route_feedback_status_fn = lambda_.Function(
-            self,
+        self.get_route_feedback_status_fn = create_ts_lambda(
             "GetRouteFeedbackStatusFunction",
-            handler="get_route_feedback_status.handler",
-            code=lambda_.Code.from_asset("../backend/functions/routes"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(5),
+            "routes/get-feedback-status",
+            timeout_seconds=5,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.route_feedback_table.grant_read_data(self.get_route_feedback_status_fn)
 
         # Get user's routes function
-        self.get_user_routes_fn = lambda_.Function(
-            self,
+        self.get_user_routes_fn = create_ts_lambda(
             "GetUserRoutesFunction",
-            handler="get_user_routes.handler",
-            code=lambda_.Code.from_asset("../backend/functions/routes"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "routes/get-user-routes",
+            timeout_seconds=10,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.routes_table.grant_read_data(self.get_user_routes_fn)
 
         # Get user's saved routes function
-        self.get_user_saved_routes_fn = lambda_.Function(
-            self,
+        self.get_user_saved_routes_fn = create_ts_lambda(
             "GetUserSavedRoutesFunction",
-            handler="get_user_saved_routes.handler",
-            code=lambda_.Code.from_asset("../backend/functions/routes"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "routes/get-user-saved-routes",
+            timeout_seconds=10,
             memory_size=256,
             environment=routes_env,
-            layers=[self.common_layer],
         )
         self.routes_table.grant_read_data(self.get_user_saved_routes_fn)
         self.route_feedback_table.grant_read_data(self.get_user_saved_routes_fn)
         self.users_table.grant_read_data(self.get_user_saved_routes_fn)
 
         # Routes leaderboard function (public)
-        self.get_routes_leaderboard_fn = lambda_.Function(
-            self,
+        self.get_routes_leaderboard_fn = create_ts_lambda(
             "GetRoutesLeaderboardFunction",
-            handler="get_routes_leaderboard.handler",
-            code=lambda_.Code.from_asset("../backend/functions/routes"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "routes/get-leaderboard",
+            timeout_seconds=10,
             memory_size=256,
             environment=routes_env,
-            layers=[self.common_layer],
         )
         self.routes_table.grant_read_data(self.get_routes_leaderboard_fn)
         self.users_table.grant_read_data(self.get_routes_leaderboard_fn)
 
         # Photo analysis function (triggered by S3)
-        self.analyze_photo_fn = lambda_.Function(
-            self,
+        self.analyze_photo_fn = create_ts_lambda(
             "AnalyzePhotoFunction",
-            handler="analyze_photo.handler",
-            code=lambda_.Code.from_asset("../backend/functions/photos"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(60),  # Vision analysis needs time
+            "photos/analyze",
+            timeout_seconds=60,
             memory_size=512,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         # Grant S3 read/write for fetching and compressing photos
         self.photos_bucket.grant_read_write(self.analyze_photo_fn)
@@ -958,16 +787,12 @@ class ChristmasLightsStack(Stack):
             "USER_POOL_ID": self.user_pool.user_pool_id,
             "USERS_TABLE_NAME": self.users_table.table_name,
         }
-        self.get_user_profile_fn = lambda_.Function(
-            self,
+        self.get_user_profile_fn = create_ts_lambda(
             "GetUserProfileFunction",
-            handler="get_profile.handler",
-            code=lambda_.Code.from_asset("../backend/functions/users"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "users/get-profile",
+            timeout_seconds=10,
             memory_size=256,
             environment=user_env,
-            layers=[self.common_layer],
         )
         self.suggestions_table.grant_read_data(self.get_user_profile_fn)
         self.users_table.grant_read_data(self.get_user_profile_fn)
@@ -980,16 +805,11 @@ class ChristmasLightsStack(Stack):
         )
 
         # User submissions function
-        self.get_user_submissions_fn = lambda_.Function(
-            self,
+        self.get_user_submissions_fn = create_ts_lambda(
             "GetUserSubmissionsFunction",
-            handler="get_submissions.handler",
-            code=lambda_.Code.from_asset("../backend/functions/users"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "users/get-submissions",
+            timeout_seconds=10,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.suggestions_table.grant_read_data(self.get_user_submissions_fn)
         self.photos_bucket.grant_read(self.get_user_submissions_fn)
@@ -999,16 +819,12 @@ class ChristmasLightsStack(Stack):
             **common_env,
             "USERS_TABLE_NAME": self.users_table.table_name,
         }
-        self.update_user_profile_fn = lambda_.Function(
-            self,
+        self.update_user_profile_fn = create_ts_lambda(
             "UpdateUserProfileFunction",
-            handler="update_profile.handler",
-            code=lambda_.Code.from_asset("../backend/functions/users"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "users/update-profile",
+            timeout_seconds=10,
             memory_size=256,
             environment=update_profile_env,
-            layers=[self.common_layer],
         )
         self.users_table.grant_read_write_data(self.update_user_profile_fn)
 
@@ -1018,16 +834,12 @@ class ChristmasLightsStack(Stack):
             "USER_POOL_ID": self.user_pool.user_pool_id,
             "USERS_TABLE_NAME": self.users_table.table_name,
         }
-        self.get_leaderboard_fn = lambda_.Function(
-            self,
+        self.get_leaderboard_fn = create_ts_lambda(
             "GetLeaderboardFunction",
-            handler="get_leaderboard.handler",
-            code=lambda_.Code.from_asset("../backend/functions/users"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(15),
+            "users/get-leaderboard",
+            timeout_seconds=15,
             memory_size=256,
             environment=leaderboard_env,
-            layers=[self.common_layer],
         )
         self.suggestions_table.grant_read_data(self.get_leaderboard_fn)
         self.users_table.grant_read_data(self.get_leaderboard_fn)
@@ -1040,16 +852,11 @@ class ChristmasLightsStack(Stack):
         )
 
         # Locations leaderboard function (public)
-        self.get_locations_leaderboard_fn = lambda_.Function(
-            self,
+        self.get_locations_leaderboard_fn = create_ts_lambda(
             "GetLocationsLeaderboardFunction",
-            handler="get_locations_leaderboard.handler",
-            code=lambda_.Code.from_asset("../backend/functions/users"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(10),
+            "users/get-locations-leaderboard",
+            timeout_seconds=10,
             memory_size=256,
-            environment=common_env,
-            layers=[self.common_layer],
         )
         self.locations_table.grant_read_data(self.get_locations_leaderboard_fn)
 
@@ -1057,17 +864,14 @@ class ChristmasLightsStack(Stack):
         post_auth_env = {
             "USERS_TABLE_NAME": self.users_table.table_name,
             "ENV_NAME": self.env_name,
+            "ALLOWED_ORIGINS": ",".join(allowed_origins),
         }
-        self.post_auth_fn = lambda_.Function(
-            self,
+        self.post_auth_fn = create_ts_lambda(
             "PostAuthenticationFunction",
-            handler="post_authentication.handler",
-            code=lambda_.Code.from_asset("../backend/functions/auth"),
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            timeout=Duration.seconds(30),  # Needs time for Bedrock API call
+            "auth/post-authentication",
+            timeout_seconds=30,
             memory_size=512,
             environment=post_auth_env,
-            layers=[self.common_layer],
         )
         self.users_table.grant_read_write_data(self.post_auth_fn)
         # Grant Bedrock permissions for username generation
@@ -1101,7 +905,6 @@ class ChristmasLightsStack(Stack):
             "approve_suggestion": self.approve_suggestion_fn,
             "reject_suggestion": self.reject_suggestion_fn,
             "get_upload_url": self.get_upload_url_fn,
-            "generate_route_pdf": self.generate_route_pdf_fn,
             "get_user_profile": self.get_user_profile_fn,
             "get_user_submissions": self.get_user_submissions_fn,
             "get_locations_leaderboard": self.get_locations_leaderboard_fn,
@@ -1119,7 +922,6 @@ class ChristmasLightsStack(Stack):
 
         # Determine allowed origins based on environment
         if self.env_name == "prod":
-            # TODO: Replace with your actual production domain
             allowed_origins = ["https://christmaslights.example.com"]
         else:
             # Development: CloudFront first (primary), then localhost for local dev
@@ -1142,8 +944,8 @@ class ChristmasLightsStack(Stack):
             ),
             deploy_options=apigw.StageOptions(
                 stage_name=self.env_name,
-                throttling_rate_limit=100,  # Requests per second
-                throttling_burst_limit=200,  # Burst capacity
+                throttling_rate_limit=100,
+                throttling_burst_limit=200,
                 logging_level=apigw.MethodLoggingLevel.INFO,
                 data_trace_enabled=True,
                 metrics_enabled=True,
@@ -1151,7 +953,6 @@ class ChristmasLightsStack(Stack):
         )
 
         # Add CORS headers to Gateway error responses (4XX/5XX)
-        # This ensures CORS headers are returned even when auth fails
         cors_headers = {
             "Access-Control-Allow-Origin": f"'{allowed_origins[0]}'",
             "Access-Control-Allow-Headers": "'Content-Type,Authorization'",
@@ -1218,14 +1019,12 @@ class ChristmasLightsStack(Stack):
             "GET",
             apigw.LambdaIntegration(self.get_location_by_id_fn),
         )
-        # DELETE /locations/{id} - admin only for testing
         location_by_id.add_method(
             "DELETE",
             apigw.LambdaIntegration(self.delete_location_fn),
             authorizer=authorizer,
             authorization_type=apigw.AuthorizationType.COGNITO,
         )
-        # PUT /locations/{id} - admin only for editing approved locations
         location_by_id.add_method(
             "PUT",
             apigw.LambdaIntegration(self.update_location_fn),
@@ -1269,15 +1068,6 @@ class ChristmasLightsStack(Stack):
             authorization_type=apigw.AuthorizationType.COGNITO,
         )
 
-        # /locations/{id}/pending-photo endpoint
-        pending_photo = location_by_id.add_resource("pending-photo")
-        pending_photo.add_method(
-            "GET",
-            apigw.LambdaIntegration(self.check_pending_photo_fn),
-            authorizer=authorizer,
-            authorization_type=apigw.AuthorizationType.COGNITO,
-        )
-
         # /suggestions endpoints
         suggestions = v1.add_resource("suggestions")
         suggestions.add_method(
@@ -1295,13 +1085,6 @@ class ChristmasLightsStack(Stack):
 
         # /suggestions/{id} endpoints
         suggestion_by_id = suggestions.add_resource("{id}")
-        # PUT /suggestions/{id} - admin only for editing before approval
-        suggestion_by_id.add_method(
-            "PUT",
-            apigw.LambdaIntegration(self.update_suggestion_fn),
-            authorizer=authorizer,
-            authorization_type=apigw.AuthorizationType.COGNITO,
-        )
 
         # /suggestions/{id}/approve endpoint
         approve = suggestion_by_id.add_resource("approve")
@@ -1348,13 +1131,6 @@ class ChristmasLightsStack(Stack):
             apigw.LambdaIntegration(self.create_route_fn),
             authorizer=authorizer,
             authorization_type=apigw.AuthorizationType.COGNITO,
-        )
-
-        # /routes/generate-pdf endpoint (no auth required for now)
-        generate_pdf = routes.add_resource("generate-pdf")
-        generate_pdf.add_method(
-            "POST",
-            apigw.LambdaIntegration(self.generate_route_pdf_fn),
         )
 
         # /routes/{id} endpoints
@@ -1505,14 +1281,13 @@ class ChristmasLightsStack(Stack):
         )
 
         # CloudFront distribution for serving approved photos only
-        # Uses origin_path to restrict access to approved/ prefix
         self.photos_distribution = cloudfront.Distribution(
             self,
             "PhotosDistribution",
             default_behavior=cloudfront.BehaviorOptions(
                 origin=origins.S3BucketOrigin.with_origin_access_control(
                     self.photos_bucket,
-                    origin_path="/approved",  # Only serve from approved/
+                    origin_path="/approved",
                 ),
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
@@ -1523,7 +1298,6 @@ class ChristmasLightsStack(Stack):
         if self.env_name == "dev":
             cloudfront_origin = f"https://{self.distribution.distribution_domain_name}"
 
-            # Add CORS rule with CloudFront domain to photos bucket
             cfn_photos_bucket = self.photos_bucket.node.default_child
             cfn_photos_bucket.add_property_override(
                 "CorsConfiguration.CorsRules",

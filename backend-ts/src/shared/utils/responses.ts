@@ -204,6 +204,21 @@ export function internalError(
 }
 
 /**
+ * Create a service unavailable error response.
+ */
+export function serviceUnavailableError(
+  message = "Service temporarily unavailable",
+  requestOrigin = ""
+): APIGatewayProxyResult {
+  return errorResponse({
+    code: "SERVICE_UNAVAILABLE",
+    message,
+    statusCode: 503,
+    requestOrigin,
+  });
+}
+
+/**
  * Create a CORS preflight response.
  */
 export function corsPreflightResponse(requestOrigin = ""): APIGatewayProxyResult {
