@@ -6,19 +6,21 @@
 
 import type { APIGatewayProxyResult, Context } from "aws-lambda";
 import { successResponse, internalError } from "@shared/utils/responses";
-import { listLocations } from "@shared/db/locations";
 import { getSuggestionsByUser } from "@shared/db/suggestions";
 import { requireAuth, getUserInfo } from "@shared/utils/auth";
-import type { AuthenticatedEvent, Location, Suggestion } from "@shared/types";
+import type { AuthenticatedEvent } from "@shared/types";
 
 interface UserSubmission {
   id: string;
   address: string;
   description: string;
-  status: string;
-  type: "location" | "suggestion";
-  createdAt: string;
   photos: string[];
+  status: string;
+  submittedAt: string;
+  lat: number;
+  lng: number;
+  reviewedAt?: string;
+  rejectionReason?: string;
 }
 
 /**
@@ -33,38 +35,47 @@ export const handler = requireAuth(
         return internalError();
       }
 
-      // Get approved locations created by this user
-      const allLocations = await listLocations({ status: "active", limit: 500 });
-      const userLocations = allLocations.filter((loc) => loc.createdBy === user.id);
-
-      // Get pending suggestions by this user
+      // Get all suggestions by this user
       const userSuggestions = await getSuggestionsByUser(user.id);
 
-      // Combine and format submissions
-      const submissions: UserSubmission[] = [
-        ...userLocations.map((loc: Location) => ({
-          id: loc.id,
-          address: loc.address,
-          description: loc.description,
-          status: "approved",
-          type: "location" as const,
-          createdAt: loc.createdAt,
-          photos: loc.photos,
-        })),
-        ...userSuggestions.map((sug: Suggestion) => ({
+      // Get CDN URL for photo URLs
+      const cdnUrl = process.env.PHOTOS_CDN_URL || "";
+
+      // Format submissions to match frontend expectations
+      const submissions: UserSubmission[] = userSuggestions.map((sug) => {
+        // Convert S3 keys to CDN URLs
+        const photoUrls = (sug.photos || []).map((photo) => {
+          if (photo.startsWith("http")) {
+            return photo;
+          }
+          return cdnUrl ? `${cdnUrl}/${photo}` : photo;
+        });
+
+        const submission: UserSubmission = {
           id: sug.id,
           address: sug.address,
-          description: sug.description,
+          description: sug.description || "",
+          photos: photoUrls,
           status: sug.status,
-          type: "suggestion" as const,
-          createdAt: sug.createdAt,
-          photos: sug.photos,
-        })),
-      ];
+          submittedAt: sug.createdAt,
+          lat: sug.lat,
+          lng: sug.lng,
+        };
 
-      // Sort by creation date (newest first)
+        // Add optional fields if present
+        if (sug.reviewedAt) {
+          submission.reviewedAt = sug.reviewedAt;
+        }
+        if (sug.rejectionReason) {
+          submission.rejectionReason = sug.rejectionReason;
+        }
+
+        return submission;
+      });
+
+      // Sort by submission date (newest first)
       submissions.sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
       );
 
       return successResponse({ data: submissions });
