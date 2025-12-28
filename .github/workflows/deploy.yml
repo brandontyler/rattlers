@@ -82,6 +82,14 @@ jobs:
         working-directory: infrastructure
         run: uv sync
 
+      - name: Install backend dependencies
+        working-directory: backend-ts
+        run: npm ci
+
+      - name: Build TypeScript backend
+        working-directory: backend-ts
+        run: npm run build
+
       - name: Deploy CDK stack
         working-directory: infrastructure
         run: |
