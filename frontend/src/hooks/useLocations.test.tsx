@@ -24,12 +24,14 @@ const mockLocation: Location = {
   lat: 32.7767,
   lng: -96.797,
   address: "123 Main St, Dallas, TX",
-  status: "approved",
-  submittedBy: "user-1",
-  submittedAt: "2024-01-01T00:00:00Z",
+  status: "active",
   description: "Beautiful display",
   photos: ["https://example.com/photo1.jpg"],
   likeCount: 10,
+  reportCount: 0,
+  viewCount: 0,
+  saveCount: 0,
+  createdAt: "2024-01-01T00:00:00Z",
 };
 
 // Create wrapper with QueryClient
@@ -58,6 +60,7 @@ describe("useLocations hooks", () => {
       vi.mocked(apiService.getLocations).mockResolvedValue({
         success: true,
         data: mockLocations,
+        pagination: { page: 1, pageSize: 500, total: 1, totalPages: 1 },
       });
 
       const { result } = renderHook(() => useLocations(), {

@@ -68,7 +68,7 @@ Object.defineProperty(window, "localStorage", {
 });
 
 // Mock scrollTo
-window.scrollTo = vi.fn();
+window.scrollTo = vi.fn() as unknown as typeof window.scrollTo;
 
 // Mock environment variables
 vi.stubEnv("VITE_API_URL", "http://localhost:3001");

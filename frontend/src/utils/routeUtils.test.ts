@@ -20,9 +20,14 @@ const createLocation = (id: string, lat: number, lng: number): Location => ({
   lat,
   lng,
   address: `${id} Main St`,
-  status: "approved",
-  submittedBy: "user1",
-  submittedAt: "2024-01-01",
+  description: "Test location",
+  photos: [],
+  status: "active",
+  likeCount: 0,
+  reportCount: 0,
+  viewCount: 0,
+  saveCount: 0,
+  createdAt: "2024-01-01",
 });
 
 describe("Route Utilities", () => {
