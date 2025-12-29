@@ -16,20 +16,19 @@ vi.mock("@aws-sdk/client-geo-places", () => ({
   GeoPlacesClient: vi.fn().mockImplementation(() => ({
     send: mockSend,
   })),
-  SuggestCommand: vi.fn().mockImplementation((input) => ({ input, type: "Suggest" })),
+  AutocompleteCommand: vi.fn().mockImplementation((input) => ({ input, type: "Autocomplete" })),
   GetPlaceCommand: vi.fn().mockImplementation((input) => ({ input, type: "GetPlace" })),
 }));
 
 import { handler } from "./handler";
 
-// Sample suggest response from V2 API
-const createSuggestResponse = (places: Array<{ placeId: string; title: string }>) => ({
+// Sample autocomplete response from V2 API
+// Note: Autocomplete returns PlaceId directly on the result item (not nested in Place object)
+const createAutocompleteResponse = (places: Array<{ placeId: string; title: string }>) => ({
   ResultItems: places.map((p) => ({
     Title: p.title,
-    Place: {
-      PlaceId: p.placeId,
-      PlaceType: "Address",
-    },
+    PlaceId: p.placeId,
+    PlaceType: "Address",
   })),
 });
 
@@ -131,7 +130,7 @@ describe("POST /locations/suggest-addresses Handler", () => {
     it("should return suggestions with coordinates", async () => {
       // Mock Suggest response
       mockSend.mockResolvedValueOnce(
-        createSuggestResponse([
+        createAutocompleteResponse([
           { placeId: "place-1", title: "123 Main St, Dallas, TX" },
         ])
       );
@@ -166,7 +165,7 @@ describe("POST /locations/suggest-addresses Handler", () => {
 
     it("should return multiple suggestions", async () => {
       mockSend.mockResolvedValueOnce(
-        createSuggestResponse([
+        createAutocompleteResponse([
           { placeId: "place-1", title: "123 Main St" },
           { placeId: "place-2", title: "456 Oak Ave" },
         ])
@@ -232,7 +231,7 @@ describe("POST /locations/suggest-addresses Handler", () => {
   describe("geographic filtering", () => {
     it("should filter out locations outside North Texas bounds", async () => {
       mockSend.mockResolvedValueOnce(
-        createSuggestResponse([
+        createAutocompleteResponse([
           { placeId: "place-1", title: "Dallas Address" },
           { placeId: "place-2", title: "Houston Address" },
         ])
@@ -275,7 +274,7 @@ describe("POST /locations/suggest-addresses Handler", () => {
       // Fix: Filter out suggestions without valid coordinates since they're
       // not useful for geocoding anyway
       mockSend.mockResolvedValueOnce(
-        createSuggestResponse([{ placeId: "place-1", title: "Unknown Location" }])
+        createAutocompleteResponse([{ placeId: "place-1", title: "Unknown Location" }])
       );
 
       // Response without Position (null coordinates)
@@ -297,7 +296,7 @@ describe("POST /locations/suggest-addresses Handler", () => {
   describe("deduplication", () => {
     it("should remove duplicate addresses", async () => {
       mockSend.mockResolvedValueOnce(
-        createSuggestResponse([
+        createAutocompleteResponse([
           { placeId: "place-1", title: "123 Main St" },
           { placeId: "place-2", title: "123 Main St Duplicate" },
         ])
@@ -340,7 +339,7 @@ describe("POST /locations/suggest-addresses Handler", () => {
   describe("error handling", () => {
     it("should handle GetPlace failure by excluding that suggestion", async () => {
       mockSend.mockResolvedValueOnce(
-        createSuggestResponse([{ placeId: "place-1", title: "123 Main St" }])
+        createAutocompleteResponse([{ placeId: "place-1", title: "123 Main St" }])
       );
 
       // GetPlace fails
@@ -397,7 +396,7 @@ describe("POST /locations/suggest-addresses Handler", () => {
   describe("address formatting", () => {
     it("should format address with all components", async () => {
       mockSend.mockResolvedValueOnce(
-        createSuggestResponse([{ placeId: "place-1", title: "Full Address" }])
+        createAutocompleteResponse([{ placeId: "place-1", title: "Full Address" }])
       );
 
       mockSend.mockResolvedValueOnce(
@@ -422,7 +421,7 @@ describe("POST /locations/suggest-addresses Handler", () => {
 
     it("should handle missing address components", async () => {
       mockSend.mockResolvedValueOnce(
-        createSuggestResponse([{ placeId: "place-1", title: "Partial Address" }])
+        createAutocompleteResponse([{ placeId: "place-1", title: "Partial Address" }])
       );
 
       mockSend.mockResolvedValueOnce({
@@ -444,7 +443,7 @@ describe("POST /locations/suggest-addresses Handler", () => {
 
     it("should use Title as fallback when no address components", async () => {
       mockSend.mockResolvedValueOnce(
-        createSuggestResponse([{ placeId: "place-1", title: "Some Place" }])
+        createAutocompleteResponse([{ placeId: "place-1", title: "Some Place" }])
       );
 
       mockSend.mockResolvedValueOnce({
@@ -492,7 +491,7 @@ describe("POST /locations/suggest-addresses Handler", () => {
     it("should only return suggestions with valid lat/lng coordinates", async () => {
       // Simulate mixed results: some with coords, some without
       mockSend.mockResolvedValueOnce(
-        createSuggestResponse([
+        createAutocompleteResponse([
           { placeId: "place-1", title: "Good Address" },
           { placeId: "place-2", title: "Bad Address" },
         ])
@@ -533,7 +532,7 @@ describe("POST /locations/suggest-addresses Handler", () => {
 
     it("should return empty array when all suggestions have null coordinates", async () => {
       mockSend.mockResolvedValueOnce(
-        createSuggestResponse([{ placeId: "place-1", title: "No Coords" }])
+        createAutocompleteResponse([{ placeId: "place-1", title: "No Coords" }])
       );
 
       // Response without Position
@@ -548,6 +547,89 @@ describe("POST /locations/suggest-addresses Handler", () => {
       expect(result.statusCode).toBe(200);
       const body = JSON.parse(result.body);
       expect(body.data.suggestions).toHaveLength(0);
+    });
+  });
+
+  describe("street address suggestions (Dec 29, 2025 regression test)", () => {
+    // This regression test documents the Dec 29, 2025 bug where street address
+    // queries like "424 headlee st" would not return any suggestions.
+    // Bug: The Suggest API was being used instead of Autocomplete API
+    // The Suggest API is designed for broader query predictions and POIs,
+    // while Autocomplete is specifically designed for address completion.
+    // Fix: Switched from SuggestCommand to AutocompleteCommand
+
+    it("should return suggestions for partial street address queries", async () => {
+      // Mock autocomplete response for a partial street address
+      mockSend.mockResolvedValueOnce(
+        createAutocompleteResponse([
+          { placeId: "place-headlee-1", title: "424 Headlee St, Lewisville, TX 75057" },
+          { placeId: "place-headlee-2", title: "426 Headlee St, Lewisville, TX 75057" },
+        ])
+      );
+
+      // Mock GetPlace responses with coordinates
+      mockSend.mockResolvedValueOnce(
+        createPlaceResponse({
+          title: "424 Headlee St, Lewisville, TX 75057",
+          lat: 33.0462,
+          lng: -96.9942,
+          addressNumber: "424",
+          street: "Headlee St",
+          locality: "Lewisville",
+          region: "TX",
+        })
+      );
+      mockSend.mockResolvedValueOnce(
+        createPlaceResponse({
+          title: "426 Headlee St, Lewisville, TX 75057",
+          lat: 33.0463,
+          lng: -96.9943,
+          addressNumber: "426",
+          street: "Headlee St",
+          locality: "Lewisville",
+          region: "TX",
+        })
+      );
+
+      const event = createMockEvent({ query: "424 headlee st" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.success).toBe(true);
+      expect(body.data.suggestions.length).toBeGreaterThan(0);
+      expect(body.data.suggestions[0].address).toContain("Headlee");
+      expect(body.data.suggestions[0].lat).toBeDefined();
+      expect(body.data.suggestions[0].lng).toBeDefined();
+    });
+
+    it("should return suggestions for number-prefixed street addresses", async () => {
+      // Ensure addresses starting with numbers are handled correctly
+      mockSend.mockResolvedValueOnce(
+        createAutocompleteResponse([
+          { placeId: "place-1", title: "123 Main St, Dallas, TX" },
+        ])
+      );
+
+      mockSend.mockResolvedValueOnce(
+        createPlaceResponse({
+          title: "123 Main St, Dallas, TX",
+          lat: 32.78,
+          lng: -96.80,
+          addressNumber: "123",
+          street: "Main St",
+          locality: "Dallas",
+          region: "TX",
+        })
+      );
+
+      const event = createMockEvent({ query: "123 main" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.data.suggestions.length).toBe(1);
+      expect(body.data.suggestions[0].address).toBe("123 Main St, Dallas, TX");
     });
   });
 
