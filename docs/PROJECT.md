@@ -1,6 +1,6 @@
 # DFW Christmas Lights Finder - Project Guide
 
-**Last Updated:** December 28, 2025
+**Last Updated:** December 29, 2025
 
 > Start here when resuming work. This is the single source of truth for project status.
 
@@ -332,6 +332,7 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
+- **Dec 29, 2025:** Fixed like spam bug - users could click like/unlike rapidly and increment the counter multiple times. Root cause was using random UUIDs for feedback IDs which bypassed the atomic write protection. Fix: use deterministic feedback IDs based on userId + locationId + type so duplicate attempts fail the conditional write. Added tests for race condition handling.
 - **Dec 28, 2025:** Updated all documentation to reflect TypeScript backend migration. AWS Location Service V2 now used for address autocomplete. Added Apple Maps and Waze navigation integration. CI/CD pipeline now runs tests before deployment.
 - **Dec 27, 2025:** Migrated backend from Python to TypeScript for improved type safety and LLM compatibility. Removed Python backend code. CDK infrastructure updated to use TypeScript Lambda functions.
 - **Dec 26, 2025:** Upgraded address suggestions to use AWS Location Service V2 Places API (Suggest + GetPlace). Removed Nominatim/OpenStreetMap dependency.
