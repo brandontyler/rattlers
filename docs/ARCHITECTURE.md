@@ -136,7 +136,7 @@ DFW Christmas Lights Finder is a serverless web application built entirely on AW
 12. **AnalyzePhoto** (S3 Trigger + POST /photos/analyze)
     - Triggered on S3 upload to pending/ prefix
     - Compresses photos to ~2MB, 2000px max
-    - Uses Amazon Nova Pro for jpeg/png/gif/webp, Claude 3.5 Sonnet for HEIC/HEIF (iPhone photos)
+    - Uses Amazon Nova Pro (AWS-native model) for jpeg/png/gif/webp
     - AI analysis with best practices:
       - System prompt with role assignment (reduces hallucinations)
       - Structured JSON output with 30+ decoration categories
