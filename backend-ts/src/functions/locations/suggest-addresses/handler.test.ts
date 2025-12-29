@@ -269,12 +269,16 @@ describe("POST /locations/suggest-addresses Handler", () => {
       expect(body.data.suggestions[0].address).toContain("Dallas");
     });
 
-    it("should include locations with null coordinates", async () => {
+    it("should exclude locations with null coordinates (regression test for Dec 29, 2025 bug)", async () => {
+      // Bug: Suggestions with null coordinates caused frontend crashes when
+      // calling .toFixed() on null values in AddressAutocomplete.tsx
+      // Fix: Filter out suggestions without valid coordinates since they're
+      // not useful for geocoding anyway
       mockSend.mockResolvedValueOnce(
         createSuggestResponse([{ placeId: "place-1", title: "Unknown Location" }])
       );
 
-      // Response without Position
+      // Response without Position (null coordinates)
       mockSend.mockResolvedValueOnce({
         Title: "Unknown Location",
         Address: { Locality: "Unknown" },
@@ -285,9 +289,8 @@ describe("POST /locations/suggest-addresses Handler", () => {
 
       expect(result.statusCode).toBe(200);
       const body = JSON.parse(result.body);
-      expect(body.data.suggestions).toHaveLength(1);
-      expect(body.data.suggestions[0].lat).toBeNull();
-      expect(body.data.suggestions[0].lng).toBeNull();
+      // Should filter out suggestions without valid coordinates
+      expect(body.data.suggestions).toHaveLength(0);
     });
   });
 
@@ -335,7 +338,7 @@ describe("POST /locations/suggest-addresses Handler", () => {
   });
 
   describe("error handling", () => {
-    it("should handle GetPlace failure gracefully", async () => {
+    it("should handle GetPlace failure by excluding that suggestion", async () => {
       mockSend.mockResolvedValueOnce(
         createSuggestResponse([{ placeId: "place-1", title: "123 Main St" }])
       );
@@ -348,10 +351,9 @@ describe("POST /locations/suggest-addresses Handler", () => {
 
       expect(result.statusCode).toBe(200);
       const body = JSON.parse(result.body);
-      // Should fall back to title without coordinates
-      expect(body.data.suggestions).toHaveLength(1);
-      expect(body.data.suggestions[0].lat).toBeNull();
-      expect(body.data.suggestions[0].lng).toBeNull();
+      // GetPlace failure results in null coordinates, which are filtered out
+      // since they're not useful for geocoding
+      expect(body.data.suggestions).toHaveLength(0);
     });
 
     it("should return 503 for AccessDeniedException", async () => {
@@ -461,7 +463,8 @@ describe("POST /locations/suggest-addresses Handler", () => {
   });
 
   describe("suggestions without PlaceId", () => {
-    it("should handle suggestions with only Title", async () => {
+    it("should exclude suggestions without PlaceId (no coordinates available)", async () => {
+      // Suggestions without PlaceId cannot be geocoded and are filtered out
       mockSend.mockResolvedValueOnce({
         ResultItems: [
           {
@@ -476,13 +479,75 @@ describe("POST /locations/suggest-addresses Handler", () => {
 
       expect(result.statusCode).toBe(200);
       const body = JSON.parse(result.body);
-      expect(body.data.suggestions).toHaveLength(1);
-      expect(body.data.suggestions[0]).toEqual({
-        address: "Query Suggestion",
-        lat: null,
-        lng: null,
-        displayName: "Query Suggestion",
+      // Should filter out since no coordinates can be obtained
+      expect(body.data.suggestions).toHaveLength(0);
+    });
+  });
+
+  describe("null coordinate filtering (Dec 29, 2025 regression test)", () => {
+    // This regression test suite documents the Dec 29, 2025 bug where suggestions
+    // with null coordinates caused the frontend AddressAutocomplete component
+    // to crash when calling .toFixed() on null lat/lng values.
+
+    it("should only return suggestions with valid lat/lng coordinates", async () => {
+      // Simulate mixed results: some with coords, some without
+      mockSend.mockResolvedValueOnce(
+        createSuggestResponse([
+          { placeId: "place-1", title: "Good Address" },
+          { placeId: "place-2", title: "Bad Address" },
+        ])
+      );
+
+      // First place has valid coordinates
+      mockSend.mockResolvedValueOnce(
+        createPlaceResponse({
+          title: "Good Address",
+          lat: 32.78,
+          lng: -96.80,
+          addressNumber: "123",
+          street: "Main St",
+          locality: "Dallas",
+          region: "TX",
+        })
+      );
+
+      // Second place has no Position (null coordinates)
+      mockSend.mockResolvedValueOnce({
+        Title: "Bad Address",
+        Address: { Locality: "Unknown" },
+        // No Position field - lat/lng will be null
       });
+
+      const event = createMockEvent({ query: "test address" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+
+      // Only the suggestion with valid coordinates should be returned
+      expect(body.data.suggestions).toHaveLength(1);
+      expect(body.data.suggestions[0].address).toBe("123 Main St, Dallas, TX");
+      expect(body.data.suggestions[0].lat).toBe(32.78);
+      expect(body.data.suggestions[0].lng).toBe(-96.80);
+    });
+
+    it("should return empty array when all suggestions have null coordinates", async () => {
+      mockSend.mockResolvedValueOnce(
+        createSuggestResponse([{ placeId: "place-1", title: "No Coords" }])
+      );
+
+      // Response without Position
+      mockSend.mockResolvedValueOnce({
+        Title: "No Coords",
+        Address: {},
+      });
+
+      const event = createMockEvent({ query: "no coords" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.data.suggestions).toHaveLength(0);
     });
   });
 

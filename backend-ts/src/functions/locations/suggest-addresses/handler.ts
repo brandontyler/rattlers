@@ -182,9 +182,15 @@ export async function handler(
         }
       }
 
-      // Remove duplicates by address
+      // Filter out suggestions with null coordinates (they're not useful for geocoding)
+      // and remove duplicates by address
       const seenAddresses = new Set<string>();
-      const uniqueSuggestions = suggestions.filter((suggestion) => {
+      const validSuggestions = suggestions.filter((suggestion) => {
+        // Must have valid coordinates
+        if (suggestion.lat === null || suggestion.lng === null) {
+          return false;
+        }
+        // Must be unique
         const addr = suggestion.address.toLowerCase();
         if (seenAddresses.has(addr)) {
           return false;
@@ -195,7 +201,7 @@ export async function handler(
 
       return successResponse({
         data: {
-          suggestions: uniqueSuggestions,
+          suggestions: validSuggestions,
           query,
         },
       });
