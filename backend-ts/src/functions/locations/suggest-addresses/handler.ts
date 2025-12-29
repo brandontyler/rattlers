@@ -92,19 +92,17 @@ export async function handler(
       // Use V2 Autocomplete API for address completion - no Place Index required!
       // Autocomplete is specifically designed for completing street addresses,
       // unlike Suggest which is for broader query predictions and POIs.
+      //
+      // Note: BiasPosition and Filter.BoundingBox are mutually exclusive per AWS docs.
+      // We use BiasPosition to prefer results near Dallas, and IncludeCountries to
+      // limit to USA. Geographic filtering to North Texas is done post-query via
+      // isInNorthTexas() to avoid the mutual exclusivity issue.
       const autocompleteCommand = new AutocompleteCommand({
         QueryText: query,
         MaxResults: 7,
         BiasPosition: [NORTH_TEXAS_BIAS.lng, NORTH_TEXAS_BIAS.lat],
         Filter: {
           IncludeCountries: ["USA"],
-          // Filter to North Texas bounding box
-          BoundingBox: [
-            NORTH_TEXAS_FILTER.minLng, // West
-            NORTH_TEXAS_FILTER.minLat, // South
-            NORTH_TEXAS_FILTER.maxLng, // East
-            NORTH_TEXAS_FILTER.maxLat, // North
-          ],
         },
       });
 

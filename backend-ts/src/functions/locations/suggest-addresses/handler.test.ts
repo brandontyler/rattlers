@@ -553,10 +553,35 @@ describe("POST /locations/suggest-addresses Handler", () => {
   describe("street address suggestions (Dec 29, 2025 regression test)", () => {
     // This regression test documents the Dec 29, 2025 bug where street address
     // queries like "424 headlee st" would not return any suggestions.
-    // Bug: The Suggest API was being used instead of Autocomplete API
-    // The Suggest API is designed for broader query predictions and POIs,
-    // while Autocomplete is specifically designed for address completion.
-    // Fix: Switched from SuggestCommand to AutocompleteCommand
+    //
+    // Root cause: BiasPosition and Filter.BoundingBox are mutually exclusive
+    // per AWS docs. When both were provided, the Autocomplete API returned
+    // empty results for street address queries.
+    //
+    // Fix: Removed BoundingBox from the Filter and rely only on BiasPosition
+    // for geographic preference. Geographic filtering to North Texas is done
+    // post-query via isInNorthTexas() function.
+
+    it("should call AutocompleteCommand without BoundingBox in Filter (BiasPosition conflict)", async () => {
+      // This test verifies the fix: BoundingBox must NOT be in Filter when using BiasPosition
+      const { AutocompleteCommand } = await import("@aws-sdk/client-geo-places");
+      mockSend.mockResolvedValueOnce({ ResultItems: [] });
+
+      const event = createMockEvent({ query: "424 headlee st" });
+      await handler(event, mockContext);
+
+      // Verify AutocompleteCommand was called
+      expect(AutocompleteCommand).toHaveBeenCalled();
+      const commandInput = (AutocompleteCommand as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0];
+
+      // Verify BiasPosition is set
+      expect(commandInput.BiasPosition).toBeDefined();
+
+      // Verify Filter does NOT contain BoundingBox (the fix)
+      expect(commandInput.Filter).toBeDefined();
+      expect(commandInput.Filter.IncludeCountries).toEqual(["USA"]);
+      expect(commandInput.Filter.BoundingBox).toBeUndefined();
+    });
 
     it("should return suggestions for partial street address queries", async () => {
       // Mock autocomplete response for a partial street address
