@@ -84,7 +84,7 @@ cd frontend && npm run test:run
 | iPhone compatibility | ✅ | ✅ | Enhanced validation, HEIC/HEIF support |
 | Automatic compression | - | ✅ | Compress to ~2MB, 2000px max dimension |
 | Photo moderation | ✅ | ✅ | Admin review with lightbox |
-| AI photo analysis | - | ✅ | Bedrock Claude detects decorations, quality |
+| AI photo analysis | - | ✅ | Bedrock Nova Pro detects 30+ decoration types, quality, style |
 | Photo gallery | ✅ | - | Carousel with thumbnails on detail pages |
 | Full-screen lightbox | ✅ | - | Keyboard navigation, click outside to close |
 | Photo count badges | ✅ | - | Shows "📸 3" on map popups |
@@ -184,7 +184,12 @@ Other pages:    7-21KB each        - loaded on demand
 User uploads (iPhone) → Frontend validation (HEIC support)
                      → S3 presigned upload (up to 20MB)
                      → Lambda compression (~2MB, 2000px)
-                     → AI analysis (Bedrock Claude)
+                     → AI analysis (Amazon Nova Pro)
+                        - 30+ decoration categories detected
+                        - Confidence scores per item
+                        - Quality rating (1-5 stars)
+                        - Style tags (traditional, animated, themed, etc.)
+                        - Is-Christmas-display validation
                      → Admin moderation (approve/reject)
                      → Public display (carousel + lightbox)
 ```
@@ -332,6 +337,7 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
+- **Dec 29, 2025 (Late PM):** Enhanced photo analysis with Amazon Nova Pro (AWS-native model for showcase). Changed from Claude 3.5 Sonnet to Amazon Nova Pro for better cost-performance. Implemented vision AI best practices: system prompt with role assignment (reduces hallucinations), structured JSON output with 30+ decoration categories, confidence scores, quality ratings, and style tags. Added comprehensive decoration inventory including light types (string, icicle, net, projection, laser, animated), yard decorations (inflatables, blow molds, nativity, snowman, Santa, reindeer), and special features (music sync, themed displays, mega trees). Supports jpeg/png/gif/webp (browsers auto-convert iPhone HEIC on upload).
 - **Dec 29, 2025 (PM2):** Fixed street address suggestions not appearing (e.g., "424 headlee st" returned no results). Root cause: was using AWS Location Service V2 `SuggestCommand` which is designed for broader query predictions and POIs. Fix: switched to `AutocompleteCommand` which is specifically designed for completing street addresses. The Suggest API was returning Query-type results (for refinements) instead of Place-type results for partial street addresses. Added regression tests for street address queries.
 - **Dec 29, 2025 (PM):** Fixed address autocomplete bug - suggestions with null coordinates from AWS Location Service V2 caused frontend crashes when calling `.toFixed()` on null lat/lng values in AddressAutocomplete.tsx. Fix: filter out suggestions without valid coordinates in backend since they're not useful for geocoding anyway. Added regression tests.
 - **Dec 29, 2025 (AM):** Fixed like spam bug - users could click like/unlike rapidly and increment the counter multiple times. Root cause was using random UUIDs for feedback IDs which bypassed the atomic write protection. Fix: use deterministic feedback IDs based on userId + locationId + type so duplicate attempts fail the conditional write. Added tests for race condition handling.
@@ -377,7 +383,7 @@ _Add notes, blockers, or decisions here:_
 - [x] iPhone photo support (HEIC/HEIF)
 - [x] Automatic photo compression (→2MB)
 - [x] Photo moderation (admin)
-- [x] AI photo analysis (Bedrock Claude)
+- [x] AI photo analysis (Amazon Nova Pro with 30+ decoration categories)
 - [x] Photo gallery with carousel
 - [x] Full-screen lightbox viewer
 

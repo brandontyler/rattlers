@@ -736,7 +736,7 @@ class ChristmasLightsStack(Stack):
         self.photos_bucket.grant_read_write(self.analyze_photo_fn)
         # Grant DynamoDB write for updating suggestion tags
         self.suggestions_table.grant_read_write_data(self.analyze_photo_fn)
-        # Grant Bedrock invoke for Amazon Nova Pro vision
+        # Grant Bedrock invoke for Amazon Nova Pro vision (AWS-native model)
         self.analyze_photo_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["bedrock:InvokeModel"],
