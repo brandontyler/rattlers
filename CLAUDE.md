@@ -22,6 +22,24 @@ All new features must include appropriate tests:
 - Run `npm run test:run` in both `frontend/` and `backend-ts/` before committing
 - Tests must pass before code can be deployed (enforced by GitHub Actions)
 
+**Bug Fix Regression Tests:**
+
+When fixing a bug, ALWAYS add a regression test that:
+1. Reproduces the original bug scenario (would have failed before the fix)
+2. Verifies the fix works correctly (passes after the fix)
+3. Documents the bug in the test description for future reference
+
+Example:
+```typescript
+describe("race condition handling", () => {
+  it("should handle duplicate like attempts gracefully", async () => {
+    // This test ensures the like spam bug (Dec 29, 2025) doesn't regress
+    // Bug: rapid clicks could increment counter multiple times
+    // Fix: deterministic feedback IDs cause duplicate writes to fail
+  });
+});
+```
+
 ## Documentation Requirements
 
 **IMPORTANT: Always update documentation after completing any feature or bug fix.**
