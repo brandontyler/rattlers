@@ -156,8 +156,31 @@ export const handler = requireAdmin(
         return badRequestError("Failed to fetch photo");
       }
 
-      // Determine file extension for Nova Pro format parameter
+      // Determine file extension and format for the AI model
       const extension = photoKey.split(".").pop()?.toLowerCase() ?? "jpg";
+
+      // Map extensions to Nova Pro supported formats
+      // Nova Pro supports: jpeg, png, gif, webp
+      // HEIC/HEIF (iPhone native) are NOT supported by Nova Pro
+      const getNovaFormat = (ext: string): "jpeg" | "png" | "gif" | "webp" | null => {
+        const formatMap: Record<string, "jpeg" | "png" | "gif" | "webp"> = {
+          jpg: "jpeg",
+          jpeg: "jpeg",
+          png: "png",
+          gif: "gif",
+          webp: "webp",
+        };
+        return formatMap[ext] ?? null;
+      };
+
+      const novaFormat = getNovaFormat(extension);
+
+      // For HEIC/HEIF (iPhone photos), we need to handle specially
+      // These formats are not supported by Nova Pro
+      const isUnsupportedFormat = extension === "heic" || extension === "heif";
+      if (isUnsupportedFormat) {
+        console.log(`Unsupported format ${extension} for Nova Pro, using Claude fallback`);
+      }
 
       // Build the system prompt with role assignment (reduces hallucinations)
       const systemPrompt = `You are an expert Christmas decoration analyst for a community app that helps people find amazing holiday light displays in their neighborhood. Your role is to accurately identify and catalog decorations visible in photos submitted by users.
@@ -207,45 +230,93 @@ Important:
 - Description should be enthusiastic but accurate, highlighting standout features
 - If not a Christmas display, explain what the image shows instead`;
 
-      // Call Bedrock with Amazon Nova Pro
+      // Call Bedrock - use Nova Pro for supported formats, Claude for HEIC/HEIF
       // Best practice: Image placed before text in content array
-      const response = await bedrockClient.send(
-        new InvokeModelCommand({
-          modelId: BEDROCK_MODEL_ID,
-          contentType: "application/json",
-          accept: "application/json",
-          body: JSON.stringify({
-            schemaVersion: "messages-v1",
-            system: [{ text: systemPrompt }],
-            messages: [
-              {
-                role: "user",
-                content: [
-                  {
-                    image: {
-                      format: extension === "png" ? "png" : extension === "gif" ? "gif" : "jpeg",
+      let outputText: string;
+
+      if (isUnsupportedFormat) {
+        // Use Claude 3.5 Sonnet for HEIC/HEIF (iPhone photos)
+        // Claude supports these formats natively
+        const mediaTypeMap: Record<string, string> = {
+          heic: "image/heic",
+          heif: "image/heif",
+        };
+        const mediaType = mediaTypeMap[extension] ?? "image/jpeg";
+
+        const response = await bedrockClient.send(
+          new InvokeModelCommand({
+            modelId: "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+            contentType: "application/json",
+            accept: "application/json",
+            body: JSON.stringify({
+              anthropic_version: "bedrock-2023-05-31",
+              max_tokens: 1024,
+              temperature: 0.3,
+              system: systemPrompt,
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    {
+                      type: "image",
                       source: {
-                        bytes: Buffer.from(imageData).toString("base64"),
+                        type: "base64",
+                        media_type: mediaType,
+                        data: Buffer.from(imageData).toString("base64"),
                       },
                     },
-                  },
-                  {
-                    text: userPrompt,
-                  },
-                ],
-              },
-            ],
-            inferenceConfig: {
-              maxTokens: 1024,
-              temperature: 0.3, // Lower temperature for more consistent structured output
-            },
-          }),
-        })
-      );
+                    {
+                      type: "text",
+                      text: userPrompt,
+                    },
+                  ],
+                },
+              ],
+            }),
+          })
+        );
 
-      // Parse Nova response
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      const outputText = responseBody.output?.message?.content?.[0]?.text ?? "";
+        const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+        outputText = responseBody.content?.[0]?.text ?? "";
+      } else {
+        // Use Amazon Nova Pro for standard formats (jpeg, png, gif, webp)
+        const response = await bedrockClient.send(
+          new InvokeModelCommand({
+            modelId: BEDROCK_MODEL_ID,
+            contentType: "application/json",
+            accept: "application/json",
+            body: JSON.stringify({
+              schemaVersion: "messages-v1",
+              system: [{ text: systemPrompt }],
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    {
+                      image: {
+                        format: novaFormat ?? "jpeg",
+                        source: {
+                          bytes: Buffer.from(imageData).toString("base64"),
+                        },
+                      },
+                    },
+                    {
+                      text: userPrompt,
+                    },
+                  ],
+                },
+              ],
+              inferenceConfig: {
+                maxTokens: 1024,
+                temperature: 0.3, // Lower temperature for more consistent structured output
+              },
+            }),
+          })
+        );
+
+        const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+        outputText = responseBody.output?.message?.content?.[0]?.text ?? "";
+      }
 
       // Extract JSON from response (handle potential markdown code blocks)
       let analysisResult: PhotoAnalysisResult;

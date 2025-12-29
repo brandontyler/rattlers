@@ -736,13 +736,19 @@ class ChristmasLightsStack(Stack):
         self.photos_bucket.grant_read_write(self.analyze_photo_fn)
         # Grant DynamoDB write for updating suggestion tags
         self.suggestions_table.grant_read_write_data(self.analyze_photo_fn)
-        # Grant Bedrock invoke for Amazon Nova Pro vision
+        # Grant Bedrock invoke for Amazon Nova Pro vision + Claude fallback for HEIC/HEIF
         self.analyze_photo_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["bedrock:InvokeModel"],
                 resources=[
+                    # Nova Pro for standard formats (jpeg, png, gif, webp)
                     "arn:aws:bedrock:*::foundation-model/amazon.nova-pro-v1:0",
                     "arn:aws:bedrock:*:*:inference-profile/us.amazon.nova-pro-v1:0",
+                    # Claude 3.5 Sonnet fallback for HEIC/HEIF (iPhone photos)
+                    f"arn:aws:bedrock:{self.region}::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0",
+                    f"arn:aws:bedrock:us-east-1:{self.account}:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+                    "arn:aws:bedrock:*::foundation-model/anthropic.claude-*",
+                    f"arn:aws:bedrock:*:{self.account}:inference-profile/*",
                 ],
             )
         )
