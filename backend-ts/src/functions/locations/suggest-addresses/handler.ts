@@ -4,13 +4,15 @@
  * POST /locations/suggest-addresses
  * Body: { "query": "123 Main St, Dallas" }
  *
- * Uses the V2 Suggest API for real-time autocomplete - no Place Index required.
+ * Uses the V2 Autocomplete API for real-time address completion - no Place Index required.
+ * The Autocomplete API is specifically designed for completing street addresses,
+ * unlike the Suggest API which is for broader query predictions.
  */
 
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
 import {
   GeoPlacesClient,
-  SuggestCommand,
+  AutocompleteCommand,
   GetPlaceCommand,
 } from "@aws-sdk/client-geo-places";
 import { successResponse, badRequestError, internalError, serviceUnavailableError } from "@shared/utils/responses";
@@ -87,8 +89,10 @@ export async function handler(
     const suggestions: AddressSuggestion[] = [];
 
     try {
-      // Use V2 Suggest API for autocomplete - no Place Index required!
-      const suggestCommand = new SuggestCommand({
+      // Use V2 Autocomplete API for address completion - no Place Index required!
+      // Autocomplete is specifically designed for completing street addresses,
+      // unlike Suggest which is for broader query predictions and POIs.
+      const autocompleteCommand = new AutocompleteCommand({
         QueryText: query,
         MaxResults: 7,
         BiasPosition: [NORTH_TEXAS_BIAS.lng, NORTH_TEXAS_BIAS.lat],
@@ -104,14 +108,13 @@ export async function handler(
         },
       });
 
-      const response = await geoPlacesClient.send(suggestCommand);
+      const response = await geoPlacesClient.send(autocompleteCommand);
       const results = response.ResultItems || [];
 
-      // For each suggestion with a PlaceId, get the full place details
+      // For each autocomplete result with a PlaceId, get the full place details
       for (const result of results) {
-        // V2 Suggest returns Place results with PlaceId
-        const placeResult = result.Place;
-        const placeId = placeResult?.PlaceId;
+        // V2 Autocomplete returns PlaceId directly on the result item
+        const placeId = result.PlaceId;
 
         if (placeId) {
           try {
@@ -163,7 +166,7 @@ export async function handler(
           } catch (error) {
             console.error(`Error getting place ${placeId}:`, error);
             // Fall back to suggestion text without coordinates
-            const title = result.Title || placeResult?.PlaceType || "";
+            const title = result.Title || result.PlaceType || "";
             suggestions.push({
               address: title,
               lat: null,

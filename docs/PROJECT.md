@@ -43,7 +43,7 @@ cd frontend && npm run test:run
 | User authentication | ✅ | ✅ | Cognito login/signup |
 | Login redirect | ✅ | - | Returns to previous page |
 | Submit location suggestion | ✅ | ✅ | With address autocomplete, duplicate detection |
-| Address autocomplete | ✅ | ✅ | AWS Location Service V2 |
+| Address autocomplete | ✅ | ✅ | AWS Location Service V2 Autocomplete API |
 | Duplicate detection | ✅ | ✅ | Warns if location already exists before submission |
 | Add photos to existing | ✅ | ✅ | Submit photos for locations without photos |
 | Admin dashboard | ✅ | ✅ | View/approve/reject suggestions |
@@ -332,6 +332,7 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
+- **Dec 29, 2025 (PM2):** Fixed street address suggestions not appearing (e.g., "424 headlee st" returned no results). Root cause: was using AWS Location Service V2 `SuggestCommand` which is designed for broader query predictions and POIs. Fix: switched to `AutocompleteCommand` which is specifically designed for completing street addresses. The Suggest API was returning Query-type results (for refinements) instead of Place-type results for partial street addresses. Added regression tests for street address queries.
 - **Dec 29, 2025 (PM):** Fixed address autocomplete bug - suggestions with null coordinates from AWS Location Service V2 caused frontend crashes when calling `.toFixed()` on null lat/lng values in AddressAutocomplete.tsx. Fix: filter out suggestions without valid coordinates in backend since they're not useful for geocoding anyway. Added regression tests.
 - **Dec 29, 2025 (AM):** Fixed like spam bug - users could click like/unlike rapidly and increment the counter multiple times. Root cause was using random UUIDs for feedback IDs which bypassed the atomic write protection. Fix: use deterministic feedback IDs based on userId + locationId + type so duplicate attempts fail the conditional write. Added tests for race condition handling.
 - **Dec 28, 2025:** Updated all documentation to reflect TypeScript backend migration. AWS Location Service V2 now used for address autocomplete. Added Apple Maps and Waze navigation integration. CI/CD pipeline now runs tests before deployment.
