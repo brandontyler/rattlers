@@ -5,7 +5,6 @@
  */
 
 import type { APIGatewayProxyResult, Context } from "aws-lambda";
-import { v4 as uuidv4 } from "uuid";
 import {
   successResponse,
   notFoundError,
@@ -54,9 +53,11 @@ export const handler = requireAuth(
         });
       }
 
-      // Create new favorite
+      // Create new favorite with deterministic ID to prevent duplicates
+      // ID is based on user, location, and type so the same user can't create multiple favorites
+      const feedbackId = `${user.id}_${locationId}_favorite`;
       const feedback: Feedback = {
-        id: uuidv4(),
+        id: feedbackId,
         locationId,
         userId: user.id,
         type: "favorite",
