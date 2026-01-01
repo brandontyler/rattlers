@@ -89,7 +89,7 @@ describe("TrendingSection", () => {
         data: [],
         isLoading: true,
         isError: false,
-      } as ReturnType<typeof useTrendingLocations>);
+      } as unknown as ReturnType<typeof useTrendingLocations>);
 
       renderWithRouter(<TrendingSection />);
 
@@ -108,7 +108,7 @@ describe("TrendingSection", () => {
         data: [],
         isLoading: false,
         isError: true,
-      } as ReturnType<typeof useTrendingLocations>);
+      } as unknown as ReturnType<typeof useTrendingLocations>);
 
       const { container } = renderWithRouter(<TrendingSection />);
 
@@ -123,7 +123,7 @@ describe("TrendingSection", () => {
         data: [],
         isLoading: false,
         isError: false,
-      } as ReturnType<typeof useTrendingLocations>);
+      } as unknown as ReturnType<typeof useTrendingLocations>);
 
       renderWithRouter(<TrendingSection />);
 
@@ -140,7 +140,7 @@ describe("TrendingSection", () => {
         data: [],
         isLoading: false,
         isError: false,
-      } as ReturnType<typeof useTrendingLocations>);
+      } as unknown as ReturnType<typeof useTrendingLocations>);
 
       renderWithRouter(<TrendingSection />);
 
@@ -154,7 +154,7 @@ describe("TrendingSection", () => {
         data: mockTrendingLocations,
         isLoading: false,
         isError: false,
-      } as ReturnType<typeof useTrendingLocations>);
+      } as unknown as ReturnType<typeof useTrendingLocations>);
     });
 
     it("should render trending locations", () => {
@@ -251,7 +251,7 @@ describe("TrendingSection", () => {
         data: [recentLocation],
         isLoading: false,
         isError: false,
-      } as ReturnType<typeof useTrendingLocations>);
+      } as unknown as ReturnType<typeof useTrendingLocations>);
 
       renderWithRouter(<TrendingSection />);
 
@@ -270,7 +270,7 @@ describe("TrendingSection", () => {
         data: [yesterdayLocation],
         isLoading: false,
         isError: false,
-      } as ReturnType<typeof useTrendingLocations>);
+      } as unknown as ReturnType<typeof useTrendingLocations>);
 
       renderWithRouter(<TrendingSection />);
 
@@ -289,7 +289,7 @@ describe("TrendingSection", () => {
         data: [olderLocation],
         isLoading: false,
         isError: false,
-      } as ReturnType<typeof useTrendingLocations>);
+      } as unknown as ReturnType<typeof useTrendingLocations>);
 
       renderWithRouter(<TrendingSection />);
 
@@ -306,7 +306,7 @@ describe("TrendingSection", () => {
         data: [justNowLocation],
         isLoading: false,
         isError: false,
-      } as ReturnType<typeof useTrendingLocations>);
+      } as unknown as ReturnType<typeof useTrendingLocations>);
 
       renderWithRouter(<TrendingSection />);
 
@@ -320,7 +320,7 @@ describe("TrendingSection", () => {
         data: [],
         isLoading: false,
         isError: false,
-      } as ReturnType<typeof useTrendingLocations>);
+      } as unknown as ReturnType<typeof useTrendingLocations>);
 
       renderWithRouter(<TrendingSection />);
 

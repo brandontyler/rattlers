@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckIn, CheckInStatus as CheckInStatusType, CHECK_IN_STATUS_LABELS, LocationCheckInSummary } from '@/types';
+import { CHECK_IN_STATUS_LABELS, LocationCheckInSummary } from '@/types';
 import { apiService } from '@/services/api';
 
 interface CheckInStatusProps {
