@@ -7,7 +7,9 @@ import { useLocation as useLocationData } from '@/hooks';
 import { getShortAddress, getDirectionsUrl } from '@/utils/address';
 import AddPhotoModal from '@/components/AddPhotoModal';
 import ReportModal from '@/components/ReportModal';
-import type { ReportCategory } from '@/types';
+import CheckInModal from '@/components/CheckInModal';
+import CheckInStatus from '@/components/CheckInStatus';
+import type { ReportCategory, CheckInStatus as CheckInStatusType } from '@/types';
 
 export default function LocationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +29,8 @@ export default function LocationDetailPage() {
   const [hasPendingPhotoSubmission, setHasPendingPhotoSubmission] = useState(false);
   const [photoSubmissionSuccess, setPhotoSubmissionSuccess] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showCheckInModal, setShowCheckInModal] = useState(false);
+  const [checkInKey, setCheckInKey] = useState(0); // Used to force refresh CheckInStatus
 
   // Refs for bulletproof click protection (state updates are async, refs are sync)
   const isLikingRef = useRef(false);
@@ -86,6 +90,13 @@ export default function LocationDetailPage() {
     setPhotoSubmissionSuccess(true);
     // Hide success message after 5 seconds
     setTimeout(() => setPhotoSubmissionSuccess(false), 5000);
+  };
+
+  const handleCheckInSubmit = async (status: CheckInStatusType, note?: string) => {
+    if (!id) return;
+    await apiService.submitCheckIn(id, { status, note });
+    // Force refresh the CheckInStatus component
+    setCheckInKey(prev => prev + 1);
   };
 
   const handleFavorite = async () => {
@@ -500,6 +511,16 @@ export default function LocationDetailPage() {
 
             {/* Right Column - Quick Info */}
             <div className="space-y-6">
+              {/* Live Status Check-ins */}
+              <Card>
+                <CheckInStatus
+                  key={checkInKey}
+                  locationId={location.id}
+                  isAuthenticated={isAuthenticated}
+                  onCheckInClick={() => setShowCheckInModal(true)}
+                />
+              </Card>
+
               <Card>
                 <h3 className="font-display text-lg font-semibold text-forest-900 mb-4">
                   Quick Info
@@ -652,6 +673,14 @@ export default function LocationDetailPage() {
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
         onSubmit={handleReportSubmit}
+        locationAddress={getShortAddress(location.address)}
+      />
+
+      {/* Check-In Modal */}
+      <CheckInModal
+        isOpen={showCheckInModal}
+        onClose={() => setShowCheckInModal(false)}
+        onSubmit={handleCheckInSubmit}
         locationAddress={getShortAddress(location.address)}
       />
     </div>

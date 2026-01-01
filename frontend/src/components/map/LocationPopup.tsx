@@ -7,6 +7,7 @@ import { apiService } from '@/services/api';
 import { AddToRouteButton } from '@/components/route';
 import { getShortAddress } from '@/utils/address';
 import ReportModal from '@/components/ReportModal';
+import CheckInStatus from '@/components/CheckInStatus';
 
 interface LocationPopupProps {
   location: Location;
@@ -253,6 +254,11 @@ export default function LocationPopup({ location, onFeedbackSubmit }: LocationPo
             </svg>
             <span className="text-forest-600">{optimisticLikeCount}</span>
           </div>
+        </div>
+
+        {/* Compact check-in status */}
+        <div className="mb-2 sm:mb-3">
+          <CheckInStatus locationId={location.id} compact />
         </div>
 
         {/* Add to Route button - always visible, compact on mobile */}
