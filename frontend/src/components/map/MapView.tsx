@@ -57,17 +57,16 @@ const customIcon = new Icon({
 const hotIcon = new Icon({
   iconUrl: 'data:image/svg+xml;base64,' + btoa(`
     <svg width="40" height="52" viewBox="0 0 40 52" xmlns="http://www.w3.org/2000/svg">
-      <g filter="url(#shadow)">
-        <!-- Main marker -->
+      <g filter="url(#shadow2)">
         <path d="M20 7C13.37 7 8 12.37 8 19c0 9 12 24 12 24s12-15 12-24c0-6.63-5.37-12-12-12z" fill="#cc3f3f"/>
         <circle cx="20" cy="19" r="6" fill="#fafaf3"/>
         <circle cx="20" cy="19" r="3" fill="#eab308"/>
-        <!-- Fire badge -->
         <circle cx="32" cy="10" r="8" fill="#ef4444"/>
-        <text x="32" y="14" text-anchor="middle" font-size="10" fill="white">🔥</text>
+        <path d="M32 5c-1 2-2 3-2 5 0 1.5 1 3 2 3s2-1.5 2-3c0-2-1-3-2-5z" fill="#fbbf24"/>
+        <path d="M32 7c-.5 1-1 1.5-1 2.5 0 .75.5 1.5 1 1.5s1-.75 1-1.5c0-1-.5-1.5-1-2.5z" fill="#fef3c7"/>
       </g>
       <defs>
-        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+        <filter id="shadow2" x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
           <feOffset dx="0" dy="2" result="offsetblur"/>
           <feComponentTransfer>
