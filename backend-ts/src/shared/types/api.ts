@@ -54,11 +54,12 @@ export type AuthenticatedHandler = (
 /**
  * Standard success response body.
  */
-export interface SuccessResponse<T = unknown> {
+export interface SuccessResponse<T = unknown, M = unknown> {
   success: true;
   data?: T;
   message?: string;
   pagination?: PaginationInfo;
+  meta?: M;
 }
 
 /**

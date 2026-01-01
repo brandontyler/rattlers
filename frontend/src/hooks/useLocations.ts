@@ -24,3 +24,15 @@ export function useLocation(id: string) {
     staleTime: 5 * 60 * 1000,
   });
 }
+
+export function useTrendingLocations(limit = 10, days = 7) {
+  return useQuery({
+    queryKey: ['trending-locations', limit, days],
+    queryFn: async () => {
+      const response = await apiService.getTrendingLocations(limit, days);
+      return response.success ? response.data : [];
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes - trending can change more often
+    gcTime: 15 * 60 * 1000,
+  });
+}

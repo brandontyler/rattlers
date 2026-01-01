@@ -905,6 +905,16 @@ class ChristmasLightsStack(Stack):
         )
         self.checkins_table.grant_read_data(self.get_checkins_fn)
 
+        # Get trending locations function (public)
+        self.get_trending_fn = create_ts_lambda(
+            "GetTrendingLocationsFunction",
+            "locations/get-trending",
+            timeout_seconds=15,
+            memory_size=256,
+        )
+        self.checkins_table.grant_read_data(self.get_trending_fn)
+        self.locations_table.grant_read_data(self.get_trending_fn)
+
         # Post-authentication Lambda (Cognito trigger)
         post_auth_env = {
             "USERS_TABLE_NAME": self.users_table.table_name,
@@ -1056,6 +1066,13 @@ class ChristmasLightsStack(Stack):
         check_duplicate.add_method(
             "POST",
             apigw.LambdaIntegration(self.check_duplicate_fn),
+        )
+
+        # /locations/trending endpoint (public)
+        trending = locations.add_resource("trending")
+        trending.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.get_trending_fn),
         )
 
         # /locations/{id} endpoints

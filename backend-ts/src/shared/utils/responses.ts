@@ -55,16 +55,17 @@ function getCorsHeaders(requestOrigin = ""): Record<string, string> {
 /**
  * Create a successful API response.
  */
-export function successResponse<T>(options: {
+export function successResponse<T, M = unknown>(options: {
   data?: T;
   message?: string;
   statusCode?: number;
   pagination?: PaginationInfo;
+  meta?: M;
   requestOrigin?: string;
 }): APIGatewayProxyResult {
-  const { data, message, statusCode = 200, pagination, requestOrigin = "" } = options;
+  const { data, message, statusCode = 200, pagination, meta, requestOrigin = "" } = options;
 
-  const body: SuccessResponse<T> = {
+  const body: SuccessResponse<T, M> = {
     success: true,
   };
 
@@ -78,6 +79,10 @@ export function successResponse<T>(options: {
 
   if (pagination) {
     body.pagination = pagination;
+  }
+
+  if (meta !== undefined) {
+    body.meta = meta;
   }
 
   return {

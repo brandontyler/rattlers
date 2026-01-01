@@ -53,6 +53,39 @@ const customIcon = new Icon({
   popupAnchor: [0, -45],
 });
 
+// Hot/Trending marker icon with flame indicator
+const hotIcon = new Icon({
+  iconUrl: 'data:image/svg+xml;base64,' + btoa(`
+    <svg width="40" height="52" viewBox="0 0 40 52" xmlns="http://www.w3.org/2000/svg">
+      <g filter="url(#shadow)">
+        <!-- Main marker -->
+        <path d="M20 7C13.37 7 8 12.37 8 19c0 9 12 24 12 24s12-15 12-24c0-6.63-5.37-12-12-12z" fill="#cc3f3f"/>
+        <circle cx="20" cy="19" r="6" fill="#fafaf3"/>
+        <circle cx="20" cy="19" r="3" fill="#eab308"/>
+        <!-- Fire badge -->
+        <circle cx="32" cy="10" r="8" fill="#ef4444"/>
+        <text x="32" y="14" text-anchor="middle" font-size="10" fill="white">🔥</text>
+      </g>
+      <defs>
+        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+          <feOffset dx="0" dy="2" result="offsetblur"/>
+          <feComponentTransfer>
+            <feFuncA type="linear" slope="0.3"/>
+          </feComponentTransfer>
+          <feMerge>
+            <feMergeNode/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+    </svg>
+  `),
+  iconSize: [40, 52],
+  iconAnchor: [20, 52],
+  popupAnchor: [0, -52],
+});
+
 // Component to handle map center changes
 function MapController({ center }: { center: LatLngTuple }) {
   const map = useMap();
@@ -65,8 +98,17 @@ function MapController({ center }: { center: LatLngTuple }) {
 }
 
 // Marker cluster component
-function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; onLocationClick?: (location: Location) => void }) {
+function MarkerCluster({
+  locations,
+  onLocationClick,
+  trendingLocationIds = [],
+}: {
+  locations: Location[];
+  onLocationClick?: (location: Location) => void;
+  trendingLocationIds?: string[];
+}) {
   const map = useMap();
+  const trendingSet = new Set(trendingLocationIds);
 
   useEffect(() => {
     const L = window.L as typeof import('leaflet');
@@ -92,7 +134,9 @@ function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; 
     const isMobile = window.innerWidth < 640;
 
     locations.forEach((location) => {
-      const marker = L.marker([location.lat, location.lng], { icon: customIcon });
+      // Use hot icon for trending locations
+      const markerIcon = trendingSet.has(location.id) ? hotIcon : customIcon;
+      const marker = L.marker([location.lat, location.lng], { icon: markerIcon });
 
       // Create popup content container with responsive dimensions
       // Use smaller width on mobile devices (iPhone 12 is 390px viewport)
@@ -152,7 +196,7 @@ function MarkerCluster({ locations, onLocationClick }: { locations: Location[]; 
       roots.forEach((root) => root.unmount());
       map.removeLayer(cluster);
     };
-  }, [map, locations, onLocationClick]);
+  }, [map, locations, onLocationClick, trendingLocationIds]);
 
   return null;
 }
@@ -163,6 +207,7 @@ interface MapViewProps {
   zoom?: number;
   height?: string;
   onLocationClick?: (location: Location) => void;
+  trendingLocationIds?: string[];
 }
 
 export default function MapView({
@@ -171,6 +216,7 @@ export default function MapView({
   zoom = 10,
   height = '600px',
   onLocationClick,
+  trendingLocationIds = [],
 }: MapViewProps) {
   const [userLocation, setUserLocation] = useState<LatLngTuple | null>(null);
   const [mapCenter, setMapCenter] = useState<LatLngTuple>(center);
@@ -273,7 +319,11 @@ export default function MapView({
           )}
 
           {/* Clustered location markers */}
-          <MarkerCluster locations={locations} onLocationClick={onLocationClick} />
+          <MarkerCluster
+            locations={locations}
+            onLocationClick={onLocationClick}
+            trendingLocationIds={trendingLocationIds}
+          />
 
           {/* Route visualization layer */}
           <RouteMapLayer />
