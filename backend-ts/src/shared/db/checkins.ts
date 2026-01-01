@@ -4,7 +4,7 @@
  * Handles live status check-ins on locations.
  */
 
-import { PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { PutCommand, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient, getTableName } from "./client";
 import type { CheckIn, CheckInRecord } from "../types";
 
@@ -143,4 +143,33 @@ export async function countCheckInsByUser(userId: string): Promise<number> {
   );
 
   return result.Count ?? 0;
+}
+
+/**
+ * Get all check-ins since a given date (for trending calculation).
+ * Uses a scan with filter since we need check-ins across all locations.
+ */
+export async function getRecentCheckIns(sinceDate: string): Promise<CheckIn[]> {
+  const tableName = getCheckInsTableName();
+  const allCheckIns: CheckIn[] = [];
+  let lastEvaluatedKey: Record<string, unknown> | undefined;
+
+  do {
+    const result = await docClient.send(
+      new ScanCommand({
+        TableName: tableName,
+        FilterExpression: "createdAt >= :sinceDate",
+        ExpressionAttributeValues: {
+          ":sinceDate": sinceDate,
+        },
+        ExclusiveStartKey: lastEvaluatedKey,
+      })
+    );
+
+    const items = (result.Items ?? []).map((item) => cleanCheckInRecord(item as CheckInRecord));
+    allCheckIns.push(...items);
+    lastEvaluatedKey = result.LastEvaluatedKey;
+  } while (lastEvaluatedKey);
+
+  return allCheckIns;
 }

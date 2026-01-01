@@ -30,6 +30,7 @@ import type {
   SubmitCheckInRequest,
   CheckIn,
   LocationCheckInSummary,
+  TrendingLocationsResponse,
 } from '@/types';
 
 const MAX_RETRIES = 3;
@@ -371,6 +372,14 @@ class ApiService {
       `/locations/${locationId}/checkins`,
       { params: { limit } }
     );
+    return data;
+  }
+
+  // Trending locations endpoint
+  async getTrendingLocations(limit = 10, days = 7): Promise<TrendingLocationsResponse> {
+    const { data } = await this.api.get<TrendingLocationsResponse>('/locations/trending', {
+      params: { limit, days },
+    });
     return data;
   }
 }

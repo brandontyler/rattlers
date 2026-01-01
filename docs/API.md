@@ -1,6 +1,6 @@
 # API Documentation
 
-**Last Updated:** December 28, 2025
+**Last Updated:** January 1, 2026
 
 Base URL: `https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1`
 
@@ -16,6 +16,7 @@ Authorization: Bearer {cognito-jwt-token}
 **Public endpoints** (no auth required):
 - `GET /locations`
 - `GET /locations/{id}`
+- `GET /locations/trending`
 - `POST /locations/suggest-addresses`
 - `POST /locations/check-duplicate`
 - `GET /leaderboard`
@@ -122,6 +123,59 @@ GET /locations/{id}
   }
 }
 ```
+
+#### Get Trending Locations
+```
+GET /locations/trending
+```
+
+Returns locations with the most recent check-in activity, ranked by a weighted trending score.
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| limit | number | No | Max results (default: 10, max: 50) |
+| days | number | No | Lookback period in days (default: 7, max: 30) |
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "address": "123 Main St, Dallas, TX 75001",
+      "lat": 32.7767,
+      "lng": -96.7970,
+      "description": "Amazing synchronized lights display",
+      "photos": ["https://..."],
+      "status": "active",
+      "likeCount": 42,
+      "trendingScore": 5.75,
+      "recentCheckInCount": 8,
+      "latestCheckInStatus": "amazing",
+      "latestCheckInAt": "2026-01-01T20:30:00Z"
+    }
+  ],
+  "meta": {
+    "days": 7,
+    "limit": 10,
+    "totalCheckIns": 45,
+    "locationsWithActivity": 12
+  }
+}
+```
+
+**Trending Score Algorithm:**
+- Check-in status weights: amazing=3.0, on=2.0, changed=1.0, off=0.5
+- Exponential time decay with ~3.5 day half-life (decay constant 0.2)
+- Score = Σ (statusWeight × e^(-0.2 × daysAgo))
+
+**Notes:**
+- Public endpoint (no authentication required)
+- Returns only active locations
+- Locations without recent check-ins are excluded
+- Use for "Trending This Week" section on home page
 
 #### Suggest Addresses (Geocoding)
 ```

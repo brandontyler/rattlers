@@ -454,3 +454,22 @@ export const CHECK_IN_STATUS_LABELS: Record<CheckInStatus, { label: string; icon
     description: 'Display modified or taken down',
   },
 };
+
+// Trending location types
+export interface TrendingLocation extends Location {
+  trendingScore: number;
+  recentCheckInCount: number;
+  latestCheckInStatus?: CheckInStatus;
+  latestCheckInAt?: string;
+}
+
+export interface TrendingLocationsResponse {
+  success: boolean;
+  data: TrendingLocation[];
+  meta: {
+    days: number;
+    limit: number;
+    totalCheckIns: number;
+    locationsWithActivity: number;
+  };
+}

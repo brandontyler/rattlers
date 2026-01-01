@@ -3,14 +3,22 @@ import { Link } from 'react-router-dom';
 import { MapView } from '@/components/map';
 import { Button, Card, Input, Select, Badge } from '@/components/ui';
 import { RoutePanel } from '@/components/route';
-import { useLocations } from '@/hooks';
+import TrendingSection from '@/components/TrendingSection';
+import { useLocations, useTrendingLocations } from '@/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api';
 import type { Location } from '@/types';
 
 export default function HomePage() {
   const { data: locations = [], isLoading: loading } = useLocations();
+  const { data: trendingLocations = [] } = useTrendingLocations(8, 7);
   const { isAuthenticated } = useAuth();
+
+  // Extract trending location IDs for map markers
+  const trendingLocationIds = useMemo(
+    () => trendingLocations.map((loc) => loc.id),
+    [trendingLocations]
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [qualityFilter, setQualityFilter] = useState('');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -142,6 +150,9 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Trending This Week Section */}
+      <TrendingSection />
+
       {/* Search and Map Section */}
       <section id="map-section" className="py-16 gradient-winter">
         <div className="container mx-auto px-4">
@@ -235,6 +246,7 @@ export default function HomePage() {
               <MapView
                 locations={filteredLocations}
                 height="650px"
+                trendingLocationIds={trendingLocationIds}
                 onLocationClick={(location) => {
                   console.log('Location clicked:', location);
                 }}

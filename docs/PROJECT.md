@@ -62,6 +62,21 @@ cd frontend && npm run test:run
 | Submitter attribution | ✅ | ✅ | "Submitted by [avatar] username" on popups/details |
 | Live status check-ins | ✅ | ✅ | Report display status (on/off/amazing/changed) |
 
+### ✅ Trending This Week (Complete)
+
+| Feature | Frontend | Backend | Notes |
+|---------|----------|---------|-------|
+| Trending section | ✅ | ✅ | Home page section showing top 8 trending locations |
+| Trending API | ✅ | ✅ | GET /locations/trending with configurable limit/days |
+| Score algorithm | - | ✅ | Weighted check-ins with exponential time decay |
+| Hot map markers | ✅ | - | Flame badge on trending locations in map view |
+| Rank badges | ✅ | - | Gold/silver/bronze badges for top 3, burgundy for 4+ |
+
+**Trending Score Algorithm:**
+- Status weights: amazing=3.0, on=2.0, changed=1.0, off=0.5
+- Exponential decay with ~3.5 day half-life
+- Locations sorted by weighted score
+
 ### ✅ Live Status Check-ins (Complete)
 
 | Feature | Frontend | Backend | Notes |
@@ -353,6 +368,7 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
+- **Jan 1, 2026 (PM):** Added Trending This Week feature showing the most active locations based on recent check-ins. Uses first principles thinking: Christmas light viewing is time-sensitive and social - users want to know what's popular RIGHT NOW. Algorithm uses weighted check-in statuses (amazing=3, on=2, changed=1, off=0.5) with exponential decay (~3.5 day half-life). Home page shows top 8 trending locations with rank badges. Map markers for trending locations show flame badge. New endpoint: GET /locations/trending with configurable limit/days params. New components: TrendingSection, hot marker icons.
 - **Jan 1, 2026:** Added Live Status Check-ins feature. Users can now report the current status of displays (Lights ON, Lights OFF, Amazing Tonight, Changed/Gone) with optional notes. Check-in status is displayed on location detail pages and map popups. Uses first principles thinking: Christmas displays are ephemeral - they change night-to-night, and users want real-time confidence before driving to a location. New components: CheckInModal, CheckInStatus. New table: christmas-lights-checkins. New endpoints: POST/GET /locations/{id}/checkins.
 - **Dec 29, 2025 (Late PM2):** Fixed address autocomplete returning no results for street addresses like "424 Headlee St". Root cause: AWS Location Service V2 docs specify BiasPosition and Filter.BoundingBox are mutually exclusive. Using both caused empty results. Fix: removed BoundingBox from Filter, keeping only IncludeCountries. BiasPosition continues to prefer North Texas results, and post-query isInNorthTexas() filter ensures geographic restrictions. Added regression test verifying Filter has no BoundingBox.
 - **Dec 29, 2025 (Late PM):** Enhanced photo analysis with Amazon Nova Pro (AWS-native model for showcase). Changed from Claude 3.5 Sonnet to Amazon Nova Pro for better cost-performance. Implemented vision AI best practices: system prompt with role assignment (reduces hallucinations), structured JSON output with 30+ decoration categories, confidence scores, quality ratings, and style tags. Added comprehensive decoration inventory including light types (string, icicle, net, projection, laser, animated), yard decorations (inflatables, blow molds, nativity, snowman, Santa, reindeer), and special features (music sync, themed displays, mega trees). Supports jpeg/png/gif/webp (browsers auto-convert iPhone HEIC on upload).

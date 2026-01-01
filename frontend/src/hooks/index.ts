@@ -1,1 +1,1 @@
-export { useLocations, useLocation } from './useLocations';
+export { useLocations, useLocation, useTrendingLocations } from './useLocations';
