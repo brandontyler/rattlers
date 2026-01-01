@@ -27,6 +27,9 @@ import type {
   RouteFeedbackResponse,
   RouteFeedbackStatusResponse,
   RoutesLeaderboardResponse,
+  SubmitCheckInRequest,
+  CheckIn,
+  LocationCheckInSummary,
 } from '@/types';
 
 const MAX_RETRIES = 3;
@@ -351,6 +354,23 @@ class ApiService {
     hasPendingSuggestion: boolean;
   }>> {
     const { data } = await this.api.post('/locations/check-duplicate', request);
+    return data;
+  }
+
+  // Check-in endpoints
+  async submitCheckIn(locationId: string, request: SubmitCheckInRequest): Promise<ApiResponse<CheckIn>> {
+    const { data } = await this.api.post<ApiResponse<CheckIn>>(
+      `/locations/${locationId}/checkins`,
+      request
+    );
+    return data;
+  }
+
+  async getCheckIns(locationId: string, limit = 10): Promise<ApiResponse<LocationCheckInSummary>> {
+    const { data } = await this.api.get<ApiResponse<LocationCheckInSummary>>(
+      `/locations/${locationId}/checkins`,
+      { params: { limit } }
+    );
     return data;
   }
 }

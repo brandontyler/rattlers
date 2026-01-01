@@ -210,3 +210,35 @@ export interface RouteFeedbackStatusResponse {
   liked: boolean;
   saved: boolean;
 }
+
+/**
+ * Request to submit a check-in.
+ */
+export interface SubmitCheckInRequest {
+  status: "on" | "off" | "amazing" | "changed";
+  note?: string;
+  photoKey?: string;
+}
+
+/**
+ * Check-in response with user details.
+ */
+export interface CheckInResponse {
+  id: string;
+  locationId: string;
+  userId: string;
+  username: string;
+  status: "on" | "off" | "amazing" | "changed";
+  note?: string;
+  photoKey?: string;
+  createdAt: string;
+}
+
+/**
+ * Latest check-in summary for a location.
+ */
+export interface LocationCheckInSummary {
+  latestCheckIn?: CheckInResponse;
+  recentCheckIns: CheckInResponse[];
+  checkInCount: number;
+}

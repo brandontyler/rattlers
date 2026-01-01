@@ -228,6 +228,43 @@ class ChristmasLightsStack(Stack):
             projection_type=dynamodb.ProjectionType.ALL,
         )
 
+        # Check-ins table - for live status check-ins on locations
+        self.checkins_table = dynamodb.Table(
+            self,
+            "CheckInsTable",
+            table_name=f"christmas-lights-checkins-{self.env_name}",
+            partition_key=dynamodb.Attribute(
+                name="PK", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(name="SK", type=dynamodb.AttributeType.STRING),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY if self.env_name == "dev" else RemovalPolicy.RETAIN,
+        )
+
+        # GSI for querying check-ins by location and time (most recent first)
+        self.checkins_table.add_global_secondary_index(
+            index_name="locationId-createdAt-index",
+            partition_key=dynamodb.Attribute(
+                name="locationId", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="createdAt", type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
+        # GSI for querying check-ins by user (for profile/leaderboard)
+        self.checkins_table.add_global_secondary_index(
+            index_name="userId-createdAt-index",
+            partition_key=dynamodb.Attribute(
+                name="userId", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="createdAt", type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
     def create_s3_buckets(self):
         """Create S3 buckets."""
 
@@ -402,6 +439,7 @@ class ChristmasLightsStack(Stack):
             "SUGGESTIONS_TABLE_NAME": self.suggestions_table.table_name,
             "ROUTES_TABLE_NAME": self.routes_table.table_name,
             "ROUTE_FEEDBACK_TABLE_NAME": self.route_feedback_table.table_name,
+            "CHECKINS_TABLE_NAME": self.checkins_table.table_name,
             "PHOTOS_BUCKET_NAME": self.photos_bucket.bucket_name,
             "PHOTOS_CDN_URL": f"https://{self.photos_distribution.distribution_domain_name}" if hasattr(self, 'photos_distribution') else "",
             "ALLOWED_ORIGINS": ",".join(allowed_origins),
@@ -840,6 +878,33 @@ class ChristmasLightsStack(Stack):
         )
         self.locations_table.grant_read_data(self.get_locations_leaderboard_fn)
 
+        # Check-in environment with users table for usernames
+        checkin_env = {
+            **common_env,
+            "USERS_TABLE_NAME": self.users_table.table_name,
+        }
+
+        # Submit check-in function
+        self.submit_checkin_fn = create_ts_lambda(
+            "SubmitCheckInFunction",
+            "checkins/submit",
+            timeout_seconds=10,
+            memory_size=256,
+            environment=checkin_env,
+        )
+        self.checkins_table.grant_read_write_data(self.submit_checkin_fn)
+        self.locations_table.grant_read_data(self.submit_checkin_fn)
+        self.users_table.grant_read_data(self.submit_checkin_fn)
+
+        # Get check-ins for location function (public)
+        self.get_checkins_fn = create_ts_lambda(
+            "GetCheckInsFunction",
+            "checkins/get",
+            timeout_seconds=10,
+            memory_size=256,
+        )
+        self.checkins_table.grant_read_data(self.get_checkins_fn)
+
         # Post-authentication Lambda (Cognito trigger)
         post_auth_env = {
             "USERS_TABLE_NAME": self.users_table.table_name,
@@ -1044,6 +1109,19 @@ class ChristmasLightsStack(Stack):
         favorite.add_method(
             "POST",
             apigw.LambdaIntegration(self.toggle_favorite_fn),
+            authorizer=authorizer,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # /locations/{id}/checkins endpoint
+        checkins = location_by_id.add_resource("checkins")
+        checkins.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.get_checkins_fn),
+        )
+        checkins.add_method(
+            "POST",
+            apigw.LambdaIntegration(self.submit_checkin_fn),
             authorizer=authorizer,
             authorization_type=apigw.AuthorizationType.COGNITO,
         )

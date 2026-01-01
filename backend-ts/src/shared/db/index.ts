@@ -11,3 +11,4 @@ export * from "./suggestions";
 export * from "./routes";
 export * from "./route-feedback";
 export * from "./users";
+export * from "./checkins";

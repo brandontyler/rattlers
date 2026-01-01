@@ -245,3 +245,39 @@ export interface Report {
   /** ISO timestamp of creation */
   createdAt: string;
 }
+
+/**
+ * Status of a live check-in.
+ */
+export type CheckInStatus = "on" | "off" | "amazing" | "changed";
+
+/**
+ * A live status check-in for a location.
+ * Users at a location can report the current display status.
+ */
+export interface CheckIn {
+  /** Unique identifier (UUID) */
+  id: string;
+  /** Location this check-in is for */
+  locationId: string;
+  /** User who submitted check-in */
+  userId: string;
+  /** Username of submitter (denormalized) */
+  username: string;
+  /** Current status of the display */
+  status: CheckInStatus;
+  /** Optional note about the display */
+  note?: string;
+  /** Optional S3 photo key for verification */
+  photoKey?: string;
+  /** ISO timestamp of creation */
+  createdAt: string;
+}
+
+/**
+ * DynamoDB representation of a check-in.
+ */
+export interface CheckInRecord extends CheckIn {
+  PK: string;
+  SK: string;
+}

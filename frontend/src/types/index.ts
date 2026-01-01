@@ -405,3 +405,52 @@ export interface DuplicateCheckResponse {
   location: DuplicateLocation | null;
   hasPendingSuggestion: boolean;
 }
+
+// Check-in types
+export type CheckInStatus = 'on' | 'off' | 'amazing' | 'changed';
+
+export interface CheckIn {
+  id: string;
+  locationId: string;
+  userId: string;
+  username: string;
+  status: CheckInStatus;
+  note?: string;
+  photoKey?: string;
+  createdAt: string;
+}
+
+export interface SubmitCheckInRequest {
+  status: CheckInStatus;
+  note?: string;
+  photoKey?: string;
+}
+
+export interface LocationCheckInSummary {
+  latestCheckIn?: CheckIn;
+  recentCheckIns: CheckIn[];
+  checkInCount: number;
+}
+
+export const CHECK_IN_STATUS_LABELS: Record<CheckInStatus, { label: string; icon: string; description: string }> = {
+  on: {
+    label: 'Lights ON',
+    icon: '💡',
+    description: 'Display is currently illuminated',
+  },
+  off: {
+    label: 'Lights OFF',
+    icon: '🌑',
+    description: 'Display is dark/not visible',
+  },
+  amazing: {
+    label: 'Amazing Tonight',
+    icon: '⭐',
+    description: 'Exceptionally impressive right now',
+  },
+  changed: {
+    label: 'Changed/Gone',
+    icon: '⚠️',
+    description: 'Display modified or taken down',
+  },
+};
