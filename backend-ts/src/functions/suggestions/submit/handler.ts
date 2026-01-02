@@ -56,8 +56,17 @@ export const handler = requireAuth(
       // Save to database
       await createSuggestion(suggestion);
 
+      // Security: Don't expose email in response - return only safe fields
+      const safeResponse = {
+        id: suggestion.id,
+        address: suggestion.address,
+        description: suggestion.description,
+        status: suggestion.status,
+        createdAt: suggestion.createdAt,
+      };
+
       return successResponse({
-        data: suggestion,
+        data: safeResponse,
         message: "Thank you for your submission! It will be reviewed shortly.",
         statusCode: 201,
       });

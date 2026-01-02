@@ -64,10 +64,10 @@ export const handler = requireAuth(
       }
 
       // TODO: Store the report details for admin review
+      // Security: Don't log userId to protect reporter identity
       console.log(`Report submitted for location ${locationId}:`, {
         category,
-        details,
-        userId: user.id,
+        hasDetails: Boolean(details),
         reportCount: newReportCount,
       });
 
