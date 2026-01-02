@@ -106,6 +106,12 @@ export async function deleteFeedback(feedbackId: string, locationId: string): Pr
 
 /**
  * Get a user's feedback for a specific location and type.
+ *
+ * First principles: Use the GSI, trust it works, fail fast if it doesn't.
+ * The previous scan fallback was an anti-pattern:
+ * 1. If GSI exists, fallback never runs
+ * 2. If GSI doesn't exist, scan is expensive and may timeout
+ * 3. Silent fallback hides infrastructure issues
  */
 export async function getUserFeedback(
   locationId: string,
@@ -114,54 +120,18 @@ export async function getUserFeedback(
 ): Promise<Feedback | null> {
   const tableName = getFeedbackTableName();
 
-  try {
-    const result = await docClient.send(
-      new QueryCommand({
-        TableName: tableName,
-        IndexName: "userId-locationId-index",
-        KeyConditionExpression: "userId = :userId AND locationId = :locationId",
-        FilterExpression: "#type = :type",
-        ExpressionAttributeNames: {
-          "#type": "type",
-        },
-        ExpressionAttributeValues: {
-          ":userId": userId,
-          ":locationId": locationId,
-          ":type": feedbackType,
-        },
-        Limit: 1,
-      })
-    );
-
-    const items = result.Items ?? [];
-    return items.length > 0 ? cleanFeedbackRecord(items[0] as FeedbackRecord) : null;
-  } catch (error) {
-    console.error(`Error querying user feedback with GSI: ${error}`);
-    // Fallback to scan if GSI query fails
-    return getUserFeedbackScan(locationId, userId, feedbackType);
-  }
-}
-
-/**
- * Fallback scan method for backwards compatibility.
- */
-async function getUserFeedbackScan(
-  locationId: string,
-  userId: string,
-  feedbackType: FeedbackType
-): Promise<Feedback | null> {
-  const tableName = getFeedbackTableName();
-
   const result = await docClient.send(
-    new ScanCommand({
+    new QueryCommand({
       TableName: tableName,
-      FilterExpression: "locationId = :locationId AND userId = :userId AND #type = :type",
+      IndexName: "userId-locationId-index",
+      KeyConditionExpression: "userId = :userId AND locationId = :locationId",
+      FilterExpression: "#type = :type",
       ExpressionAttributeNames: {
         "#type": "type",
       },
       ExpressionAttributeValues: {
-        ":locationId": locationId,
         ":userId": userId,
+        ":locationId": locationId,
         ":type": feedbackType,
       },
       Limit: 1,

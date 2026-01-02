@@ -15,7 +15,7 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
 import { successResponse, internalError } from "@shared/utils/responses";
 import { getRecentCheckIns } from "@shared/db/checkins";
-import { listLocations } from "@shared/db/locations";
+import { getLocationsByIds } from "@shared/db/locations";
 import type { Location, CheckIn, CheckInStatus } from "@shared/types";
 
 /**
@@ -129,9 +129,11 @@ export async function handler(
       .slice(0, limit)
       .map(([id]) => id);
 
-    // Fetch full location data
-    const allLocations = await listLocations({ status: "active" });
-    const locationsMap = new Map(allLocations.map((loc) => [loc.id, loc]));
+    // First principles optimization: Only fetch the specific locations we need.
+    // Before: listLocations() fetched ALL 147+ locations, then filtered.
+    // After: getLocationsByIds() fetches only the ~10 locations with check-ins.
+    // This is O(limit) instead of O(total_locations).
+    const locationsMap = await getLocationsByIds(sortedLocationIds);
 
     // Build trending locations array
     const trendingLocations: TrendingLocation[] = [];
@@ -139,7 +141,8 @@ export async function handler(
       const location = locationsMap.get(locationId);
       const scoreData = locationScores.get(locationId);
 
-      if (location && scoreData) {
+      // Only include active locations (skip inactive/deleted)
+      if (location && location.status === "active" && scoreData) {
         // Sort check-ins by date to get latest
         const sortedCheckIns = scoreData.checkIns.sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()

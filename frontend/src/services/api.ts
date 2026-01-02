@@ -220,11 +220,6 @@ class ApiService {
   }
 
   // User endpoints
-  async getCurrentUser(): Promise<ApiResponse<UserProfile>> {
-    const { data } = await this.api.get<ApiResponse<UserProfile>>('/users/me');
-    return data;
-  }
-
   async updateProfile(updates: Partial<UserProfile>): Promise<ApiResponse<UserProfile>> {
     const { data } = await this.api.put<ApiResponse<UserProfile>>('/users/profile', updates);
     return data;
