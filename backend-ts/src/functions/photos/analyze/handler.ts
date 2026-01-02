@@ -117,8 +117,23 @@ interface PhotoAnalysisResult {
   notChristmasReason?: string;
 }
 
+/**
+ * Validates photoKey to prevent path traversal and ensure it points to expected S3 paths.
+ * Only allows keys in the pending/ or approved/ prefixes with valid file extensions.
+ */
+const SAFE_PHOTO_KEY_PATTERN = /^(pending|approved)\/[a-f0-9-]+\/[a-f0-9-]+\.(jpg|jpeg|png|gif|webp|heic|heif)$/i;
+
 const analyzePhotoSchema = z.object({
-  photoKey: z.string().min(1),
+  photoKey: z
+    .string()
+    .min(1)
+    .refine(
+      (key) => SAFE_PHOTO_KEY_PATTERN.test(key),
+      {
+        message:
+          "Invalid photoKey format. Must be in format: pending/{suggestionId}/{photoId}.{ext} or approved/{locationId}/{photoId}.{ext}",
+      }
+    ),
 });
 
 /**

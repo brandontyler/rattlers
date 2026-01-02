@@ -129,7 +129,8 @@ export async function handler(
 
     if (existingProfile) {
       // User already has a profile, nothing to do
-      console.log(`User ${userId} already has a profile`);
+      // Security: Don't log userId - could be correlated with user identity
+      console.log("User already has a profile");
       return event;
     }
 
@@ -153,7 +154,8 @@ export async function handler(
 
     await upsertUserProfile(profile);
 
-    console.log(`Created profile for user ${userId} with username ${username}`);
+    // Security: Don't log userId - log only the generated username
+    console.log(`Created new user profile with username: ${username}`);
 
     return event;
   } catch (error) {

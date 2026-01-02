@@ -5,10 +5,13 @@
  */
 
 import type { APIGatewayProxyResult, Context } from "aws-lambda";
-import { successResponse, internalError } from "@shared/utils/responses";
+import { successResponse, badRequestError, internalError } from "@shared/utils/responses";
 import { listSuggestionsByStatus } from "@shared/db/suggestions";
 import { requireAdminView } from "@shared/utils/auth";
 import type { AuthenticatedEvent } from "@shared/types";
+
+const VALID_STATUSES = ["pending", "approved", "rejected"] as const;
+type SuggestionStatus = (typeof VALID_STATUSES)[number];
 
 /**
  * Handle GET /suggestions request.
@@ -18,16 +21,15 @@ export const handler = requireAdminView(
     try {
       const status = event.queryStringParameters?.status ?? "pending";
 
-      // Validate status
-      if (!["pending", "approved", "rejected"].includes(status)) {
-        const suggestions = await listSuggestionsByStatus("pending");
-        return successResponse({ data: suggestions });
+      // Security: Validate status - return error instead of silently defaulting
+      if (!VALID_STATUSES.includes(status as SuggestionStatus)) {
+        return badRequestError(
+          `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}`
+        );
       }
 
       // Get suggestions by status
-      const suggestions = await listSuggestionsByStatus(
-        status as "pending" | "approved" | "rejected"
-      );
+      const suggestions = await listSuggestionsByStatus(status as SuggestionStatus);
 
       return successResponse({ data: suggestions });
     } catch (error) {

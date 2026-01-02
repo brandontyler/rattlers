@@ -9,7 +9,7 @@ import { successResponse, internalError } from "@shared/utils/responses";
 import { listPublicRoutes } from "@shared/db/routes";
 
 interface CreatorStats {
-  userId: string;
+  // Note: userId intentionally excluded from public response for privacy
   username: string | null;
   routeCount: number;
   totalLikes: number;
@@ -40,8 +40,8 @@ export async function handler(
         existing.totalSaves += route.saveCount;
         existing.totalStarts += route.startCount;
       } else {
+        // Security: Don't expose userId in public leaderboard response
         creatorStatsMap.set(route.createdBy, {
-          userId: route.createdBy,
           username: route.createdByUsername ?? null,
           routeCount: 1,
           totalLikes: route.likeCount,

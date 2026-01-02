@@ -92,7 +92,8 @@ describe("POST /locations/{id}/checkins Handler", () => {
       expect(body.success).toBe(true);
       expect(body.data.status).toBe("on");
       expect(body.data.locationId).toBe("loc-123");
-      expect(body.data.userId).toBe("user-456");
+      // Security: userId should NOT be exposed in response
+      expect(body.data.userId).toBeUndefined();
       expect(body.data.username).toBe("TestUser");
 
       expect(createCheckIn).toHaveBeenCalledWith(
@@ -141,7 +142,7 @@ describe("POST /locations/{id}/checkins Handler", () => {
       expect(body.data.status).toBe("changed");
     });
 
-    it("should fallback to email when username is not found", async () => {
+    it("should fallback to 'Anonymous' when username is not found (security: never expose email)", async () => {
       vi.mocked(getUsername).mockResolvedValue(null);
 
       const event = createMockEvent("loc-123", { status: "on" });
@@ -150,7 +151,23 @@ describe("POST /locations/{id}/checkins Handler", () => {
       expect(result.statusCode).toBe(201);
 
       const body = JSON.parse(result.body);
-      expect(body.data.username).toBe("test@example.com");
+      // Security fix: Never fall back to email - use "Anonymous" instead
+      expect(body.data.username).toBe("Anonymous");
+    });
+
+    it("should not expose userId in response (security: prevent user tracking)", async () => {
+      const event = createMockEvent("loc-123", { status: "on" });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(201);
+
+      const body = JSON.parse(result.body);
+      // Security: userId should not be in the response
+      expect(body.data.userId).toBeUndefined();
+      // But other fields should be present
+      expect(body.data.id).toBeDefined();
+      expect(body.data.locationId).toBe("loc-123");
+      expect(body.data.username).toBe("TestUser");
     });
   });
 
@@ -180,7 +197,8 @@ describe("POST /locations/{id}/checkins Handler", () => {
 
       const body = JSON.parse(result.body);
       expect(body.success).toBe(false);
-      expect(body.error.message).toContain("Status must be one of");
+      // Zod validation returns details object with field-specific errors
+      expect(body.error.details.status).toBeDefined();
     });
 
     it("should return 400 when status is invalid", async () => {
@@ -191,7 +209,8 @@ describe("POST /locations/{id}/checkins Handler", () => {
 
       const body = JSON.parse(result.body);
       expect(body.success).toBe(false);
-      expect(body.error.message).toContain("Status must be one of");
+      // Zod validation returns details with specific status error
+      expect(body.error.details.status).toContain("Status must be one of");
     });
 
     it("should return 400 when note exceeds 280 characters", async () => {
@@ -203,7 +222,8 @@ describe("POST /locations/{id}/checkins Handler", () => {
 
       const body = JSON.parse(result.body);
       expect(body.success).toBe(false);
-      expect(body.error.message).toBe("Note must be 280 characters or less");
+      // Zod validation returns details with specific note error
+      expect(body.error.details.note).toBe("Note must be 280 characters or less");
     });
 
     it("should return 400 for invalid JSON body", async () => {
@@ -222,7 +242,22 @@ describe("POST /locations/{id}/checkins Handler", () => {
 
       const body = JSON.parse(result.body);
       expect(body.success).toBe(false);
-      expect(body.error.message).toBe("Invalid JSON body");
+      // parseJsonBody returns error in details.body for invalid JSON
+      expect(body.error.details.body).toBe("Invalid JSON in request body");
+    });
+
+    it("should return 400 when photoKey has invalid format (security: prevent path traversal)", async () => {
+      const event = createMockEvent("loc-123", {
+        status: "on",
+        photoKey: "../../../etc/passwd",
+      });
+      const result = await handler(event, mockContext);
+
+      expect(result.statusCode).toBe(400);
+
+      const body = JSON.parse(result.body);
+      expect(body.success).toBe(false);
+      expect(body.error.details.photoKey).toContain("Invalid photoKey format");
     });
 
     it("should return 404 when location does not exist", async () => {

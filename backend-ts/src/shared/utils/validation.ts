@@ -144,6 +144,25 @@ export const checkDuplicateSchema = z.object({
 export type CheckDuplicateInput = z.infer<typeof checkDuplicateSchema>;
 
 /**
+ * Check-in submission schema.
+ */
+export const submitCheckInSchema = z.object({
+  status: z.enum(["on", "off", "amazing", "changed"], {
+    errorMap: () => ({ message: "Status must be one of: on, off, amazing, changed" }),
+  }),
+  note: z.string().max(280, "Note must be 280 characters or less").optional(),
+  photoKey: z
+    .string()
+    .regex(
+      /^(pending|approved)\/[a-f0-9-]+\/[a-f0-9-]+\.(jpg|jpeg|png|gif|webp|heic|heif)$/i,
+      "Invalid photoKey format"
+    )
+    .optional(),
+});
+
+export type SubmitCheckInInput = z.infer<typeof submitCheckInSchema>;
+
+/**
  * Update user profile schema.
  */
 export const updateProfileSchema = z.object({

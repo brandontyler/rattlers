@@ -10,7 +10,7 @@ import { listLocations } from "@shared/db/locations";
 import { getUserProfile } from "@shared/db/users";
 
 interface LeaderboardEntry {
-  userId: string;
+  // Note: userId intentionally excluded from public response for privacy
   username: string | null;
   submissionCount: number;
   totalLikes: number;
@@ -57,8 +57,8 @@ export async function handler(
     const leaderboardPromises = Array.from(userStatsMap.entries()).map(
       async ([userId, stats]) => {
         const profile = await getUserProfile(userId);
+        // Security: Don't expose userId in public leaderboard response
         return {
-          userId,
           username: profile?.username ?? null,
           ...stats,
           score: stats.submissionCount * 10 + stats.totalLikes * 5 + stats.totalViews,
