@@ -12,11 +12,11 @@ vi.mock("@shared/db/checkins", () => ({
 }));
 
 vi.mock("@shared/db/locations", () => ({
-  listLocations: vi.fn(),
+  getLocationsByIds: vi.fn(),
 }));
 
 import { getRecentCheckIns } from "@shared/db/checkins";
-import { listLocations } from "@shared/db/locations";
+import { getLocationsByIds } from "@shared/db/locations";
 
 // Sample data
 const sampleLocations = [
@@ -124,10 +124,20 @@ const createMockEvent = (
 
 const mockContext = {} as Context;
 
+// Helper to create a Map from sample locations array
+const createLocationsMap = (locations: typeof sampleLocations) => {
+  const map = new Map();
+  for (const loc of locations) {
+    map.set(loc.id, loc);
+  }
+  return map;
+};
+
 describe("GET /locations/trending Handler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(listLocations).mockResolvedValue(sampleLocations);
+    // getLocationsByIds now returns a Map instead of listLocations returning an array
+    vi.mocked(getLocationsByIds).mockResolvedValue(createLocationsMap(sampleLocations));
     vi.mocked(getRecentCheckIns).mockResolvedValue(sampleCheckIns);
   });
 

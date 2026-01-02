@@ -225,7 +225,10 @@ describe("Locations Database Operations", () => {
 
       expect(ddbMock.calls()).toHaveLength(1);
       const updateCall = ddbMock.call(0);
-      expect(updateCall.args[0].input.UpdateExpression).toContain("likeCount");
+      // Now uses #field placeholder with ExpressionAttributeNames
+      expect(updateCall.args[0].input.ExpressionAttributeNames).toMatchObject({
+        "#field": "likeCount",
+      });
     });
   });
 
@@ -284,7 +287,10 @@ describe("Locations Database Operations", () => {
 
       expect(ddbMock.calls()).toHaveLength(1);
       const updateCall = ddbMock.call(0);
-      expect(updateCall.args[0].input.UpdateExpression).toContain("viewCount");
+      // Now uses #field placeholder with ExpressionAttributeNames
+      expect(updateCall.args[0].input.ExpressionAttributeNames).toMatchObject({
+        "#field": "viewCount",
+      });
     });
   });
 
@@ -296,7 +302,10 @@ describe("Locations Database Operations", () => {
 
       expect(ddbMock.calls()).toHaveLength(1);
       const updateCall = ddbMock.call(0);
-      expect(updateCall.args[0].input.UpdateExpression).toContain("saveCount");
+      // Now uses #field placeholder with ExpressionAttributeNames
+      expect(updateCall.args[0].input.ExpressionAttributeNames).toMatchObject({
+        "#field": "saveCount",
+      });
     });
   });
 

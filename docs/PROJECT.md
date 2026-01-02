@@ -1,6 +1,6 @@
 # DFW Christmas Lights Finder - Project Guide
 
-**Last Updated:** January 1, 2026
+**Last Updated:** January 2, 2026
 
 > Start here when resuming work. This is the single source of truth for project status.
 
@@ -368,6 +368,7 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
+- **Jan 2, 2026:** Applied first principles thinking to improve codebase architecture. Key changes: (1) Unified 6 nearly-identical counter functions (incrementLikeCount, decrementLikeCount, incrementSaveCount, etc.) into a single generic `adjustCounter` function - DRY principle, 60% less code for counter operations. (2) Optimized trending locations query - changed from fetching ALL locations then filtering to using new `getLocationsByIds` batch operation that fetches only the ~10 locations with recent check-ins. This is O(limit) instead of O(total_locations). (3) Removed dead code - deleted unused `getCurrentUser` API method that called non-existent `/users/me` endpoint. (4) Removed scan fallback anti-pattern in feedback.ts - the old code silently fell back to expensive table scans which hid infrastructure issues. Now uses GSI directly and fails fast if misconfigured. All 358 tests pass.
 - **Jan 1, 2026 (PM):** Added Trending This Week feature showing the most active locations based on recent check-ins. Uses first principles thinking: Christmas light viewing is time-sensitive and social - users want to know what's popular RIGHT NOW. Algorithm uses weighted check-in statuses (amazing=3, on=2, changed=1, off=0.5) with exponential decay (~3.5 day half-life). Home page shows top 8 trending locations with rank badges. Map markers for trending locations show flame badge. New endpoint: GET /locations/trending with configurable limit/days params. New components: TrendingSection, hot marker icons.
 - **Jan 1, 2026:** Added Live Status Check-ins feature. Users can now report the current status of displays (Lights ON, Lights OFF, Amazing Tonight, Changed/Gone) with optional notes. Check-in status is displayed on location detail pages and map popups. Uses first principles thinking: Christmas displays are ephemeral - they change night-to-night, and users want real-time confidence before driving to a location. New components: CheckInModal, CheckInStatus. New table: christmas-lights-checkins. New endpoints: POST/GET /locations/{id}/checkins.
 - **Dec 29, 2025 (Late PM2):** Fixed address autocomplete returning no results for street addresses like "424 Headlee St". Root cause: AWS Location Service V2 docs specify BiasPosition and Filter.BoundingBox are mutually exclusive. Using both caused empty results. Fix: removed BoundingBox from Filter, keeping only IncludeCountries. BiasPosition continues to prefer North Texas results, and post-query isInNorthTexas() filter ensures geographic restrictions. Added regression test verifying Filter has no BoundingBox.
