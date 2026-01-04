@@ -40,6 +40,41 @@ Thank you for your interest in contributing! This is currently a personal projec
    uv run cdk bootstrap
    ```
 
+5. **Install Git Hooks** (from root directory)
+   ```bash
+   cd rattlers  # Make sure you're in the root directory
+   npm install  # This automatically sets up husky pre-commit hooks
+   ```
+
+## Pre-commit Hooks
+
+This project uses [Husky](https://typicode.github.io/husky/) and [lint-staged](https://github.com/lint-staged/lint-staged) to run automated checks before each commit.
+
+### What runs on commit:
+- **ESLint**: Checks staged `.ts` and `.tsx` files for linting errors
+- **Commit message validation**: Ensures conventional commit format
+
+### Conventional Commit Format
+All commit messages must follow this format:
+```
+type(scope): description
+```
+
+Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`
+
+Examples:
+```bash
+feat(auth): add login functionality
+fix: resolve null pointer exception
+docs(readme): update installation instructions
+```
+
+### Bypassing Hooks (not recommended)
+If you need to skip hooks temporarily:
+```bash
+git commit --no-verify -m "message"
+```
+
 ## Development Workflow
 
 ### For Every Task or Feature
