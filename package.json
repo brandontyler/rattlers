@@ -1,0 +1,32 @@
+{
+  "name": "rattlers",
+  "private": true,
+  "description": "Christmas Lights Finder - Monorepo",
+  "scripts": {
+    "prepare": "husky",
+    "lint": "npm run lint --prefix frontend && npm run lint --prefix backend-ts",
+    "lint:frontend": "npm run lint --prefix frontend",
+    "lint:backend": "npm run lint --prefix backend-ts",
+    "test": "npm run test:run --prefix frontend && npm run test:run --prefix backend-ts",
+    "test:frontend": "npm run test:run --prefix frontend",
+    "test:backend": "npm run test:run --prefix backend-ts",
+    "typecheck": "npm run typecheck --prefix backend-ts",
+    "typecheck:frontend": "tsc --noEmit --project frontend/tsconfig.json",
+    "typecheck:backend": "npm run typecheck --prefix backend-ts"
+  },
+  "devDependencies": {
+    "husky": "^9.1.0",
+    "lint-staged": "^15.2.0"
+  },
+  "lint-staged": {
+    "frontend/**/*.{ts,tsx}": [
+      "eslint --max-warnings 0"
+    ],
+    "backend-ts/src/**/*.ts": [
+      "eslint"
+    ]
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

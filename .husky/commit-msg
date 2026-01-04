@@ -1,0 +1,38 @@
+#!/bin/sh
+
+# Validate conventional commit format
+# Format: type(scope): description
+# Types: feat, fix, docs, style, refactor, test, chore, perf, ci, build
+
+commit_msg=$(cat "$1")
+
+# Pattern for conventional commits
+pattern="^(feat|fix|docs|style|refactor|test|chore|perf|ci|build)(\([a-zA-Z0-9_-]+\))?: .{1,100}$"
+
+# Also allow merge commits and revert commits
+merge_pattern="^Merge "
+revert_pattern="^Revert "
+
+if echo "$commit_msg" | head -1 | grep -qE "$pattern"; then
+  exit 0
+elif echo "$commit_msg" | head -1 | grep -qE "$merge_pattern"; then
+  exit 0
+elif echo "$commit_msg" | head -1 | grep -qE "$revert_pattern"; then
+  exit 0
+else
+  echo ""
+  echo "ERROR: Commit message does not follow conventional commit format."
+  echo ""
+  echo "Expected format: type(scope): description"
+  echo ""
+  echo "Valid types: feat, fix, docs, style, refactor, test, chore, perf, ci, build"
+  echo ""
+  echo "Examples:"
+  echo "  feat(auth): add login functionality"
+  echo "  fix: resolve null pointer exception"
+  echo "  docs(readme): update installation instructions"
+  echo ""
+  echo "Your message: $commit_msg"
+  echo ""
+  exit 1
+fi
