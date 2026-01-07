@@ -74,32 +74,24 @@ export default function HomePage() {
   return (
     <div className="animate-fade-in">
       {/* Hero Section */}
-      <section className="gradient-burgundy text-white py-20 md:py-32 relative overflow-hidden grain-texture">
-        {/* Decorative elements */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-10 left-10 text-6xl animate-pulse-soft">✨</div>
-          <div className="absolute top-20 right-20 text-5xl animate-pulse-soft" style={{ animationDelay: '0.5s' }}>⭐</div>
-          <div className="absolute bottom-20 left-1/4 text-4xl animate-pulse-soft" style={{ animationDelay: '1s' }}>🎄</div>
-          <div className="absolute bottom-10 right-1/3 text-5xl animate-pulse-soft" style={{ animationDelay: '1.5s' }}>❄️</div>
-        </div>
-
+      <section className="gradient-burgundy text-white py-24 md:py-36 relative overflow-hidden grain-texture hero-bokeh">
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
-            <Badge variant="gold" className="mb-6 text-lg px-6 py-2 animate-slide-up">
-              🎅 Holiday Season 2025
-            </Badge>
+            {/* Frosted stat pill */}
+            <div className="inline-flex items-center gap-3 px-6 py-3 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 mb-8 animate-fade-in">
+              <span className="text-gold-300 text-2xl md:text-3xl font-display font-bold">{locations.length || 146}</span>
+              <span className="text-cream-100 text-sm md:text-base">light displays to explore</span>
+            </div>
 
-            <h1 className="font-display font-bold text-cream-50 mb-6 text-balance animate-slide-up" style={{ animationDelay: '0.1s' }}>
-              Discover the Magic of
-              <span className="block text-gold-300">Christmas Lights in DFW</span>
+            <h1 className="font-display font-bold text-cream-50 mb-6 text-balance animate-slide-up text-5xl md:text-6xl lg:text-7xl tracking-tight">
+              Discover Christmas Lights in DFW
             </h1>
 
-            <p className="text-xl md:text-2xl text-cream-100 mb-8 leading-relaxed animate-slide-up" style={{ animationDelay: '0.2s' }}>
-              Explore over <span className="font-bold text-gold-300">{locations.length || 146} spectacular displays</span> across the Dallas-Fort Worth area.
-              Plan your perfect tour and create magical memories this holiday season.
+            <p className="text-lg md:text-xl text-cream-200 mb-10 leading-relaxed max-w-2xl mx-auto animate-slide-up" style={{ animationDelay: '0.1s' }}>
+              Find spectacular holiday displays across Dallas-Fort Worth. Plan your route and create magical memories this season.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up" style={{ animationDelay: '0.3s' }}>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up" style={{ animationDelay: '0.2s' }}>
               <Button variant="gold" size="lg" onClick={() => document.getElementById('map-section')?.scrollIntoView({ behavior: 'smooth' })}>
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
@@ -120,31 +112,35 @@ export default function HomePage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-12 bg-white">
+      <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             <Card className="text-center card-glow">
               <div className="text-5xl md:text-6xl font-display font-bold text-burgundy-600 mb-2">
-                {locations.length || '...'}
+                {locations.length || '...'}+
               </div>
               <p className="text-forest-700 font-medium">Light Displays</p>
-              <p className="text-sm text-forest-500 mt-1">And growing every day!</p>
+              <p className="text-sm text-forest-500 mt-1">Across the DFW metroplex</p>
             </Card>
 
-            <Card className="text-center card-glow">
-              <div className="text-5xl md:text-6xl font-display font-bold text-forest-600 mb-2">
-                0
+            <Card className="text-center card-glow border-t-2 border-forest-200">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-forest-100 flex items-center justify-center">
+                <svg className="w-6 h-6 text-forest-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
               </div>
-              <p className="text-forest-700 font-medium">Community Reviews</p>
-              <p className="text-sm text-forest-500 mt-1">Be the first to review!</p>
+              <p className="text-forest-700 font-medium">Community Verified</p>
+              <p className="text-sm text-forest-500 mt-1">Real check-ins from visitors</p>
             </Card>
 
-            <Card className="text-center card-glow">
-              <div className="text-5xl md:text-6xl font-display font-bold text-gold-600 mb-2">
-                0
+            <Card className="text-center card-glow border-t-2 border-gold-200">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gold-100 flex items-center justify-center">
+                <svg className="w-6 h-6 text-gold-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
               </div>
-              <p className="text-forest-700 font-medium">Routes Planned</p>
-              <p className="text-sm text-forest-500 mt-1">Coming soon!</p>
+              <p className="text-forest-700 font-medium">Route Planning</p>
+              <p className="text-sm text-gold-600 mt-1">Plan your perfect tour</p>
             </Card>
           </div>
         </div>
@@ -315,19 +311,14 @@ export default function HomePage() {
       </section>
 
       {/* Call to Action */}
-      <section className="py-20 gradient-forest text-cream-50 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-10 right-10 text-9xl">🎄</div>
-          <div className="absolute bottom-10 left-10 text-8xl">⭐</div>
-        </div>
-
+      <section className="py-24 gradient-forest text-cream-50 relative overflow-hidden cta-bokeh">
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="font-display text-4xl md:text-5xl font-bold mb-6">
               Ready to Start Your Journey?
             </h2>
-            <p className="text-xl text-cream-100 mb-8">
-              Join our community of Christmas enthusiasts and help families create unforgettable holiday memories.
+            <p className="text-lg md:text-xl text-cream-200 mb-10">
+              Join our community and help families discover unforgettable holiday memories.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button variant="gold" size="lg" onClick={() => document.getElementById('map-section')?.scrollIntoView({ behavior: 'smooth' })}>
