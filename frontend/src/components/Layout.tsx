@@ -196,25 +196,25 @@ export default function Layout() {
                   to="/"
                   className="block text-cream-100 hover:text-gold-300 hover:bg-cream-50/10 transition-colors font-medium py-3 px-2 rounded-lg"
                 >
-                  🗺️ Explore Map
+                  Explore Map
                 </Link>
                 <Link
                   to="/submit"
                   className="block text-cream-100 hover:text-gold-300 hover:bg-cream-50/10 transition-colors font-medium py-3 px-2 rounded-lg"
                 >
-                  📍 Submit Location
+                  Submit Location
                 </Link>
                 <Link
                   to="/routes"
                   className="block text-cream-100 hover:text-gold-300 hover:bg-cream-50/10 transition-colors font-medium py-3 px-2 rounded-lg"
                 >
-                  🛤️ Routes
+                  Routes
                 </Link>
                 <Link
                   to="/leaderboard"
                   className="block text-cream-100 hover:text-gold-300 hover:bg-cream-50/10 transition-colors font-medium py-3 px-2 rounded-lg"
                 >
-                  🏆 Leaderboard
+                  Leaderboard
                 </Link>
               </div>
 
@@ -237,21 +237,21 @@ export default function Layout() {
                         to="/profile"
                         className="block text-cream-100 hover:text-gold-300 hover:bg-cream-50/10 transition-colors font-medium py-3 px-2 rounded-lg"
                       >
-                        👤 Profile
+                        Profile
                       </Link>
                       {user?.permissions?.canViewAdmin && (
                         <Link
                           to="/admin"
                           className="block text-cream-100 hover:text-gold-300 hover:bg-cream-50/10 transition-colors font-medium py-3 px-2 rounded-lg"
                         >
-                          ⚙️ Admin
+                          Admin
                         </Link>
                       )}
                       <button
                         onClick={() => logout()}
                         className="block w-full text-left text-burgundy-300 hover:text-burgundy-200 hover:bg-cream-50/10 transition-colors font-medium py-3 px-2 rounded-lg"
                       >
-                        🚪 Sign Out
+                        Sign Out
                       </button>
                     </div>
                   </>
@@ -288,12 +288,9 @@ export default function Layout() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             {/* Brand Column */}
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-3xl">🎄</span>
-                <h3 className="text-xl font-display font-bold text-cream-50">
-                  DFW Christmas Lights
-                </h3>
-              </div>
+              <h3 className="text-xl font-display font-bold text-cream-50 mb-4">
+                DFW Christmas Lights
+              </h3>
               <p className="text-cream-200 text-sm leading-relaxed">
                 Helping families discover and share the magic of Christmas lights
                 across the Dallas-Fort Worth area.
@@ -338,21 +335,10 @@ export default function Layout() {
               <h4 className="font-display font-semibold text-cream-50 mb-4">
                 Join Our Community
               </h4>
-              <p className="text-cream-200 text-sm mb-4">
+              <p className="text-cream-200 text-sm">
                 Share your favorite displays and help make this holiday season magical
                 for everyone.
               </p>
-              <div className="flex gap-3">
-                <span className="text-2xl cursor-pointer hover:scale-110 transition-transform">
-                  ⭐
-                </span>
-                <span className="text-2xl cursor-pointer hover:scale-110 transition-transform">
-                  ✨
-                </span>
-                <span className="text-2xl cursor-pointer hover:scale-110 transition-transform">
-                  🎅
-                </span>
-              </div>
             </div>
           </div>
 
@@ -360,9 +346,6 @@ export default function Layout() {
           <div className="border-t border-forest-700 pt-8 text-center">
             <p className="text-sm text-cream-300">
               Made with ❤️ for the DFW community | © {new Date().getFullYear()}
-            </p>
-            <p className="text-xs text-cream-400 mt-2">
-              Bringing joy, one light display at a time ✨
             </p>
           </div>
         </div>
