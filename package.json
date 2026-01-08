@@ -20,10 +20,12 @@
   },
   "lint-staged": {
     "frontend/**/*.{ts,tsx}": [
-      "eslint --max-warnings 0"
+      "eslint --max-warnings 0",
+      "bash -c 'cd frontend && npx tsc --noEmit'"
     ],
     "backend-ts/src/**/*.ts": [
-      "eslint"
+      "eslint",
+      "bash -c 'cd backend-ts && npx tsc --noEmit'"
     ]
   },
   "engines": {
