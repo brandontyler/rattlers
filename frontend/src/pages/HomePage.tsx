@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MapView } from '@/components/map';
-import { Button, Card, Input, Select, Badge } from '@/components/ui';
+import { Button, Card, Input, Select } from '@/components/ui';
 import { RoutePanel } from '@/components/route';
 import TrendingSection from '@/components/TrendingSection';
 import { useLocations, useTrendingLocations } from '@/hooks';
