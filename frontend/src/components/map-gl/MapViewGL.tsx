@@ -71,12 +71,16 @@ const CustomMarker = ({ isTrending = false }: { isTrending?: boolean }) => {
   );
 };
 
-// Numbered marker for route stops
+// Numbered marker for route stops (circular green gradient to match old Leaflet style)
 const NumberedMarker = ({ number }: { number: number }) => (
-  <div style={{ width: '32px', height: '45px', marginTop: '-45px', marginLeft: '-16px' }}>
-    <svg width="32" height="45" viewBox="0 0 32 45" xmlns="http://www.w3.org/2000/svg">
+  <div style={{ width: '32px', height: '32px', marginTop: '-16px', marginLeft: '-16px' }}>
+    <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <filter id={`shadow-${number}`} x="-50%" y="-50%" width="200%" height="200%">
+        <linearGradient id={`route-gradient-${number}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#059669"/>
+          <stop offset="100%" stopColor="#047857"/>
+        </linearGradient>
+        <filter id={`shadow-route-${number}`} x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
           <feOffset dx="0" dy="2" result="offsetblur"/>
           <feComponentTransfer>
@@ -88,10 +92,10 @@ const NumberedMarker = ({ number }: { number: number }) => (
           </feMerge>
         </filter>
       </defs>
-      <g filter={`url(#shadow-${number})`}>
-        <path d="M16 0C9.37 0 4 5.37 4 12c0 9 12 24 12 24s12-15 12-24c0-6.63-5.37-12-12-12z" fill="#2563eb"/>
-        <circle cx="16" cy="12" r="8" fill="#fff"/>
-        <text x="16" y="16" textAnchor="middle" fontSize="12" fontWeight="bold" fill="#2563eb">{number}</text>
+      <g filter={`url(#shadow-route-${number})`}>
+        <circle cx="16" cy="16" r="16" fill={`url(#route-gradient-${number})`}/>
+        <circle cx="16" cy="16" r="13" fill="#fff" stroke={`url(#route-gradient-${number})`} strokeWidth="3"/>
+        <text x="16" y="21" textAnchor="middle" fontSize="14" fontWeight="bold" fill="#047857">{number}</text>
       </g>
     </svg>
   </div>
@@ -256,9 +260,10 @@ export default function MapViewGL({
                 id="route-line"
                 type="line"
                 paint={{
-                  'line-color': '#cc3f3f',
-                  'line-width': 3,
+                  'line-color': '#059669',
+                  'line-width': 4,
                   'line-opacity': 0.8,
+                  'line-dasharray': [2, 2],
                 }}
               />
             </Source>

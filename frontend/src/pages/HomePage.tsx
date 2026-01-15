@@ -6,6 +6,7 @@ import { RoutePanel } from '@/components/route';
 import TrendingSection from '@/components/TrendingSection';
 import { useLocations, useTrendingLocations } from '@/hooks';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRoute } from '@/contexts/RouteContext';
 import { apiService } from '@/services/api';
 import type { Location } from '@/types';
 
@@ -13,6 +14,7 @@ export default function HomePage() {
   const { data: locations = [], isLoading: loading } = useLocations();
   const { data: trendingLocations = [] } = useTrendingLocations(8, 7);
   const { isAuthenticated } = useAuth();
+  const { stops: routeStops } = useRoute();
 
   // Extract trending location IDs for map markers
   const trendingLocationIds = useMemo(
@@ -245,6 +247,7 @@ export default function HomePage() {
                 zoom={10}
                 height="650px"
                 trendingLocationIds={trendingLocationIds}
+                routeStops={routeStops}
                 onLocationClick={(location) => {
                   console.log('Location clicked:', location);
                 }}
