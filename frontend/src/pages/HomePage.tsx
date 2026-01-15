@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MapView } from '@/components/map';
 import { MapViewGL } from '@/components/map-gl';
 import { Button, Card, Input, Select } from '@/components/ui';
 import { RoutePanel } from '@/components/route';
@@ -9,9 +8,6 @@ import { useLocations, useTrendingLocations } from '@/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api';
 import type { Location } from '@/types';
-
-// Feature flag for MapLibre GL
-const USE_MAPLIBRE = import.meta.env.VITE_USE_MAPLIBRE === 'true';
 
 export default function HomePage() {
   const { data: locations = [], isLoading: loading } = useLocations();
@@ -242,20 +238,11 @@ export default function HomePage() {
                   <p className="text-forest-600">Loading locations...</p>
                 </div>
               </div>
-            ) : USE_MAPLIBRE ? (
+            ) : (
               <MapViewGL
                 locations={filteredLocations}
                 center={[-96.7970, 32.7767]}
                 zoom={10}
-                height="650px"
-                trendingLocationIds={trendingLocationIds}
-                onLocationClick={(location) => {
-                  console.log('Location clicked:', location);
-                }}
-              />
-            ) : (
-              <MapView
-                locations={filteredLocations}
                 height="650px"
                 trendingLocationIds={trendingLocationIds}
                 onLocationClick={(location) => {
