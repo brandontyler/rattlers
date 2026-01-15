@@ -1,8 +1,32 @@
 # mapcn Integration Plan
 
 **Created:** January 15, 2026
-**Status:** Planning Phase
+**Status:** ✅ **COMPLETED** - MapLibre GL Integration
 **Branch:** `claude/christmas-lights-mapping-7u0KR`
+**Completed:** January 15, 2026
+
+## Implementation Status
+
+🎉 **The MapLibre GL integration is complete and ready for production!**
+
+All planned features have been implemented:
+- ✅ MapLibre GL with react-map-gl bindings
+- ✅ CARTO Basemaps (light/dark with auto theme detection)
+- ✅ Custom markers (burgundy + hot/trending with flame)
+- ✅ LocationPopup integration
+- ✅ Route visualization with polylines
+- ✅ Numbered route stop markers
+- ✅ User location marker
+- ✅ Near Me geolocation button
+- ✅ Navigation controls (zoom, fullscreen)
+- ✅ Mobile responsive design
+- ✅ Theme support (light/dark/auto)
+- ✅ Feature flag for gradual rollout
+- ✅ All 218 tests passing
+
+**Enable MapLibre:** Set `VITE_USE_MAPLIBRE=true` in `.env.local`
+
+---
 
 ## Executive Summary
 
