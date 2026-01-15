@@ -206,25 +206,6 @@ export default function MapViewGL({
     },
   } : null;
 
-  // Generate GeoJSON for location markers (for clustering)
-  const locationsGeoJSON = {
-    type: 'FeatureCollection' as const,
-    features: locations
-      .filter(loc => !routeStops.some(stop => stop.id === loc.id))
-      .map(location => ({
-        type: 'Feature' as const,
-        properties: {
-          id: location.id,
-          address: location.address,
-          isTrending: trendingSet.has(location.id),
-        },
-        geometry: {
-          type: 'Point' as const,
-          coordinates: [location.lng, location.lat],
-        },
-      })),
-  };
-
   return (
     <div className="relative">
       {/* Near Me Button */}
