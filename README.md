@@ -52,6 +52,7 @@ cd infrastructure && uv run cdk deploy
 | [docs/API.md](docs/API.md) | API endpoint reference |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design and data flow |
 | [docs/TEST_PLAN.md](docs/TEST_PLAN.md) | Testing checklist |
+| [docs/MAPCN_INTEGRATION_PLAN.md](docs/MAPCN_INTEGRATION_PLAN.md) | Plan to migrate from Leaflet to mapcn (MapLibre GL) |
 
 ## Project Structure
 
