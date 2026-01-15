@@ -24,11 +24,12 @@ A community-driven web application helping families in the Dallas-Fort Worth are
 
 | Layer | Technologies |
 |-------|-------------|
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS, Leaflet |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, MapLibre GL (optional: Leaflet) |
 | Backend | TypeScript, Node.js 20, AWS Lambda, API Gateway, DynamoDB |
 | Auth | AWS Cognito |
 | Storage | S3 (photos), Bedrock Claude (AI analysis) |
 | Geocoding | AWS Location Service V2 (address autocomplete) |
+| Mapping | MapLibre GL with CARTO Basemaps (light/dark themes) |
 | Infrastructure | AWS CDK (Python), CloudFront, GitHub Actions |
 
 ## Quick Start
@@ -52,6 +53,8 @@ cd infrastructure && uv run cdk deploy
 | [docs/API.md](docs/API.md) | API endpoint reference |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design and data flow |
 | [docs/TEST_PLAN.md](docs/TEST_PLAN.md) | Testing checklist |
+| [docs/MAPCN_INTEGRATION_PLAN.md](docs/MAPCN_INTEGRATION_PLAN.md) | ✅ Completed - MapLibre GL integration plan |
+| [docs/MAPLIBRE_USAGE.md](docs/MAPLIBRE_USAGE.md) | MapLibre GL usage guide and API reference |
 
 ## Project Structure
 
