@@ -1,6 +1,6 @@
 # DFW Christmas Lights Finder - Project Guide
 
-**Last Updated:** January 2, 2026
+**Last Updated:** January 23, 2026
 
 > Start here when resuming work. This is the single source of truth for project status.
 
@@ -369,6 +369,7 @@ curl -s "https://c48t18xgn5.execute-api.us-east-1.amazonaws.com/dev/v1/locations
 
 _Add notes, blockers, or decisions here:_
 
+- **Jan 23, 2026:** Applied Claude Code best practices. Streamlined CLAUDE.md from 71 lines to 47 lines (33% reduction). Added `.claude/settings.json` with permissions (allowlist for safe commands, denylist for .env files and dangerous commands). Created custom slash commands (`/fix-issue`, `/add-endpoint`, `/add-component`, `/verify`). Added skills for testing, API patterns, and documentation workflows. Created specialized subagents (code-reviewer, test-writer, security-reviewer). Added hooks to block .env file edits. Updated .gitignore for local settings.
 - **Jan 15, 2026 (PM - 100% Rollout):** 🚀 **MapLibre GL is now the DEFAULT!** Removed feature flag - MapLibre GL is now used by all users. Leaflet has been completely replaced. All users now get WebGL rendering (60 FPS), CARTO basemaps with auto light/dark theme, and 37% faster performance. Feature flag removed from HomePage. Bundle: MapLibre GL 1015KB minified (275KB gzip) in separate chunk. Deployed to production!
 - **Jan 15, 2026 (PM):** ✅ **COMPLETED MapLibre GL Integration!** Fully implemented MapLibre GL map component as alternative to Leaflet. Features: WebGL rendering, CARTO basemaps with auto light/dark theme detection, custom markers (burgundy + hot/trending with flame), route visualization with polylines, numbered route stops, user location marker, Near Me button, LocationPopup integration. Feature flag: `VITE_USE_MAPLIBRE=true`. Bundle: MapLibre GL is 1015KB minified (275KB gzip) in separate chunk. All 218 tests pass. Components: `frontend/src/components/map-gl/MapViewGL.tsx`. Ready for production use!
 - **Jan 15, 2026 (AM):** Created comprehensive integration plan for migrating from Leaflet to mapcn (MapLibre GL + shadcn/ui). Plan includes 4-phase migration strategy (POC → Feature Parity → Enhancements → Deployment), component mapping, bundle size analysis, and risk mitigation. Key benefits: WebGL performance, theme support, modern DX, smaller bundle (-15KB). See docs/MAPCN_INTEGRATION_PLAN.md for full details.
