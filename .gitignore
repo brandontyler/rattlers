@@ -52,6 +52,10 @@ htmlcov/
 .cdk.staging/
 cdk.out/
 
+# Claude Code
+.claude/settings.local.json
+CLAUDE.local.md
+
 # Misc
 .cache/
 temp/
