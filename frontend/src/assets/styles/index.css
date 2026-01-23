@@ -18,6 +18,7 @@
 @layer base {
   body {
     @apply bg-cream-50 text-forest-900 font-body antialiased;
+    @apply dark:bg-forest-950 dark:text-cream-50;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -71,6 +72,8 @@
            transition-all duration-200
            focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent
            disabled:bg-cream-100 disabled:cursor-not-allowed;
+    @apply dark:bg-forest-900 dark:border-forest-700 dark:text-cream-50 dark:placeholder:text-forest-400
+           dark:focus:ring-forest-400 dark:disabled:bg-forest-800;
   }
 
   /* Card component - soft shadows with subtle grain texture */
@@ -78,6 +81,7 @@
     @apply bg-white rounded-xl shadow-soft p-6
            transition-shadow duration-300
            hover:shadow-soft-lg;
+    @apply dark:bg-forest-900 dark:shadow-lg dark:hover:shadow-xl;
   }
 
   /* Card with glow effect */
@@ -205,6 +209,12 @@
 
 .gradient-winter {
   background: linear-gradient(135deg, #fafaf3 0%, #f5f4e8 50%, #efecd5 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  .gradient-winter {
+    background: linear-gradient(135deg, #022c22 0%, #064e3b 50%, #065f46 100%);
+  }
 }
 
 /* Subtle bokeh light effects for hero/CTA sections */
