@@ -205,6 +205,30 @@ export const listRoutesQuerySchema = z.object({
 export type ListRoutesQuery = z.infer<typeof listRoutesQuerySchema>;
 
 /**
+ * Route stop for PDF generation.
+ */
+const routeStopSchema = z.object({
+  id: z.string(),
+  address: nonEmptyString,
+  lat: latitudeSchema,
+  lng: longitudeSchema,
+  description: z.string().optional(),
+  photos: z.array(z.string()).optional(),
+});
+
+/**
+ * Generate PDF request schema.
+ */
+export const generatePdfSchema = z.object({
+  stops: z
+    .array(routeStopSchema)
+    .min(1, "At least one stop is required")
+    .max(15, "Maximum 15 stops per PDF"),
+});
+
+export type GeneratePdfInput = z.infer<typeof generatePdfSchema>;
+
+/**
  * Convert Zod errors to a details object.
  */
 export function zodErrorToDetails(error: z.ZodError): Record<string, string> {
