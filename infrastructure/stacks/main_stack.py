@@ -752,6 +752,15 @@ class ChristmasLightsStack(Stack):
         self.route_feedback_table.grant_read_data(self.get_user_saved_routes_fn)
         self.users_table.grant_read_data(self.get_user_saved_routes_fn)
 
+        # Generate PDF route guide function (public)
+        self.generate_pdf_fn = create_ts_lambda(
+            "GeneratePdfFunction",
+            "routes/generate-pdf",
+            timeout_seconds=30,
+            memory_size=512,
+        )
+        self.photos_bucket.grant_read_write(self.generate_pdf_fn)
+
         # Routes leaderboard function (public)
         self.get_routes_leaderboard_fn = create_ts_lambda(
             "GetRoutesLeaderboardFunction",
@@ -1206,6 +1215,13 @@ class ChristmasLightsStack(Stack):
             apigw.LambdaIntegration(self.create_route_fn),
             authorizer=authorizer,
             authorization_type=apigw.AuthorizationType.COGNITO,
+        )
+
+        # POST /routes/generate-pdf - generate PDF route guide (public)
+        generate_pdf = routes.add_resource("generate-pdf")
+        generate_pdf.add_method(
+            "POST",
+            apigw.LambdaIntegration(self.generate_pdf_fn),
         )
 
         # /routes/{id} endpoints

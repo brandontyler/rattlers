@@ -26,7 +26,7 @@ function findHandlers(dir, handlers = []) {
 
     if (stat.isDirectory()) {
       findHandlers(filePath, handlers);
-    } else if (file === "handler.ts") {
+    } else if (file === "handler.ts" || file === "handler.tsx") {
       handlers.push(filePath);
     }
   }
@@ -44,7 +44,7 @@ const entryPoints = handlers.reduce((acc, handlerPath) => {
   // Convert path like src/functions/locations/get/handler.ts
   // to output like dist/functions/locations/get/handler.js
   const relativePath = relative(join(__dirname, "src"), handlerPath);
-  const outputPath = relativePath.replace(/\.ts$/, "");
+  const outputPath = relativePath.replace(/\.tsx?$/, "");
   acc[outputPath] = handlerPath;
   return acc;
 }, {});
